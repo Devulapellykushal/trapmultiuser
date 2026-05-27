@@ -1,0 +1,69 @@
+{
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "Doinel Atanasiu",
+    "email": "doinel1atanasiu@gmail.com",
+    "url": "https://business-link.d1a.app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doinel1a/vite-three-js"
+  },
+  "scripts": {
+    "prepare": "node ./scripts/prepare-husky.mjs",
+    "postinstall": "node ./scripts/postinstall-playwright.mjs",
+    "predev": "node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('src/styles/reload-loader.css','public/reload-loader.css')\"",
+    "prebuild": "node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('src/styles/reload-loader.css','public/reload-loader.css')\"",
+    "dev": "node ./node_modules/vite/bin/vite.js --host",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "lint": "node ./node_modules/eslint/bin/eslint.js",
+    "lint:fix": "node ./node_modules/eslint/bin/eslint.js --fix",
+    "format": "node ./node_modules/prettier/bin/prettier.cjs --write **/**/*.{html,js,mjs,cjs,ts,mts,cts} --cache",
+    "test": "node ./node_modules/@playwright/test/cli.js test",
+    "test:ui": "node ./node_modules/@playwright/test/cli.js test --ui"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.122.0",
+    "@react-three/fiber": "8.17.14",
+    "@use-gesture/react": "^10.3.1",
+    "@vitejs/plugin-legacy": "7.2.1",
+    "gl-matrix": "^3.4.3",
+    "react": "18.3.1",
+    "react-colorful": "5.6.1",
+    "react-dom": "18.3.1",
+    "react-icons": "5.5.0",
+    "react-router-dom": "6.30.1",
+    "three": "0.183.2",
+    "valtio": "1.13.2"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "20.4.2",
+    "@commitlint/config-conventional": "20.4.2",
+    "@eslint/js": "10.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "4.7.1",
+    "@playwright/test": "1.58.2",
+    "@tailwindcss/postcss": "4.2.1",
+    "@vitejs/plugin-react": "5.1.2",
+    "cssnano": "7.1.2",
+    "eslint": "10.0.2",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.5",
+    "eslint-plugin-sonarjs": "4.0.0",
+    "eslint-plugin-unicorn": "63.0.0",
+    "globals": "17.4.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.3.1",
+    "postcss": "8.5.6",
+    "prettier": "3.8.1",
+    "prettier-plugin-tailwindcss": "0.7.2",
+    "sass": "1.97.3",
+    "tailwindcss": "4.2.1",
+    "terser": "5.46.0",
+    "tw-animate-css": "1.4.0",
+    "vite": "7.3.1",
+    "vite-plugin-glsl": "1.5.5"
+  }
+}

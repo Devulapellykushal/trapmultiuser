@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Served from /public — applies before JS (no unstyled hero flash). Synced via npm predev/prebuild. -->
+    <link rel="stylesheet" href="/reload-loader.css" />
+
+    <title>Studio — 3D product experience</title>
+    <meta name="title" content="Studio — 3D product experience" />
+    <meta name="application-name" content="Studio" />
+    <meta
+      name="description"
+      content="Design and preview your product in the browser. Explore the 3D configurator and bottle mockup tools."
+    />
+
+    <link rel="manifest" href="/app.webmanifest" />
+    <link rel="icon" href="/assets/2d/aio.png" type="image/png" />
+
+    <meta name="rating" content="General" />
+    <meta name="robots" content="index,follow" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Studio — 3D product experience" />
+    <meta
+      property="og:description"
+      content="Design and preview your product in the browser. Explore the 3D configurator and bottle mockup tools."
+    />
+    <meta property="og:image" content="/og.jpg" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Studio — 3D product experience" />
+    <meta
+      name="twitter:description"
+      content="Design and preview your product in the browser. Explore the 3D configurator and bottle mockup tools."
+    />
+    <meta name="twitter:image" content="/og.jpg" />
+
+    <link rel="apple-touch-icon" href="/assets/2d/aio.png" />
+    <meta name="apple-mobile-web-app-title" content="Studio" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="antialiased">
+    <noscript class="px-4 py-6 text-center text-base text-red-600">
+      Turn on JavaScript to use this experience.
+    </noscript>
+
+    <div id="reload-loader" class="reload-loader" aria-busy="true" aria-label="Loading">
+      <div class="main">
+        <div class="up">
+          <div class="loaders">
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+          </div>
+          <div class="loadersB">
+            <div class="loaderA">
+              <div class="ball0"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball1"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball2"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball3"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball4"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball5"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball6"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball7"></div>
+            </div>
+            <div class="loaderA">
+              <div class="ball8"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main
+      class="landing-root landing-root--boot-hidden relative flex min-h-dvh flex-col overflow-x-hidden overflow-y-auto scroll-smooth bg-black text-white [scrollbar-gutter:stable] snap-y snap-mandatory"
+    >
+      <div id="landing-chrome-root"></div>
+
+      <div class="absolute inset-0 z-0">
+        <div
+          class="absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_0%,rgba(255,255,255,0.06),transparent)]"
+        ></div>
+      </div>
+
+      <div
+        id="landing-hero-shell"
+        class="relative z-10 flex min-h-dvh shrink-0 snap-start snap-always flex-col"
+      >
+        <section
+          id="landing-hero-section"
+          class="relative flex min-h-0 min-h-dvh flex-1 flex-col items-center justify-center px-5 pb-32 pt-20 sm:px-10 sm:pb-40 sm:pt-16 pointer-events-auto"
+        >
+          <div
+            id="hero-floating-lines-root"
+            class="pointer-events-none absolute inset-0 z-0 min-h-full opacity-[0.55]"
+            aria-hidden="true"
+          ></div>
+          <div
+            class="pointer-events-auto relative z-10 flex max-w-2xl flex-col items-center text-center"
+            style="font-family: Inter, ui-sans-serif, system-ui, sans-serif"
+          >
+            <h1
+              class="text-4xl font-normal italic leading-tight tracking-tight text-white sm:text-5xl md:text-6xl"
+              style="font-family: 'Playfair Display', Georgia, 'Times New Roman', serif"
+            >
+              studio
+            </h1>
+            <div
+              class="mt-8 space-y-1.5 text-[0.65rem] font-medium uppercase leading-relaxed tracking-[0.18em] text-white sm:text-xs sm:tracking-[0.2em]"
+            >
+              <p>Digital solutions,</p>
+              <p>Creative, Innovative,</p>
+              <p>One of a Kind</p>
+            </div>
+            <p class="mt-10 max-w-md text-sm font-light leading-relaxed text-white/70 sm:text-base">
+              Configure and preview products in the browser — 3D configurator, bottle mockup, and all-in-one studio.
+            </p>
+            <div
+              class="mt-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-[0.65rem] font-medium uppercase tracking-[0.2em] text-white"
+            >
+              <a href="/login?next=%2Fadmin" class="border-b border-white/50 pb-1 transition hover:border-white">Admin portal</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div
+        id="landing-visuals-root"
+        class="landing-visuals-root relative z-10 hidden shrink-0 flex-col"
+      ></div>
+
+      <div
+        id="landing-cursor-root"
+        class="pointer-events-none fixed inset-0 z-[35]"
+        aria-hidden="true"
+      ></div>
+
+      <footer
+        class="relative z-10 shrink-0 snap-start border-t border-white/10 bg-black px-5 py-5 text-xs text-white/50 sm:px-8"
+      >
+        <span>Drag the background to move the scene · Three.js</span>
+      </footer>
+    </main>
+
+    <script type="module" src="src/app/index.js"></script>
+  </body>
+</html>

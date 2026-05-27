@@ -1,0 +1,143 @@
+/* Workspace tabs (shared shell) */
+.product-studio-workspace-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.product-studio-workspace-tabs a {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.product-studio-workspace-tabs a:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.product-studio-workspace-tabs a.active {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* Colors workspace inside bottle shell: canvas fills stage, not full viewport */
+.product-studio .configurator-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.product-studio .color-picker.color-picker--inline {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: 2;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-studio .color-picker.color-picker--inline .react-colorful {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.product-studio .react-colorful__saturation {
+  border-radius: 10px 10px 0 0;
+}
+
+.product-studio .react-colorful__hue {
+  height: 14px;
+  border-radius: 0 0 10px 10px;
+}
+
+.product-studio .react-colorful__pointer {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.product-studio .color-picker.color-picker--inline h1 {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+  font-family: inherit;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Override configurator global body lock when this bundle loads configurator.scss */
+body,
+html {
+  position: relative !important;
+  width: 100%;
+  min-height: 100vh;
+  height: auto !important;
+  background: #000000 !important;
+  color: #ffffff;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.configure-bottle-panel {
+  overflow-y: auto;
+  max-height: 100vh;
+  align-self: stretch;
+}
+
+/* Colors tab: chunk Suspense fills the studio cell (not full window height). */
+.product-studio .bottle-canvas-wrap .configurator-suspense-fallback {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  min-height: 50%;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(180deg, #e8ecf4 0%, #dde3ee 100%);
+  color: rgba(0, 0, 0, 0.72);
+  font-weight: 600;
+}
+
+.product-studio .bottle-canvas-wrap .configurator-suspense-fallback::before {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  border-top-color: rgba(0, 0, 0, 0.65);
+  animation: product-studio-spin 0.8s linear infinite;
+}
+
+@media (max-width: 900px) {
+  .configure-bottle-panel {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+@keyframes product-studio-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

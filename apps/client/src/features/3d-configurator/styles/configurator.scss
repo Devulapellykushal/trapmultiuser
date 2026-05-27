@@ -1,0 +1,117 @@
+* {
+  box-sizing: border-box;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Light shell so bottle colors read clearly against the WebGL stage */
+  background-color: #e6eaf0;
+  color: #111;
+  position: fixed;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+.color-picker {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  z-index: 10;
+  transition: opacity 0.3s;
+}
+
+.model-selector {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  height: 90vh;
+  max-height: 90vh;
+  margin: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+
+  div {
+    h4 {
+      text-align: center;
+      margin: 0;
+    }
+    img {
+      max-width: 100px;
+      object-fit: contain;
+    }
+  }
+
+  div:hover {
+    cursor: pointer;
+  }
+}
+
+.hidden {
+  opacity: 0;
+}
+
+.configurator-canvas-wrap {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.configurator-suspense-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* In-scene Suspense fallback (BottleCanvas) — high contrast on light studio floor */
+.canvas-loader-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.canvas-loader-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: canvas-loader-spin 0.75s linear infinite;
+}
+
+@keyframes canvas-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
