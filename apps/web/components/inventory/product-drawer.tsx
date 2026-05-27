@@ -58,7 +58,10 @@ function getStockLabel(status: string): string {
 
 // Get API base URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:8000/api/v1"
+    : "https://trapmultiuser.onrender.com/api/v1");
 
 // Product type - Phase 10B enhanced
 interface InventoryProduct {

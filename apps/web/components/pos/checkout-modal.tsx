@@ -201,7 +201,9 @@ function resolvePdfOpenUrl(pdfUrl: string): string {
   if (pdfUrl.startsWith("http")) return pdfUrl;
   const apiBase =
     process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:8000/api/v1";
+    (process.env.NODE_ENV === "development"
+      ? "http://localhost:8000/api/v1"
+      : "https://trapmultiuser.onrender.com/api/v1");
   const root = apiBase.replace(/\/api\/v1\/?$/, "");
   return `${root}${pdfUrl.startsWith("/") ? pdfUrl : `/${pdfUrl}`}`;
 }
