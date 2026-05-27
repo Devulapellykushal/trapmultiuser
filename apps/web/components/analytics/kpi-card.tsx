@@ -38,7 +38,7 @@ export function KPICard({ label, value, delta, icon, delay = 0 }: KPICardProps) 
           {label}
         </span>
         {icon && (
-          <div className="p-2 rounded-lg bg-[#C6A15B]/10">
+          <div className="p-2 rounded-lg bg-[#6366F1]/10">
             {icon}
           </div>
         )}

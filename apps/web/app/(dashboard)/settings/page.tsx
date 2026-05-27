@@ -1,32 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  User,
-  Building2,
-  Palette,
-  Check,
-  Loader2,
-  Sun,
-  Moon,
-  Monitor,
-  Tag,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
 import { PageTransition } from "@/components/layout";
+import {
+    useCategories,
+    useCreateCategory,
+    useDeleteCategory,
+    useWarehouses,
+} from "@/hooks/use-inventory";
 import { useProfile, useUpdateProfile } from "@/hooks/use-users";
 import { useAuthStore } from "@/lib/auth";
-import {
-  useWarehouses,
-  useCategories,
-  useCreateCategory,
-  useDeleteCategory,
-} from "@/hooks/use-inventory";
-import { toast } from "sonner";
+import { Category, Warehouse } from "@/services";
+import { adminHref } from "@/lib/admin-routes";
 import { UpdateProfilePayload } from "@/services/users.service";
-import { Warehouse, Category } from "@/services";
+import {
+    Building2,
+    Check,
+    Loader2,
+    Monitor,
+    Moon,
+    Palette,
+    Plus,
+    Sun,
+    Tag,
+    Trash2,
+    User,
+    X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 
 type Theme = "dark" | "light" | "system";
 
@@ -69,32 +71,40 @@ export default function SettingsPage() {
 
   // Load theme from localStorage
   useEffect(() => {
-    const savedTheme = localStorage.getItem("trap-theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      applyTheme(savedTheme);
+    const stored = localStorage.getItem("Quake-theme");
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      const savedTheme = parsed?.state?.theme as Theme | undefined;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        applyTheme(savedTheme);
+      }
+    } catch {
+      const fallbackTheme = stored as Theme;
+      if (fallbackTheme === "dark" || fallbackTheme === "light") {
+        setTheme(fallbackTheme);
+        applyTheme(fallbackTheme);
+      }
     }
   }, []);
 
   const applyTheme = (newTheme: Theme) => {
     const root = document.documentElement;
 
-    // Remove existing theme classes
-    root.classList.remove("dark", "light");
-
     if (newTheme === "system") {
       const systemDark = window.matchMedia(
         "(prefers-color-scheme: dark)",
       ).matches;
-      root.classList.add(systemDark ? "dark" : "light");
+      root.setAttribute("data-theme", systemDark ? "dark" : "light");
     } else {
-      root.classList.add(newTheme);
+      root.setAttribute("data-theme", newTheme);
     }
   };
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
-    localStorage.setItem("trap-theme", newTheme);
+    localStorage.setItem("Quake-theme", JSON.stringify({ state: { theme: newTheme } }));
     applyTheme(newTheme);
     toast.success(`Theme changed to ${newTheme}`);
   };
@@ -149,7 +159,10 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-4xl">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-[#F5F6FA]">Settings</h1>
+          <h1 className="text-2xl font-semibold text-[#F5F6FA] flex items-center gap-2">
+            <Palette className="w-6 h-6 text-[#6366F1]" />
+            Settings
+          </h1>
           <p className="text-sm text-[#6F7285] mt-1">
             Manage your account and preferences
           </p>
@@ -158,8 +171,8 @@ export default function SettingsPage() {
         {/* Profile Settings */}
         <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
           <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-              <User className="w-5 h-5 text-[#C6A15B]" />
+            <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+              <User className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[#F5F6FA]">Profile</h2>
@@ -324,14 +337,14 @@ export default function SettingsPage() {
         {/* Appearance Settings */}
         <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
           <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-              <Palette className="w-5 h-5 text-[#C6A15B]" />
+            <div className="p-2 rounded-lg bg-[#A855F7] shadow-sm">
+              <Palette className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[#F5F6FA]">
                 Appearance
               </h2>
-              <p className="text-sm text-[#6F7285]">Customize how TRAP looks</p>
+              <p className="text-sm text-[#6F7285]">Customize how Quake looks</p>
             </div>
           </div>
           <div className="p-6">
@@ -353,11 +366,17 @@ export default function SettingsPage() {
                     onClick={() => handleThemeChange(option.value)}
                     className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
                       theme === option.value
-                        ? "bg-[#C6A15B]/20 border-[#C6A15B] text-[#C6A15B]"
-                        : "bg-white/[0.05] border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                        ? "bg-[#6366F1]/15 border-[#6366F1] text-[#F5F6FA] shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                        : "bg-white/[0.05] border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08] hover:text-[#F5F6FA]"
                     }`}
                   >
-                    <option.icon className="w-4 h-4" />
+                    <option.icon
+                      className={`w-4 h-4 shrink-0 ${
+                        theme === option.value
+                          ? "text-[#C7D2FE]"
+                          : "text-current opacity-75"
+                      }`}
+                    />
                     {option.label}
                   </button>
                 ))}
@@ -370,8 +389,8 @@ export default function SettingsPage() {
         {authUser?.role === "ADMIN" && (
           <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
             <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-                <Building2 className="w-5 h-5 text-[#C6A15B]" />
+              <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+                <Building2 className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[#F5F6FA]">
@@ -415,7 +434,14 @@ export default function SettingsPage() {
                     No warehouses configured
                   </p>
                   <p className="text-xs text-[#6F7285] mt-1">
-                    Add warehouses via the Inventory module
+                    Admins can add storage places from{" "}
+                    <Link
+                      href={adminHref("/warehouses")}
+                      className="text-[#C6A15B] hover:underline"
+                    >
+                      Warehouses
+                    </Link>{" "}
+                    in the sidebar.
                   </p>
                 </div>
               )}
@@ -428,8 +454,8 @@ export default function SettingsPage() {
           <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
             <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-                  <Tag className="w-5 h-5 text-[#C6A15B]" />
+                <div className="p-2 rounded-lg bg-[#EC4899] shadow-sm">
+                  <Tag className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-[#F5F6FA]">
@@ -472,7 +498,7 @@ export default function SettingsPage() {
                       type="text"
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Category name (e.g., T-Shirts, Sneakers, Handbags)"
+                      placeholder="Category name (e.g., Groceries, Industrial, Home)"
                       className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
                     />
                     <input
@@ -589,7 +615,8 @@ export default function SettingsPage() {
                     No categories configured
                   </p>
                   <p className="text-xs text-[#6F7285] mt-1">
-                    Add categories like T-Shirts, Sneakers, Handbags, etc.
+                    Use categories that match how you assort — e.g. grocery,
+                    hardware, pharmacy, cosmetics, electronics.
                   </p>
                 </div>
               )}

@@ -1,12 +1,12 @@
 {
-  "name": "trap-inventory",
+  "name": "Quake-inventory",
   "version": "1.0.0",
   "private": true,
   "description": "Enterprise-grade inventory management system for luxury apparel",
   "scripts": {
-    "dev:web": "pnpm --filter @trap/web dev",
-    "build:web": "pnpm --filter @trap/web build",
-    "lint:web": "pnpm --filter @trap/web lint",
+    "dev:web": "pnpm --filter @Quake/web dev",
+    "build:web": "pnpm --filter @Quake/web build",
+    "lint:web": "pnpm --filter @Quake/web lint",
     "dev:api": "cd apps/api && python manage.py runserver 0.0.0.0:8000",
     "migrate": "cd apps/api && python manage.py migrate",
     "makemigrations": "cd apps/api && python manage.py makemigrations"
@@ -18,7 +18,7 @@
     "apparel",
     "monorepo"
   ],
-  "author": "TRAP",
+  "author": "Quake",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=18",

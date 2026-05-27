@@ -7,10 +7,10 @@ services:
   # PostgreSQL Database (local development only)
   postgres:
     image: postgres:15-alpine
-    container_name: trap-postgres
+    container_name: Quake-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-trap_inventory}
+      POSTGRES_DB: ${POSTGRES_DB:-Quake_inventory}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
@@ -18,7 +18,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-trap_inventory}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-Quake_inventory}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: trap-backend
+    container_name: Quake-backend
     restart: unless-stopped
     environment:
       # Django settings
@@ -37,7 +37,7 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
       
       # Database
-      POSTGRES_DB: ${POSTGRES_DB:-trap_inventory}
+      POSTGRES_DB: ${POSTGRES_DB:-Quake_inventory}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_HOST: postgres

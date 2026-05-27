@@ -76,15 +76,15 @@ function formatFullCurrency(amount: number | string): string {
 
 // Colors for pie chart
 const COLORS = [
-  "#C6A15B",
-  "#10B981",
-  "#3B82F6",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
+  "#6366F1",
+  "#A855F7",
   "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
   "#6366F1",
 ];
 
@@ -248,7 +248,7 @@ export default function SupplierSalesReportsPage() {
     return (
       <div className="bg-[#1A1B23] border border-white/10 rounded-lg px-3 py-2 shadow-xl">
         <p className="text-white font-medium text-sm">{data.fullName}</p>
-        <p className="text-[#C6A15B] text-sm">
+        <p className="text-[#6366F1] text-sm">
           Revenue: {formatFullCurrency(data.revenue)}
         </p>
         <p className="text-[#6F7285] text-xs">
@@ -338,7 +338,7 @@ export default function SupplierSalesReportsPage() {
                 onClick={() => setMetric("revenue")}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   metric === "revenue"
-                    ? "bg-[#C6A15B] text-[#0E0F13] font-medium"
+                    ? "bg-[#6366F1] text-white font-medium"
                     : "text-[#A1A4B3] hover:text-white"
                 }`}
               >
@@ -348,7 +348,7 @@ export default function SupplierSalesReportsPage() {
                 onClick={() => setMetric("quantity")}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   metric === "quantity"
-                    ? "bg-[#C6A15B] text-[#0E0F13] font-medium"
+                    ? "bg-[#6366F1] text-white font-medium"
                     : "text-[#A1A4B3] hover:text-white"
                 }`}
               >
@@ -397,7 +397,7 @@ export default function SupplierSalesReportsPage() {
                   <Tooltip content={<CustomTooltip />} />
                   <Bar
                     dataKey={metric}
-                    fill="#C6A15B"
+                    fill="#6366F1"
                     radius={[0, 4, 4, 0]}
                     maxBarSize={24}
                   />
@@ -512,8 +512,8 @@ export default function SupplierSalesReportsPage() {
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#C6A15B]/20 flex items-center justify-center">
-                          <Truck className="w-4 h-4 text-[#C6A15B]" />
+                        <div className="w-8 h-8 rounded-lg bg-[#6366F1]/20 flex items-center justify-center">
+                          <Truck className="w-4 h-4 text-[#6366F1]" />
                         </div>
                         <span className="text-sm font-medium text-[#F5F6FA]">
                           {item.supplierName}
@@ -526,7 +526,7 @@ export default function SupplierSalesReportsPage() {
                     <td className="py-3 px-4 text-sm text-[#F5F6FA] text-right font-medium">
                       {item.quantitySold.toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#10B981] text-right font-medium">
+                    <td className="py-3 px-4 text-sm text-[#A855F7] text-right font-medium">
                       {formatFullCurrency(item.totalRevenue)}
                     </td>
                     <td className="py-3 px-4 text-sm text-[#A1A4B3] text-right">

@@ -1,11 +1,13 @@
 """
-Django production settings for TRAP Inventory API.
+Django production settings for Quake Inventory API.
 Optimized for Google Cloud Run + Cloud SQL.
 """
 
 import os
 import json
+
 from .base import *
+from .db_utils import get_postgres_database_config
 
 # ========================================
 # SECURITY SETTINGS
@@ -24,7 +26,7 @@ ALLOWED_HOSTS.extend([h.strip() for h in env_hosts if h.strip()])
 # CSRF trusted origins (required for Cloud Run + Vercel)
 # Explicitly trusting the frontend domain
 CSRF_TRUSTED_ORIGINS = [
-    "https://trap-frontend.vercel.app",
+    "https://Quake-frontend.vercel.app",
 ]
 env_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
 CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in env_origins if o.strip()])
@@ -37,19 +39,17 @@ CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in env_origins if o.strip()])
 # 1. Direct connection (port 5432) - for migrations
 # 2. Connection pooler (port 6543) - recommended for production
 
+_pg = get_postgres_database_config()
+_opts = dict(_pg.pop('OPTIONS', None) or {})
+_opts.setdefault('sslmode', 'require')
+ct = _opts.get('connect_timeout', 10)
+_opts['connect_timeout'] = int(ct) if str(ct).isdigit() else 10
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'postgres'),
-        'USER': os.getenv('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        **_pg,
         'CONN_MAX_AGE': 60,
-        'OPTIONS': {
-            'sslmode': 'require',
-            'connect_timeout': 10,
-        },
+        'OPTIONS': _opts,
     }
 }
 
@@ -59,7 +59,7 @@ DATABASES = {
 
 # Explicit production CORS configuration
 CORS_ALLOWED_ORIGINS = [
-    "https://trap-frontend.vercel.app",
+    "https://Quake-frontend.vercel.app",
 ]
 env_cors = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
 CORS_ALLOWED_ORIGINS.extend([o.strip() for o in env_cors if o.strip()])

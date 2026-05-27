@@ -1,5 +1,5 @@
 """
-Invoice Services for TRAP Inventory System.
+Invoice Services for Quake Inventory System.
 Core business logic for invoice generation.
 
 PHASE 14: INVOICE PDFs & COMPLIANCE
@@ -15,12 +15,14 @@ Direct manipulation of Invoice/InvoiceItem is forbidden.
 """
 
 from decimal import Decimal
+import logging
+import os
 from typing import Optional, Dict, Any
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
 from sales.models import Sale, SaleItem
-from .models import Invoice, InvoiceItem, InvoiceSequence
+from .models import Invoice, InvoiceItem
 
 
 # =============================================================================
@@ -112,9 +114,10 @@ def generate_invoice_for_sale(
     if not sale_items:
         raise MissingSaleItemsError(f"Sale {sale_id} has no items")
     
-    # Generate sequential invoice number
-    invoice_number = InvoiceSequence.get_next_invoice_number()
-    
+    # Use the sale's invoice number as the single source of truth (roadmap: one sequence).
+    # Sale.invoice_number is allocated atomically at checkout in sales.services.process_sale.
+    invoice_number = sale.invoice_number
+
     # Map Sale discount type to Invoice discount type
     discount_type = Invoice.DiscountType.NONE
     if sale.discount_type == 'PERCENT':
@@ -204,38 +207,46 @@ def generate_invoice_pdf(invoice: Invoice) -> Optional[str]:
     - PDF generated once on creation
     - Stored for reuse
     - Same sale = same PDF
+    - Corrupt or non-PDF cached files are regenerated
     
+    Uses the same WeasyPrint → ReportLab pipeline as ``testinvoice`` /
+    ``write_invoice_pdf_best_effort`` so POS/Sales PDFs match CLI output.
+
     Returns:
-        URL/path to the generated PDF
+        URL/path to the generated PDF, or None if generation failed
     """
-    import os
     from django.conf import settings
-    
+
+    from .pdf.write_pdf import write_invoice_pdf_best_effort, is_valid_invoice_pdf
+
+    logger = logging.getLogger(__name__)
+
     # Create PDF directory if not exists
     pdf_dir = os.path.join(settings.BASE_DIR, 'media', 'invoices')
     os.makedirs(pdf_dir, exist_ok=True)
     
     pdf_filename = f"{invoice.invoice_number.replace('/', '_')}.pdf"
     pdf_path = os.path.join(pdf_dir, pdf_filename)
-    
-    # If PDF already exists, return it
-    if os.path.exists(pdf_path):
+
+    # Reuse only a real PDF (avoids stale text placeholders from older fallbacks)
+    if os.path.exists(pdf_path) and is_valid_invoice_pdf(pdf_path):
         return f"/media/invoices/{pdf_filename}"
+    if os.path.exists(pdf_path):
+        try:
+            os.remove(pdf_path)
+        except OSError:
+            pass
     
     try:
-        # Try WeasyPrint first (preferred)
-        from .pdf.generator import generate_pdf_weasyprint
-        generate_pdf_weasyprint(invoice, pdf_path)
+        write_invoice_pdf_best_effort(invoice, pdf_path)
     except Exception:
-        # Fallback to ReportLab
-        try:
-            from .pdf.generator import generate_pdf_simple
-            generate_pdf_simple(invoice, pdf_path)
-        except Exception as e:
-            # If all fails, create placeholder
-            with open(pdf_path, 'w') as f:
-                f.write(f"Invoice: {invoice.invoice_number}\nTotal: {invoice.total_amount}")
-    
+        logger.exception("Invoice PDF generation failed for %s", invoice.pk)
+        return None
+
+    if not is_valid_invoice_pdf(pdf_path):
+        logger.error("Invoice PDF at %s is not a valid PDF after generation", pdf_path)
+        return None
+
     return f"/media/invoices/{pdf_filename}"
 
 

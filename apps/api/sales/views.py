@@ -1,5 +1,5 @@
 """
-Sales Views for TRAP Inventory System.
+Sales Views for Quake Inventory System.
 
 PHASE 13: POS ENGINE (LEDGER-BACKED)
 =====================================
@@ -78,6 +78,85 @@ class BarcodeScanView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class PosSearchView(APIView):
+    """
+    Text search for POS: products (name/SKU/barcode/etc.) and service catalog.
+    Requires warehouse_id; optional q and limit (1–50, default 20).
+    """
+
+    permission_classes = [IsStaffOrAdmin]
+
+    @extend_schema(
+        summary="POS text search",
+        description=(
+            "Search active products and service items for POS, scoped to a warehouse "
+            "(for stock on product rows). Empty q returns empty product and service lists."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Search string (trimmed); empty or whitespace yields no hits",
+            ),
+            OpenApiParameter(
+                name="warehouse_id",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Warehouse UUID",
+            ),
+            OpenApiParameter(
+                name="limit",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Max rows per bucket (1–50, default 20)",
+            ),
+        ],
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "warehouse_id": {"type": "string", "format": "uuid"},
+                    "limit": {"type": "integer"},
+                    "products": {"type": "array", "items": {"type": "object"}},
+                    "services": {"type": "array", "items": {"type": "object"}},
+                },
+            },
+            400: {"type": "object", "properties": {"error": {"type": "string"}}},
+            404: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+        tags=["POS Operations"],
+    )
+    def get(self, request):
+        warehouse_id = request.query_params.get("warehouse_id")
+        if not warehouse_id or not str(warehouse_id).strip():
+            return Response(
+                {"error": "warehouse_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        q = request.query_params.get("q", "") or ""
+        raw_limit = request.query_params.get("limit")
+        if raw_limit is None or raw_limit == "":
+            limit_val = 20
+        else:
+            limit_val = raw_limit
+
+        try:
+            result = services.pos_search(
+                str(warehouse_id).strip(),
+                q,
+                limit=limit_val,
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except services.WarehouseNotFoundError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
 class CheckoutView(APIView):
     """
     Complete a sale transaction atomically.
@@ -154,6 +233,13 @@ Process a complete sale with atomic transaction and idempotency protection.
                 discount_type=serializer.validated_data.get('discount_type'),
                 discount_value=serializer.validated_data.get('discount_value', Decimal('0.00')),
                 customer_name=serializer.validated_data.get('customer_name', ''),
+                customer_id=serializer.validated_data.get('customer_id'),
+                customer_mobile=serializer.validated_data.get('customer_mobile', ''),
+                customer_email=serializer.validated_data.get('customer_email', ''),
+                customer_address=serializer.validated_data.get('customer_address', ''),
+                apply_automatic_gst=serializer.validated_data.get(
+                    'apply_automatic_gst', False
+                ),
             )
             
             is_duplicate = existing_before is not None
@@ -204,10 +290,12 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
     - Sales cannot be updated
     - Sales cannot be deleted
     """
-    queryset = Sale.objects.prefetch_related(
+    queryset = Sale.objects.select_related(
+        'warehouse', 'customer', 'created_by'
+    ).prefetch_related(
         'items__product',
         'payments',
-        'warehouse'
+        'credit_payments',
     ).all()
     permission_classes = [IsStaffOrAdmin]
     pagination_class = StandardResultsSetPagination

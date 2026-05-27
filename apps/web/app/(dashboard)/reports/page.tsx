@@ -211,13 +211,13 @@ export default function ReportsOverviewPage() {
         />
         <KPICard
           title="Total Orders"
-          value={summary.invoiceCount.toLocaleString()}
+          value={(summary.invoiceCount ?? 0).toLocaleString()}
           subtitle="Invoices generated"
           icon={ShoppingCart}
         />
         <KPICard
           title="Items Sold"
-          value={summary.totalItemsSold.toLocaleString()}
+          value={(summary.totalItemsSold ?? 0).toLocaleString()}
           subtitle="Total quantity"
           icon={Package}
         />
@@ -245,7 +245,7 @@ export default function ReportsOverviewPage() {
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as "day" | "month")}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
             >
               <option value="day">Daily</option>
               <option value="month">Monthly</option>
@@ -258,7 +258,7 @@ export default function ReportsOverviewPage() {
             {/* Legend */}
             <div className="flex items-center gap-6 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#C6A15B]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#6366F1]"></div>
                 <span className="text-sm text-white/60">Revenue (₹)</span>
               </div>
               <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function ReportsOverviewPage() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(26, 27, 35, 0.95)",
+                    backgroundColor: "rgba(6, 6, 8, 0.95)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "8px",
                     color: "white",
@@ -328,19 +328,19 @@ export default function ReportsOverviewPage() {
                   yAxisId="left"
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#C6A15B"
+                  stroke="#6366F1"
                   strokeWidth={2}
-                  dot={{ fill: "#C6A15B", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#C6A15B" }}
+                  dot={{ fill: "#6366F1", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#6366F1" }}
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="orders"
-                  stroke="#10B981"
+                  stroke="#A855F7"
                   strokeWidth={2}
-                  dot={{ fill: "#10B981", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#10B981" }}
+                  dot={{ fill: "#A855F7", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#A855F7" }}
                 />
               </LineChart>
             </ResponsiveContainer>

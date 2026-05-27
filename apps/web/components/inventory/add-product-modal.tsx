@@ -1,28 +1,27 @@
 "use client";
 
-import * as React from "react";
-import Image from "next/image";
-import {
-  X,
-  Package,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Tag,
-  DollarSign,
-  Barcode,
-  Warehouse,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { api } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
 import { inventoryKeys, useCategories } from "@/hooks/use-inventory";
+import { api } from "@/lib/api";
 import {
-  inventoryService,
-  Warehouse as WarehouseType,
-  Category as CategoryType,
+    Category as CategoryType,
+    inventoryService,
+    Warehouse as WarehouseType,
 } from "@/services";
+import { useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+    Barcode,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    DollarSign,
+    Gauge,
+    Loader2,
+    Package,
+    Warehouse,
+    X,
+} from "lucide-react";
+import * as React from "react";
 
 // =============================================================================
 // TYPES
@@ -43,8 +42,8 @@ interface ProductFormData {
   description: string;
   brandCode: string;
   alias: string;
-  // Step 2: Attributes
-  sizeFormat: "APPAREL" | "SHOE_EU" | "SHOE_LV";
+  // Step 2: Attributes (tyre shop / wheel shop — sidewall ISO, rim inch, or custom)
+  sizeFormat: "TYRE_SIDWALL" | "RIM_SIZE" | "CUSTOM_MARKING";
   sizes: string[];
   // Step 3: Pricing
   costPrice: string;
@@ -64,12 +63,28 @@ interface CreatedProduct {
   barcodeImageUrl?: string;
 }
 
+/** Step titles tuned for non-technical staff (short labels + plain meaning). */
 const STEPS = [
-  { id: 1, title: "Basic Info", icon: Package },
-  { id: 2, title: "Attributes", icon: Tag },
-  { id: 3, title: "Pricing", icon: DollarSign },
-  { id: 4, title: "Stock", icon: Warehouse },
-  { id: 5, title: "Review", icon: Check },
+  { id: 1, title: "Details", hint: "Tyre, wheel, or shop item name & brand", icon: Package },
+  {
+    id: 2,
+    title: "Tyre / rim",
+    hint: "Sidewall marking, rim inch, or custom code",
+    icon: Gauge,
+  },
+  {
+    id: 3,
+    title: "Prices",
+    hint: "What you paid, tag price, and sale price",
+    icon: DollarSign,
+  },
+  {
+    id: 4,
+    title: "Stock",
+    hint: "How many you have now (you can skip)",
+    icon: Warehouse,
+  },
+  { id: 5, title: "Check", hint: "Read once, then save", icon: Check },
 ];
 
 const INITIAL_FORM_DATA: ProductFormData = {
@@ -80,7 +95,7 @@ const INITIAL_FORM_DATA: ProductFormData = {
   description: "",
   brandCode: "",
   alias: "",
-  sizeFormat: "APPAREL",
+  sizeFormat: "TYRE_SIDWALL",
   sizes: [],
   costPrice: "",
   mrp: "",
@@ -99,51 +114,77 @@ const parseNonNegativeInt = (value: string): number => {
   return parsed;
 };
 
-// Size options by format
+/**
+ * Tyre & wheel shop presets (India-focused).
+ * Tyre: ISO metric sidewall e.g. 205/55 R16 = section width / aspect ratio R rim-diameter.
+ * Rim: inch sizes and common J-width patterns used for alloys / steel wheels.
+ */
 const SIZE_FORMATS = {
-  APPAREL: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
-  SHOE_EU: [
-    "35",
-    "35.5",
-    "36",
-    "36.5",
-    "37",
-    "37.5",
-    "38",
-    "38.5",
-    "39",
-    "39.5",
-    "40",
-    "40.5",
-    "41",
-    "41.5",
-    "42",
-    "42.5",
-    "43",
-    "43.5",
-    "44",
-    "44.5",
-    "45",
-    "45.5",
-    "46",
-    "46.5",
-    "47",
-    "47.5",
-    "48",
+  /** Common passenger, SUV, and two-wheeler sidewall strings (MRF, CEAT, Apollo, JK, Michelin, etc.). */
+  TYRE_SIDWALL: [
+    "145/80 R12",
+    "155/65 R13",
+    "155/70 R13",
+    "155/80 R13",
+    "165/70 R14",
+    "165/80 R14",
+    "175/65 R14",
+    "175/65 R15",
+    "175/70 R13",
+    "185/65 R15",
+    "185/70 R14",
+    "185/70 R15",
+    "195/55 R16",
+    "195/60 R15",
+    "195/65 R15",
+    "205/55 R16",
+    "205/60 R16",
+    "205/65 R16",
+    "215/55 R17",
+    "215/60 R16",
+    "215/65 R16",
+    "225/45 R17",
+    "225/50 R17",
+    "225/55 R17",
+    "225/60 R17",
+    "235/55 R18",
+    "235/60 R18",
+    "255/55 R18",
+    "265/65 R17",
+    "265/70 R16",
+    "90/90 R17",
+    "90/100 R10",
+    "100/80 R17",
+    "100/90 R17",
+    "110/70 R17",
+    "110/80 R17",
+    "120/70 R17",
+    "120/80 R17",
+    "130/70 R17",
+    "140/70 R17",
   ],
-  SHOE_LV: [
-    "7",
-    "7.5",
-    "8",
-    "8.5",
-    "9",
-    "9.5",
-    "10",
-    "10.5",
-    "11",
-    "11.5",
-    "12",
+  /** Rim diameter (inches) and typical J-width labels for wheel retail. */
+  RIM_SIZE: [
+    '13"',
+    '14"',
+    '15"',
+    '16"',
+    '17"',
+    '18"',
+    '19"',
+    '20"',
+    '21"',
+    '22"',
+    "14×5.5J",
+    "15×6J",
+    "16×6.5J",
+    "17×7J",
+    "18×8J",
+    "18×8.5J",
+    "19×8.5J",
   ],
+  /** Custom: user-typed markings only (no preset list). */
+  CUSTOM_MARKING: [] as string[],
 };
 
 // =============================================================================
@@ -234,7 +275,16 @@ export function AddProductModal({
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      if (name === "sizeFormat" && value !== prev.sizeFormat) {
+        return {
+          ...prev,
+          sizeFormat: value as ProductFormData["sizeFormat"],
+          sizes: [],
+        };
+      }
+      return { ...prev, [name]: value };
+    });
     setError(null);
     setFieldErrors((prev) => ({ ...prev, [name]: "" }));
   };
@@ -248,27 +298,46 @@ export function AddProductModal({
     }));
   };
 
+  const appendCustomSize = (marking: string) => {
+    const t = marking.trim();
+    if (!t) return;
+    setFormData((prev) => ({
+      ...prev,
+      sizes: prev.sizes.includes(t) ? prev.sizes : [...prev.sizes, t],
+    }));
+  };
+
   const validateStep = (step: number): boolean => {
     const errors: Record<string, string> = {};
 
     if (step === 1) {
-      if (!formData.name.trim()) errors.name = "Product name is required";
-      if (!formData.brand.trim()) errors.brand = "Brand is required";
-      if (!formData.category.trim()) errors.category = "Category is required";
+      if (!formData.name.trim()) {
+        errors.name = "Please enter the product name.";
+      }
+      if (!formData.brand.trim()) {
+        errors.brand = "Please enter the brand name.";
+      }
+      if (!formData.category.trim()) {
+        errors.category = "Please choose or enter a category.";
+      }
     }
 
     if (step === 3) {
       if (!formData.costPrice || parseFloat(formData.costPrice) <= 0) {
-        errors.costPrice = "Cost price must be greater than 0";
+        errors.costPrice =
+          "Enter what one unit cost you (must be more than zero).";
       }
       if (!formData.sellingPrice || parseFloat(formData.sellingPrice) <= 0) {
-        errors.sellingPrice = "Selling price must be greater than 0";
+        errors.sellingPrice =
+          "Enter the price customers pay (must be more than zero).";
       }
       if (!formData.mrp || parseFloat(formData.mrp) <= 0) {
-        errors.mrp = "MRP must be greater than 0";
+        errors.mrp =
+          "Enter the maximum price on the price tag (must be more than zero).";
       }
       if (parseFloat(formData.sellingPrice) > parseFloat(formData.mrp)) {
-        errors.sellingPrice = "Selling price cannot exceed MRP";
+        errors.sellingPrice =
+          "Sale price cannot be higher than the maximum tag price (MRP). Lower the sale price or raise the MRP.";
       }
     }
 
@@ -276,7 +345,8 @@ export function AddProductModal({
     if (step === 4) {
       const stock = parseNonNegativeInt(formData.initialStock);
       if (stock > 0 && !formData.warehouseId) {
-        errors.warehouseId = "Please select a warehouse for initial stock";
+        errors.warehouseId =
+          "You entered a quantity — please pick where those units are stored.";
       }
     }
 
@@ -368,7 +438,9 @@ export function AddProductModal({
       onSuccess?.();
     } catch (err: unknown) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to create product";
+        err instanceof Error
+          ? err.message
+          : "Could not save this product. Please try again.";
       if (err && typeof err === "object" && "response" in err) {
         const axiosError = err as {
           response?: {
@@ -423,10 +495,11 @@ export function AddProductModal({
           </div>
           <div className="text-center">
             <h3 className="text-xl font-semibold text-[#F5F6FA] mb-2">
-              Product Created Successfully!
+              Saved — this product is on your list
             </h3>
-            <p className="text-[#A1A4B3]">
-              Your product has been added to the inventory.
+            <p className="text-[#A1A4B3] max-w-md mx-auto">
+              You can find it in Inventory, sell it at the till, and print its
+              label when you need it.
             </p>
           </div>
 
@@ -434,22 +507,26 @@ export function AddProductModal({
           <div className="w-full max-w-sm space-y-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
             <div>
               <p className="text-xs text-[#6F7285] uppercase tracking-wide mb-1">
-                Generated SKU
+                Store code (SKU)
               </p>
               <p className="text-lg font-mono font-semibold text-[#C6A15B]">
                 {createdProduct.sku}
               </p>
+              <p className="text-xs text-[#6F7285] mt-1">
+                The system uses this code so nothing gets mixed up at billing.
+              </p>
             </div>
             <div>
               <p className="text-xs text-[#6F7285] uppercase tracking-wide mb-1">
-                Barcode
+                Barcode (for scanning)
               </p>
               <p className="text-sm font-mono text-[#F5F6FA] mb-2">
                 {createdProduct.barcodeValue}
               </p>
               {createdProduct.barcodeImageUrl && (
                 <div className="p-3 bg-white rounded-lg">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element -- API SVG; avoids next/image host config */}
+                  <img
                     src={createdProduct.barcodeImageUrl}
                     alt="Barcode"
                     width={300}
@@ -487,6 +564,7 @@ export function AddProductModal({
             formData={formData}
             onChange={handleInputChange}
             onToggleSize={(size) => toggleArrayValue("sizes", size)}
+            onAppendCustomSize={appendCustomSize}
           />
         );
       case 3:
@@ -553,11 +631,14 @@ export function AddProductModal({
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-[#F5F6FA]">
-                      {createdProduct ? "Product Created" : "Add New Product"}
+                      {createdProduct ? "All set" : "Add a product"}
                     </h2>
                     {!createdProduct && (
                       <p className="text-xs text-[#6F7285]">
                         Step {currentStep} of {STEPS.length}
+                        {STEPS[currentStep - 1]?.hint
+                          ? ` — ${STEPS[currentStep - 1].hint}`
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -651,7 +732,7 @@ export function AddProductModal({
                       onClick={handleNext}
                       className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors"
                     >
-                      Next
+                      Continue
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
@@ -664,12 +745,12 @@ export function AddProductModal({
                       {isSubmitting ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Creating...
+                          Saving…
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4" />
-                          Create Product
+                          Save product
                         </>
                       )}
                     </button>
@@ -705,17 +786,22 @@ function StepBasicInfo({
 }) {
   return (
     <div className="space-y-4">
+      <p className="text-sm text-[#6F7285] leading-relaxed">
+        Add a tyre, wheel, tube, valve, or other shop SKU. Fields with a red star
+        are required; the rest can wait until you have the sidewall or catalog in
+        front of you.
+      </p>
       {/* Product Name */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Product Name <span className="text-[#E74C3C]">*</span>
+          Name of the product <span className="text-[#E74C3C]">*</span>
         </label>
         <input
           type="text"
           name="name"
           value={formData.name}
           onChange={onChange}
-          placeholder="e.g., Classic Cotton Polo"
+          placeholder="e.g. MRF Wanderer 205/55 R16 91V tubeless"
           className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
             errors.name ? "border-[#E74C3C]" : "border-white/[0.08]"
           }`}
@@ -728,7 +814,7 @@ function StepBasicInfo({
       {/* Product Code */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Product Code{" "}
+          Your own item code{" "}
           <span className="text-[#6F7285] font-normal">(optional)</span>
         </label>
         <input
@@ -736,7 +822,7 @@ function StepBasicInfo({
           name="productCode"
           value={formData.productCode}
           onChange={onChange}
-          placeholder="e.g., C006 — printed as [C006] on label & under barcode"
+          placeholder="Bay code, job card ref, or your own stock label"
           className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
         />
       </div>
@@ -745,14 +831,14 @@ function StepBasicInfo({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Brand <span className="text-[#E74C3C]">*</span>
+            Brand / maker <span className="text-[#E74C3C]">*</span>
           </label>
           <input
             type="text"
             name="brand"
             value={formData.brand}
             onChange={onChange}
-            placeholder="e.g., TRAP"
+            placeholder="e.g. MRF, CEAT, Apollo, JK Tyre, Michelin, Bridgestone"
             className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
               errors.brand ? "border-[#E74C3C]" : "border-white/[0.08]"
             }`}
@@ -763,7 +849,7 @@ function StepBasicInfo({
         </div>
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Category <span className="text-[#E74C3C]">*</span>
+            Type of product (category) <span className="text-[#E74C3C]">*</span>
           </label>
           {categories.length > 0 ? (
             <select
@@ -774,7 +860,7 @@ function StepBasicInfo({
                 errors.category ? "border-[#E74C3C]" : "border-white/[0.08]"
               }`}
             >
-              <option value="">Select Category</option>
+              <option value="">Choose a category</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.name}>
                   {cat.name}
@@ -787,7 +873,7 @@ function StepBasicInfo({
               name="category"
               value={formData.category}
               onChange={onChange}
-              placeholder="e.g., Polo Shirts"
+              placeholder="e.g. Car radial, 2W, SUV, Alloy wheel, Steel rim, Tube"
               className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
                 errors.category ? "border-[#E74C3C]" : "border-white/[0.08]"
               }`}
@@ -798,7 +884,8 @@ function StepBasicInfo({
           )}
           {categories.length === 0 && (
             <p className="text-xs text-[#6F7285] mt-1">
-              Tip: Add categories in Settings to use a dropdown here
+              Tip: an admin can add saved categories under Settings so this
+              becomes a simple drop-down list.
             </p>
           )}
         </div>
@@ -808,7 +895,7 @@ function StepBasicInfo({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Brand Code{" "}
+            Brand code{" "}
             <span className="text-[#6F7285] font-normal">(optional)</span>
           </label>
           <input
@@ -816,13 +903,13 @@ function StepBasicInfo({
             name="brandCode"
             value={formData.brandCode}
             onChange={onChange}
-            placeholder="e.g., T001"
+            placeholder="Pattern / article from sidewall or supplier catalog"
             className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Alias{" "}
+            Nickname / short name{" "}
             <span className="text-[#6F7285] font-normal">(optional)</span>
           </label>
           <input
@@ -830,7 +917,7 @@ function StepBasicInfo({
             name="alias"
             value={formData.alias}
             onChange={onChange}
-            placeholder="e.g., Summer Polo"
+            placeholder="Short POS name (e.g. “OE Swift spare”)"
             className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
           />
         </div>
@@ -839,13 +926,13 @@ function StepBasicInfo({
       {/* Description */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Description
+          Extra notes (optional)
         </label>
         <textarea
           name="description"
           value={formData.description}
           onChange={onChange}
-          placeholder="Product description..."
+          placeholder="Load & speed index, tubeless/tube, DOT/week, PCD, offset, warranty…"
           rows={3}
           className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent resize-none"
         />
@@ -858,6 +945,7 @@ function StepAttributes({
   formData,
   onChange,
   onToggleSize,
+  onAppendCustomSize,
 }: {
   formData: ProductFormData;
   onChange: (
@@ -866,70 +954,137 @@ function StepAttributes({
     >,
   ) => void;
   onToggleSize: (size: string) => void;
+  onAppendCustomSize: (marking: string) => void;
 }) {
+  const [customDraft, setCustomDraft] = React.useState("");
   const currentSizeOptions = SIZE_FORMATS[formData.sizeFormat];
+
+  const formatLabels: Record<ProductFormData["sizeFormat"], string> = {
+    TYRE_SIDWALL: "Tyre — sidewall marking (ISO)",
+    RIM_SIZE: "Rim / wheel (inch or J size)",
+    CUSTOM_MARKING: "Other — type your own",
+  };
 
   return (
     <div className="space-y-5">
-      {/* Size Format Selector */}
+      <p className="text-sm text-[#6F7285] leading-relaxed">
+        Same model line often comes in several{" "}
+        <span className="text-[#A1A4B3]">tyre markings</span> (e.g.{" "}
+        <span className="text-[#A1A4B3]">205/55 R16</span>: width / profile R rim
+        diameter) or <span className="text-[#A1A4B3]">rim sizes</span>. Pick a
+        list style, then tap each size you stock. Single-size SKUs can leave this
+        empty and tap <span className="text-[#A1A4B3]">Continue</span>.
+      </p>
+
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
-          Size Format
+          What kind of size list?
         </label>
-        <div className="flex gap-2">
-          {(["APPAREL", "SHOE_EU", "SHOE_LV"] as const).map((format) => (
-            <button
-              key={format}
-              type="button"
-              onClick={() => {
-                const syntheticEvent = {
-                  target: { name: "sizeFormat", value: format },
-                } as React.ChangeEvent<HTMLSelectElement>;
-                onChange(syntheticEvent);
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                formData.sizeFormat === format
-                  ? "bg-[#C6A15B] text-[#0E0F13]"
-                  : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
-              }`}
-            >
-              {format === "APPAREL"
-                ? "Apparel"
-                : format === "SHOE_EU"
-                  ? "EU Shoe"
-                  : "LV"}
-            </button>
-          ))}
+        <div className="flex gap-2 flex-wrap">
+          {(["TYRE_SIDWALL", "RIM_SIZE", "CUSTOM_MARKING"] as const).map(
+            (format) => (
+              <button
+                key={format}
+                type="button"
+                onClick={() => {
+                  const syntheticEvent = {
+                    target: { name: "sizeFormat", value: format },
+                  } as React.ChangeEvent<HTMLSelectElement>;
+                  onChange(syntheticEvent);
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  formData.sizeFormat === format
+                    ? "bg-[#C6A15B] text-[#0E0F13]"
+                    : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                }`}
+              >
+                {formatLabels[format]}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
-      {/* Sizes */}
-      <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
-          Available Sizes
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {currentSizeOptions.map((size) => (
+      {formData.sizeFormat === "CUSTOM_MARKING" && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-[#A1A4B3]">
+            Add marking, PCD, offset, tube size, etc.
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={customDraft}
+              onChange={(e) => setCustomDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onAppendCustomSize(customDraft);
+                  setCustomDraft("");
+                }
+              }}
+              placeholder='e.g. 100 PCD, ET45, 275/40 R20, "TR413" valve'
+              className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+            />
             <button
-              key={size}
               type="button"
-              onClick={() => onToggleSize(size)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                formData.sizes.includes(size)
-                  ? "bg-[#C6A15B] text-[#0E0F13]"
-                  : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
-              }`}
+              onClick={() => {
+                onAppendCustomSize(customDraft);
+                setCustomDraft("");
+              }}
+              className="px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors shrink-0"
             >
-              {size}
+              Add
             </button>
-          ))}
+          </div>
         </div>
-        {formData.sizes.length > 0 && (
-          <p className="text-xs text-[#6F7285] mt-2">
-            Selected: {formData.sizes.join(", ")}
-          </p>
+      )}
+
+      {formData.sizeFormat !== "CUSTOM_MARKING" &&
+        currentSizeOptions.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+              {formData.sizeFormat === "TYRE_SIDWALL"
+                ? "Tap each sidewall size you sell for this line"
+                : "Tap each rim size you sell for this line"}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {currentSizeOptions.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => onToggleSize(size)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    formData.sizes.includes(size)
+                      ? "bg-[#C6A15B] text-[#0E0F13]"
+                      : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-      </div>
+
+      {formData.sizes.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-[#A1A4B3] mb-2">
+            Selected ({formData.sizes.length}) — tap to remove
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {formData.sizes.map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => onToggleSize(size)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C6A15B]/20 text-[#C6A15B] border border-[#C6A15B]/40 hover:bg-[#C6A15B]/30"
+              >
+                {size} ×
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -949,17 +1104,25 @@ function StepPricing({
   marginPercentage: number;
   errors: Record<string, string>;
 }) {
+  const cost = parseFloat(formData.costPrice) || 0;
+  const selling = parseFloat(formData.sellingPrice) || 0;
+  const profitPerUnit = selling - cost;
+
   return (
     <div className="space-y-5">
-      <p className="text-sm text-[#6F7285]">
-        Set pricing for this product. Margin is calculated automatically.
+      <p className="text-sm text-[#6F7285] leading-relaxed">
+        Enter amounts in <span className="text-[#A1A4B3]">rupees (₹)</span> for{" "}
+        <strong className="text-[#A1A4B3] font-medium">one unit</strong> (one
+        tyre, one rim, or one line item) of this product. The box at the bottom
+        shows roughly how much you keep after paying your supplier — it updates
+        as you type.
       </p>
 
       {/* Cost & MRP */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Cost Price (₹) <span className="text-[#E74C3C]">*</span>
+            Your cost (what you paid) <span className="text-[#E74C3C]">*</span>
           </label>
           <input
             type="number"
@@ -969,17 +1132,22 @@ function StepPricing({
             min="0"
             step="0.01"
             placeholder="0.00"
+            aria-describedby="hint-cost"
             className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
               errors.costPrice ? "border-[#E74C3C]" : "border-white/[0.08]"
             }`}
           />
+          <p id="hint-cost" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+            The price <em>you</em> paid to buy or make one unit — before any
+            tax you charge the customer.
+          </p>
           {errors.costPrice && (
             <p className="text-xs text-[#E74C3C] mt-1">{errors.costPrice}</p>
           )}
         </div>
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            MRP (₹) <span className="text-[#E74C3C]">*</span>
+            Maximum tag price (MRP) <span className="text-[#E74C3C]">*</span>
           </label>
           <input
             type="number"
@@ -989,10 +1157,15 @@ function StepPricing({
             min="0"
             step="0.01"
             placeholder="0.00"
+            aria-describedby="hint-mrp"
             className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
               errors.mrp ? "border-[#E74C3C]" : "border-white/[0.08]"
             }`}
           />
+          <p id="hint-mrp" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+            The highest price printed on the pack or tag by law. Your everyday
+            selling price must stay at or below this number.
+          </p>
           {errors.mrp && (
             <p className="text-xs text-[#E74C3C] mt-1">{errors.mrp}</p>
           )}
@@ -1000,10 +1173,10 @@ function StepPricing({
       </div>
 
       {/* Selling Price & GST */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Selling Price (₹) <span className="text-[#E74C3C]">*</span>
+            Price you charge today <span className="text-[#E74C3C]">*</span>
           </label>
           <input
             type="number"
@@ -1013,26 +1186,35 @@ function StepPricing({
             min="0"
             step="0.01"
             placeholder="0.00"
+            aria-describedby="hint-selling"
             className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
               errors.sellingPrice ? "border-[#E74C3C]" : "border-white/[0.08]"
             }`}
           />
+          <p
+            id="hint-selling"
+            className="text-xs text-[#6F7285] mt-1.5 leading-snug"
+          >
+            What appears at the till when someone buys one unit. Offers and
+            discounts apply on top of this in the POS screen.
+          </p>
           {errors.sellingPrice && (
             <p className="text-xs text-[#E74C3C] mt-1">{errors.sellingPrice}</p>
           )}
         </div>
         <div>
           <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            GST %
+            GST rate (tax %)
           </label>
           <select
             name="gstPercentage"
             value={formData.gstPercentage}
             onChange={onChange}
+            aria-describedby="hint-gst"
             className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
           >
             <option value="0" className="bg-[#1A1B23]">
-              0%
+              No tax (0%)
             </option>
             <option value="5" className="bg-[#1A1B23]">
               5%
@@ -1047,15 +1229,27 @@ function StepPricing({
               28%
             </option>
           </select>
+          <p id="hint-gst" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+            Pick the government tax slab that matches this product. Ask your
+            accountant if you are unsure.
+          </p>
         </div>
       </div>
 
       {/* Margin Preview */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#A1A4B3]">Profit Margin</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <span className="text-sm font-medium text-[#A1A4B3]">
+              Rough profit on one sale
+            </span>
+            <p className="text-xs text-[#6F7285] mt-1">
+              Sale price minus your cost (tax is handled separately on the
+              bill).
+            </p>
+          </div>
           <span
-            className={`text-xl font-bold ${
+            className={`text-xl font-bold tabular-nums ${
               marginPercentage >= 30
                 ? "text-[#2ECC71]"
                 : marginPercentage >= 15
@@ -1065,16 +1259,27 @@ function StepPricing({
                     : "text-[#6F7285]"
             }`}
           >
-            {marginPercentage.toFixed(1)}%
+            ₹{profitPerUnit.toFixed(2)}
           </span>
         </div>
-        <p className="text-xs text-[#6F7285] mt-1">
-          Profit per unit: ₹
-          {(
-            (parseFloat(formData.sellingPrice) || 0) -
-            (parseFloat(formData.costPrice) || 0)
-          ).toFixed(2)}
-        </p>
+        <div className="mt-3 pt-3 border-t border-white/[0.08] flex items-center justify-between">
+          <span className="text-xs text-[#6F7285]">
+            Compared to your cost, that is about:
+          </span>
+          <span
+            className={`text-sm font-semibold tabular-nums ${
+              marginPercentage >= 30
+                ? "text-[#2ECC71]"
+                : marginPercentage >= 15
+                  ? "text-[#F5A623]"
+                  : marginPercentage > 0
+                    ? "text-[#E74C3C]"
+                    : "text-[#6F7285]"
+            }`}
+          >
+            {marginPercentage.toFixed(1)}% extra
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1102,19 +1307,21 @@ function StepStock({
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-[#6F7285]">
-        Add initial stock for this product. This step is optional - you can add
-        stock later.
+      <p className="text-sm text-[#6F7285] leading-relaxed">
+        If you already have units in the shop or godown, say how many and where
+        they sit. If you are not ready yet, leave quantity at{" "}
+        <span className="text-[#A1A4B3]">0</span> and continue — you can add
+        stock later from Inventory.
       </p>
 
       {/* Warehouse Selection */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Warehouse
+          Storage place (warehouse / shop section)
         </label>
         {warehousesLoading ? (
           <div className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#6F7285]">
-            Loading warehouses...
+            Loading your storage list…
           </div>
         ) : (
           <select
@@ -1126,7 +1333,7 @@ function StepStock({
             }`}
           >
             <option value="" className="bg-[#1A1B23]">
-              Select warehouse (optional)
+              Not chosen yet (pick when you add quantity)
             </option>
             {warehouses.map((wh) => (
               <option key={wh.id} value={wh.id} className="bg-[#1A1B23]">
@@ -1143,7 +1350,7 @@ function StepStock({
       {/* Initial Stock */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Initial Stock Quantity
+          How many units do you have right now?
         </label>
         <input
           type="number"
@@ -1154,15 +1361,16 @@ function StepStock({
           placeholder="0"
           className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
         />
-        <p className="text-xs text-[#6F7285] mt-1.5">
-          This will create an initial inventory record. Leave at 0 to skip.
+        <p className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+          We record this as opening stock. Use <span className="text-[#A1A4B3]">0</span> if you
+          are only creating the product card for now.
         </p>
       </div>
 
       {/* Reorder Threshold */}
       <div>
         <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Low Stock Threshold
+          When should we warn you stock is low?
         </label>
         <input
           type="number"
@@ -1173,8 +1381,10 @@ function StepStock({
           placeholder="0"
           className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
         />
-        <p className="text-xs text-[#6F7285] mt-1.5">
-          Set to 0 to disable low stock alerts for now.
+        <p className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+          When counted stock goes <em>below</em> this number, the system can
+          remind you to reorder. Use <span className="text-[#A1A4B3]">0</span> to
+          turn that reminder off for now.
         </p>
       </div>
 
@@ -1193,14 +1403,14 @@ function StepStock({
             <div className="flex items-center gap-2 mt-2">
               <span className="text-sm text-[#F59E0B]">⚠</span>
               <span className="text-sm text-[#F59E0B]">
-                Alert when stock drops below {thresholdQty} units
+                We will nudge you when stock falls under {thresholdQty} units
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 mt-2">
               <span className="text-sm text-[#6F7285]">•</span>
               <span className="text-sm text-[#6F7285]">
-                Low stock alert disabled for now
+                Low-stock reminder is off (you can turn it on later)
               </span>
             </div>
           )}
@@ -1210,9 +1420,9 @@ function StepStock({
       {/* No Stock Note */}
       {(!formData.initialStock || initialStockQty === 0) && (
         <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
-          <p className="text-sm text-[#6F7285]">
-            Tip: You can add stock anytime later via the Inventory or Stock
-            Management pages.
+          <p className="text-sm text-[#6F7285] leading-relaxed">
+            No problem — you can add how many you have, and where they are kept,
+            any time from the Inventory screen.
           </p>
         </div>
       )}
@@ -1238,30 +1448,32 @@ function StepReview({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[#6F7285]">
-        Review your product details before creating.
+      <p className="text-sm text-[#6F7285] leading-relaxed">
+        Please read this summary once. If something looks wrong, use{" "}
+        <span className="text-[#A1A4B3]">Back</span> to fix it. When everything
+        looks right, tap <span className="text-[#A1A4B3]">Save product</span>.
       </p>
 
       {/* Basic Info */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
         <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
-          Basic Information
+          What you are adding
         </h4>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-[#6F7285]">Name</p>
-            <p className="text-[#F5F6FA] font-medium">{formData.name || "-"}</p>
+            <p className="text-[#F5F6FA] font-medium">{formData.name || "—"}</p>
           </div>
           <div>
             <p className="text-[#6F7285]">Brand</p>
             <p className="text-[#F5F6FA] font-medium">
-              {formData.brand || "-"}
+              {formData.brand || "—"}
             </p>
           </div>
           <div>
             <p className="text-[#6F7285]">Category</p>
             <p className="text-[#F5F6FA] font-medium">
-              {formData.category || "-"}
+              {formData.category || "—"}
             </p>
           </div>
           {formData.description && (
@@ -1277,54 +1489,64 @@ function StepReview({
 
       {/* Attributes */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">Attributes</h4>
+        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
+          Tyre &amp; rim markings
+        </h4>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <span className="text-[#6F7285]">Size Format:</span>
+            <span className="text-[#6F7285]">Size list style:</span>
             <span className="text-[#F5F6FA]">
-              {formData.sizeFormat === "APPAREL"
-                ? "Apparel"
-                : formData.sizeFormat === "SHOE_EU"
-                  ? "EU Shoe"
-                  : "LV"}
+              {formData.sizeFormat === "TYRE_SIDWALL"
+                ? "Tyre — sidewall marking (ISO)"
+                : formData.sizeFormat === "RIM_SIZE"
+                  ? "Rim / wheel (inch or J size)"
+                  : "Other — custom markings"}
             </span>
           </div>
           {formData.sizes.length > 0 && (
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">Sizes:</span>
+              <span className="text-[#6F7285]">Markings / sizes:</span>
               <span className="text-[#F5F6FA]">
                 {formData.sizes.join(", ")}
               </span>
             </div>
           )}
           {formData.sizes.length === 0 && (
-            <p className="text-[#6F7285]">No sizes selected</p>
+            <p className="text-[#6F7285]">
+              No extra markings — treated as one SKU (single size line)
+            </p>
           )}
         </div>
       </div>
 
       {/* Pricing */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">Pricing</h4>
+        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">Money</h4>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-[#6F7285]">Cost Price</p>
+            <p className="text-[#6F7285]">Your cost (per unit)</p>
             <p className="text-[#F5F6FA] font-medium">
               ₹{formData.costPrice || "0"}
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">MRP</p>
+            <p className="text-[#6F7285]">Maximum tag price (MRP)</p>
             <p className="text-[#F5F6FA] font-medium">₹{formData.mrp || "0"}</p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Selling Price</p>
+            <p className="text-[#6F7285]">Price at till today</p>
             <p className="text-[#F5F6FA] font-medium">
               ₹{formData.sellingPrice || "0"}
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Margin</p>
+            <p className="text-[#6F7285]">GST rate</p>
+            <p className="text-[#F5F6FA] font-medium">
+              {formData.gstPercentage || "0"}%
+            </p>
+          </div>
+          <div>
+            <p className="text-[#6F7285]">Rough profit vs cost</p>
             <p
               className={`font-bold ${
                 marginPercentage >= 30
@@ -1343,55 +1565,65 @@ function StepReview({
       {/* Stock Info */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
         <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
-          Initial Stock
+          Stock you are starting with
         </h4>
         {hasStock ? (
           <div className="text-sm">
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">Quantity:</span>
+              <span className="text-[#6F7285]">How many:</span>
               <span className="text-[#2ECC71] font-medium">
                 {initialStockQty} units
               </span>
             </div>
             <div className="flex gap-2 mt-1">
-              <span className="text-[#6F7285]">Warehouse:</span>
+              <span className="text-[#6F7285]">Stored at:</span>
               <span className="text-[#F5F6FA]">{selectedWarehouse.name}</span>
             </div>
             <div className="flex gap-2 mt-1">
-              <span className="text-[#6F7285]">Low Stock Alert:</span>
+              <span className="text-[#6F7285]">Low-stock reminder:</span>
               {thresholdQty > 0 ? (
                 <span className="text-[#F59E0B] font-medium">
-                  Below {thresholdQty} units
+                  when below {thresholdQty} units
                 </span>
               ) : (
-                <span className="text-[#6F7285] font-medium">Disabled</span>
+                <span className="text-[#6F7285] font-medium">off</span>
               )}
             </div>
           </div>
         ) : (
           <div className="text-sm space-y-1">
             <p className="text-[#6F7285]">
-              No initial stock (can be added later)
+              Starting with no counted stock (you can add it later)
             </p>
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">Low Stock Alert:</span>
+              <span className="text-[#6F7285]">Low-stock reminder:</span>
               {thresholdQty > 0 ? (
                 <span className="text-[#F59E0B] font-medium">
-                  Below {thresholdQty} units
+                  when below {thresholdQty} units
                 </span>
               ) : (
-                <span className="text-[#6F7285] font-medium">Disabled</span>
+                <span className="text-[#6F7285] font-medium">off</span>
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* SKU Note */}
-      <div className="p-3 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/30">
-        <p className="text-sm text-[#C6A15B]">
-          <Barcode className="w-4 h-4 inline-block mr-2" />
-          SKU and barcode will be auto-generated after creation.
+      {/* SKU Note — solid panel + high-contrast text (no “empty tinted box” on some displays) */}
+      <div className="p-4 rounded-xl bg-[#0E0F13] border border-[#C6A15B]/50 ring-1 ring-[#C6A15B]/20">
+        <p className="text-sm text-[#F7EED6] leading-relaxed flex items-start gap-2">
+          <Barcode
+            className="w-4 h-4 mt-0.5 shrink-0 text-[#E8D4A8]"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <span>
+            <span className="font-semibold text-[#FFF5E6]">
+              Store code &amp; barcode
+            </span>{" "}
+            are created for you automatically when you save — nothing to type
+            here.
+          </span>
         </p>
       </div>
     </div>

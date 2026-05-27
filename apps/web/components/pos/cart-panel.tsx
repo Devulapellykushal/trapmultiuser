@@ -66,12 +66,12 @@ export function CartPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1A1B23]/40">
+    <div className="flex flex-col h-full bg-[var(--bg-surface)]">
       {/* Cart Header */}
       <div className="p-4 border-b border-white/[0.08]">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#F5F6FA]">Cart</h2>
-          <span className="px-2.5 py-1 rounded-full bg-[#C6A15B]/10 text-[#C6A15B] text-xs font-medium tabular-nums">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Cart</h2>
+          <span className="px-2.5 py-1 rounded-full bg-[#6366F1]/10 text-[#6366F1] text-xs font-medium tabular-nums">
             {itemCount} {itemCount === 1 ? "item" : "items"}
           </span>
         </div>
@@ -113,10 +113,10 @@ export function CartPanel() {
         {discountOptions?.discountEnabled !== false && (
           <div className="relative">
             {appliedDiscount ? (
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#2ECC71]/10 border border-[#2ECC71]/30">
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#6366F1]/10 border border-[#6366F1]/30">
                 <div className="flex items-center gap-2">
-                  <Percent className="w-4 h-4 text-[#2ECC71]" />
-                  <span className="text-sm text-[#2ECC71]">
+                  <Percent className="w-4 h-4 text-[#6366F1]" />
+                  <span className="text-sm text-[#6366F1]">
                     {appliedDiscount.label}
                   </span>
                 </div>
@@ -124,7 +124,7 @@ export function CartPanel() {
                   onClick={handleClearDiscount}
                   className="p-1 rounded hover:bg-white/[0.1] transition-colors"
                 >
-                  <X className="w-4 h-4 text-[#2ECC71]" />
+                  <X className="w-4 h-4 text-[#6366F1]" />
                 </button>
               </div>
             ) : (
@@ -149,7 +149,7 @@ export function CartPanel() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute bottom-full left-0 right-0 mb-2 p-2 rounded-lg bg-[#1A1B23] border border-white/[0.12] shadow-lg z-10"
+                  className="absolute bottom-full left-0 right-0 mb-2 p-2 rounded-lg bg-[var(--bg-elevated)] border border-white/[0.12] shadow-lg z-10"
                 >
                   <div className="text-xs text-[#6F7285] mb-2 px-2">
                     Select Discount
@@ -159,13 +159,13 @@ export function CartPanel() {
                       <button
                         key={idx}
                         onClick={() => handleSelectDiscount(preset)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-[#F5F6FA] hover:bg-white/[0.05] transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-[var(--text-primary)] hover:bg-white/[0.05] transition-colors"
                       >
                         <span
                           className={
                             preset.type === "PERCENT"
-                              ? "text-[#2ECC71]"
-                              : "text-[#C6A15B]"
+                              ? "text-[#6366F1]"
+                              : "text-[#A855F7]"
                           }
                         >
                           {preset.type === "PERCENT" ? "%" : "₹"}
@@ -190,7 +190,7 @@ export function CartPanel() {
         <div className="space-y-2 pt-2">
           <div className="flex justify-between text-sm">
             <span className="text-[#A1A4B3]">Subtotal</span>
-            <span className="text-[#F5F6FA] tabular-nums font-medium">
+            <span className="text-[var(--text-primary)] tabular-nums font-medium">
               {formatCurrency(subtotal)}
             </span>
           </div>
@@ -201,22 +201,22 @@ export function CartPanel() {
               exit={{ opacity: 0, height: 0 }}
               className="flex justify-between text-sm"
             >
-              <span className="text-[#2ECC71]">
+              <span className="text-[#6366F1]">
                 {appliedDiscount?.label || "Discount"}
               </span>
-              <span className="text-[#2ECC71] tabular-nums font-medium">
+              <span className="text-[#6366F1] tabular-nums font-medium">
                 -{formatCurrency(discount)}
               </span>
             </motion.div>
           )}
           <div className="h-px bg-white/[0.08]" />
           <div className="flex justify-between items-center pt-1">
-            <span className="text-lg font-semibold text-[#F5F6FA]">Total</span>
+            <span className="text-lg font-semibold text-[var(--text-primary)]">Total</span>
             <motion.span
               key={total}
               initial={{ scale: 1.1 }}
               animate={{ scale: 1 }}
-              className="text-2xl font-bold text-[#C6A15B] tabular-nums"
+              className="text-2xl font-bold text-[#6366F1] tabular-nums"
             >
               {formatCurrency(total)}
             </motion.span>
@@ -225,6 +225,15 @@ export function CartPanel() {
       </div>
     </div>
   );
+}
+
+function clampLineQuantity(product: CartItem["product"], next: number): number {
+  if (next <= 0) return 0;
+  const cap = product.stock;
+  if (typeof cap === "number" && cap > 0) {
+    return Math.min(next, cap);
+  }
+  return next;
 }
 
 // Cart Item Row Component
@@ -237,6 +246,28 @@ function CartItemRow({
   onRemove: () => void;
   onUpdateQuantity: (qty: number) => void;
 }) {
+  const [qtyDraft, setQtyDraft] = React.useState(String(item.quantity));
+
+  React.useEffect(() => {
+    setQtyDraft(String(item.quantity));
+  }, [item.quantity]);
+
+  const commitQtyDraft = () => {
+    const raw = qtyDraft.replace(/\D/g, "");
+    if (raw === "") {
+      setQtyDraft(String(item.quantity));
+      return;
+    }
+    let n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      setQtyDraft(String(item.quantity));
+      return;
+    }
+    n = clampLineQuantity(item.product, n);
+    onUpdateQuantity(n);
+    setQtyDraft(String(n));
+  };
+
   // Build variant label (size / color)
   const variantParts: string[] = [];
   if (item.product.size) variantParts.push(item.product.size);
@@ -258,12 +289,12 @@ function CartItemRow({
       <div className="flex items-center gap-3">
         {/* Product Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[#F5F6FA] truncate">
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">
             {displayName}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             {variantLabel && (
-              <span className="px-1.5 py-0.5 rounded bg-[#C6A15B]/10 text-[#C6A15B] text-[10px] font-medium">
+              <span className="px-1.5 py-0.5 rounded-md border border-indigo-400/35 bg-slate-900/90 text-indigo-100 text-[10px] font-semibold">
                 {variantLabel}
               </span>
             )}
@@ -273,42 +304,66 @@ function CartItemRow({
           </div>
         </div>
 
-        {/* Quantity Controls */}
-        <div className="flex items-center gap-1">
+        {/* Quantity Controls (+ manual entry) */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => onUpdateQuantity(item.quantity - 1)}
+            type="button"
+            onClick={() =>
+              onUpdateQuantity(
+                clampLineQuantity(item.product, item.quantity - 1),
+              )
+            }
             className="p-2 rounded-md hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors"
           >
             <Minus className="w-4 h-4 text-[#A1A4B3]" />
           </button>
-          <motion.span
-            key={item.quantity}
-            initial={{ scale: 1.2 }}
-            animate={{ scale: 1 }}
-            className="w-8 text-center text-sm font-semibold text-[#F5F6FA] tabular-nums"
-          >
-            {item.quantity}
-          </motion.span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`Quantity for ${displayName}`}
+            title="Type quantity, press Enter or click away to apply"
+            value={qtyDraft}
+            onChange={(e) =>
+              setQtyDraft(e.target.value.replace(/\D/g, "").slice(0, 7))
+            }
+            onBlur={commitQtyDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="min-w-[2.25rem] max-w-[4.5rem] w-14 px-1 py-1.5 rounded-md bg-white/[0.06] border border-white/[0.12] text-center text-sm font-semibold text-[var(--text-primary)] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
+          />
           <button
-            onClick={() => onUpdateQuantity(item.quantity + 1)}
+            type="button"
+            onClick={() =>
+              onUpdateQuantity(
+                clampLineQuantity(item.product, item.quantity + 1),
+              )
+            }
             className="p-2 rounded-md hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors"
           >
             <Plus className="w-4 h-4 text-[#A1A4B3]" />
           </button>
         </div>
 
-        {/* Remove */}
+        {/* Remove — explicit label + outline so icon is never mistaken for an empty block */}
         <button
+          type="button"
           onClick={onRemove}
-          className="p-2 rounded-md hover:bg-[#E74C3C]/10 active:bg-[#E74C3C]/20 transition-colors"
+          aria-label={`Remove ${displayName} from cart`}
+          title="Remove from cart"
+          className="p-2 rounded-md border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-500/20 hover:text-red-100 active:bg-red-500/30 transition-colors"
         >
-          <Trash2 className="w-4 h-4 text-[#E74C3C]" />
+          <Trash2 className="w-4 h-4" strokeWidth={2} aria-hidden />
         </button>
       </div>
 
       {/* Line Total */}
       <div className="flex justify-end mt-2 pt-2 border-t border-white/[0.04]">
-        <span className="text-sm font-medium text-[#C6A15B] tabular-nums">
+        <span className="text-sm font-medium text-[#6366F1] tabular-nums">
           {formatCurrency(
             (item.product.pricing?.sellingPrice || 0) * item.quantity,
           )}

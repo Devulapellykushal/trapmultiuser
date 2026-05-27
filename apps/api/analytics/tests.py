@@ -1,5 +1,5 @@
 """
-Analytics Tests for TRAP Inventory System.
+Analytics Tests for Quake Inventory System.
 Tests for read-only analytics endpoints.
 
 NOTE: These tests are temporarily skipped as the analytics module
@@ -16,9 +16,11 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 
+from core.test_username import unique_username
+
 from inventory.models import Warehouse, Product, ProductVariant, StockSnapshot, StockLedger
 from inventory.services import record_purchase
-from sales.models import Sale
+from sales.models import Sale, SaleItem
 from sales.services import process_sale
 from invoices.services import generate_invoice_for_sale
 from analytics.services import inventory, sales, revenue, discounts, performance
@@ -399,3 +401,53 @@ class NoDataEdgeCaseTest(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('0', response.data['net_revenue'])
+
+
+class TopSellingProductsUsesProductFkTest(TestCase):
+    """SaleItem aggregates by Product FK (Phase 13), not ProductVariant."""
+
+    def setUp(self):
+        from users.models import User
+
+        self.user = User.objects.create_user(
+            username=unique_username("analytics_prod_test"),
+            password="pass12345",
+            role="ADMIN",
+        )
+        self.warehouse = Warehouse.objects.create(name="Analytics WH", code="AWH")
+        self.product = Product.objects.create(
+            name="Aggregated Widget",
+            brand="BrandX",
+            category="Parts",
+            sku="AGG-SKU-1",
+            barcode_value=f"AGG-BC-{uuid.uuid4()}",
+        )
+        sale = Sale.objects.create(
+            idempotency_key=uuid.uuid4(),
+            invoice_number="INV-AGG-001",
+            warehouse=self.warehouse,
+            subtotal=Decimal("100.00"),
+            total=Decimal("118.00"),
+            total_gst=Decimal("18.00"),
+            total_items=2,
+            status=Sale.Status.COMPLETED,
+            created_by=self.user,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            product=self.product,
+            quantity=2,
+            selling_price=Decimal("50.00"),
+            line_total=Decimal("100.00"),
+            gst_percentage=Decimal("18.00"),
+            gst_amount=Decimal("18.00"),
+            line_total_with_gst=Decimal("118.00"),
+        )
+
+    def test_top_selling_products_by_product_sku(self):
+        result = sales.get_top_selling_products(limit=10)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["sku"], "AGG-SKU-1")
+        self.assertEqual(result[0]["product_name"], "Aggregated Widget")
+        self.assertEqual(result[0]["total_quantity"], 2)
+        self.assertEqual(result[0]["variant_id"], str(self.product.id))

@@ -22,6 +22,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { creditSalesService, CreditSale } from "@/services";
 import { inventoryService } from "@/services/inventory.service";
+import { inventoryKeys } from "@/hooks";
 import {
   RecordCreditPaymentModal,
   PaymentHistoryModal,
@@ -44,7 +45,10 @@ function CreditSalesPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Credit Sales</h1>
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <Banknote className="w-6 h-6 text-[#6366F1]" />
+              Credit Sales
+            </h1>
             <p className="text-sm text-[#6F7285] mt-1">Loading...</p>
           </div>
         </div>
@@ -98,7 +102,7 @@ function CreditSalesPageContent() {
 
   // Fetch warehouses for filter
   const { data: warehouses } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
   });
 
@@ -165,7 +169,10 @@ function CreditSalesPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Credit Sales</h1>
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <Banknote className="w-6 h-6 text-[#6366F1]" />
+              Credit Sales
+            </h1>
             <p className="text-sm text-[#6F7285] mt-1">
               Track and collect outstanding customer credit
             </p>

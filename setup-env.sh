@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ================================================
-# Environment Setup for TRAP API Deployment
+# Environment Setup for Quake API Deployment
 # ================================================
 
-echo "🔧 Setting up environment for TRAP API deployment"
+echo "🔧 Setting up environment for Quake API deployment"
 echo ""
 
 # Check if gcloud is installed

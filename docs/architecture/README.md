@@ -1,8 +1,8 @@
-# TRAP Inventory System Architecture
+# Quake Inventory System Architecture
 
 ## Overview
 
-The TRAP Inventory System is an enterprise-grade inventory management solution for luxury apparel brands.
+The Quake Inventory System is an enterprise-grade inventory management solution for luxury apparel brands.
 
 ## System Architecture
 

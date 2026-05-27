@@ -43,10 +43,11 @@ function PurchaseOrdersPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <ClipboardList className="w-6 h-6 text-[#6366F1]" />
               Purchase Orders
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading...</p>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
           </div>
         </div>
         <SkeletonTable rows={6} />
@@ -164,8 +165,11 @@ function PurchaseOrdersPageContent() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Purchase Orders</h1>
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <ClipboardList className="w-6 h-6 text-[#6366F1]" />
+            Purchase Orders
+          </h1>
+          <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
             <ErrorState
               message="Could not load purchase orders. Check if backend is running."
               onRetry={() => refetch()}
@@ -182,16 +186,17 @@ function PurchaseOrdersPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <ClipboardList className="w-6 h-6 text-[#6366F1]" />
               Purchase Orders
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               {orders.length} purchase orders
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#6366F1] text-white text-sm font-medium hover:bg-[#7376FF] transition-colors"
           >
             <Plus className="w-4 h-4 stroke-[2]" />
             New Purchase Order
@@ -286,19 +291,19 @@ function PurchaseOrdersPageContent() {
         {/* Search */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
             <input
               type="text"
               placeholder="Search by PO number or supplier..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#1A1B23]/60 border border-white/[0.08] text-[#F5F6FA] text-sm placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
             />
           </div>
           {statusFilter && (
             <button
               onClick={() => setStatusFilter("")}
-              className="text-sm text-[#C6A15B] hover:underline"
+              className="text-sm text-[#6366F1] hover:underline"
             >
               Clear filter
             </button>
@@ -307,7 +312,7 @@ function PurchaseOrdersPageContent() {
 
         {/* Orders Table or Empty State */}
         {orders.length === 0 ? (
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
             <EmptyState
               icon={ClipboardList}
               title="No purchase orders found"
@@ -373,19 +378,19 @@ function StatusCard({
       className={cn(
         "p-4 rounded-xl backdrop-blur-xl border transition-all duration-200 text-left",
         active
-          ? "bg-[#C6A15B]/20 border-[#C6A15B] ring-2 ring-[#C6A15B]/30"
-          : "bg-[#1A1B23]/60 border-white/[0.08] hover:bg-white/[0.03]",
+          ? "bg-[#6366F1]/20 border-[#6366F1] ring-2 ring-[#6366F1]/30"
+          : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-white/[0.03]",
       )}
     >
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-4 h-4" style={{ color }} />
-        <span className="text-xs text-[#6F7285] uppercase tracking-wide">
+        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
           {label}
         </span>
       </div>
       <p
         className="text-2xl font-bold tabular-nums"
-        style={{ color: active ? "#C6A15B" : "#F5F6FA" }}
+        style={{ color: active ? "#6366F1" : "var(--text-primary)" }}
       >
         {value}
       </p>
@@ -471,7 +476,7 @@ function PurchaseOrdersTable({
   };
 
   return (
-    <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+    <div className="rounded-xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-default)] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -511,12 +516,12 @@ function PurchaseOrdersTable({
                 className="hover:bg-white/[0.02] cursor-pointer transition-colors"
               >
                 <td className="px-4 py-4">
-                  <span className="font-mono text-sm text-[#C6A15B]">
+                  <span className="font-mono text-sm text-[#6366F1]">
                     {order.poNumber || "N/A"}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#F5F6FA]">
+                  <span className="text-sm text-[var(--text-primary)]">
                     {order.supplierName || "N/A"}
                   </span>
                 </td>
@@ -537,7 +542,7 @@ function PurchaseOrdersTable({
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="text-sm font-medium text-[#F5F6FA]">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
                     {formatCurrency(order.total)}
                   </span>
                 </td>

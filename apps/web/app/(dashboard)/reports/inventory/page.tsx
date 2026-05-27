@@ -64,10 +64,10 @@ import { MovementItem } from "@/services";
 
 // Aging bucket colors - professional palette
 const AGING_COLORS: Record<string, string> = {
-  "0-30 days": "#10B981", // Emerald - Fresh
-  "31-60 days": "#F59E0B", // Amber - Warning
-  "61-90 days": "#F97316", // Orange - Concerning
-  "90+ days": "#EF4444", // Red - Critical
+  "0-30 days": "#6366F1",
+  "31-60 days": "#A855F7",
+  "61-90 days": "#EC4899",
+  "90+ days": "#6366F1",
 };
 
 // Movement type badges
@@ -444,7 +444,7 @@ export default function InventoryReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -486,7 +486,7 @@ export default function InventoryReportsPage() {
               setMovementType(e.target.value);
               setMovementPage(1);
             }}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
           >
             <option value="">All Types</option>
             <option value="SALE">Sales</option>

@@ -1,5 +1,5 @@
 """
-Production-grade health check endpoint for TRAP Inventory API.
+Production-grade health check endpoint for Quake Inventory API.
 """
 
 from datetime import datetime
@@ -43,7 +43,7 @@ def health_check(request):
     
     response_data = {
         "status": overall_status,
-        "service": "TRAP Inventory API",
+        "service": "Quake Inventory API",
         "version": getattr(settings, 'API_VERSION', 'v1'),
         "environment": getattr(settings, 'ENVIRONMENT', 'development'),
         "database": db_status,

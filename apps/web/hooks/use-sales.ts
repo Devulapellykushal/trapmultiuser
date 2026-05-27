@@ -9,14 +9,23 @@ export const salesKeys = {
   all: ["sales"] as const,
   list: (params?: any) => [...salesKeys.all, "list", params] as const,
   detail: (id: number) => [...salesKeys.all, "detail", id] as const,
-  scan: (barcode: string) => [...salesKeys.all, "scan", barcode] as const,
+  scan: (barcode: string, warehouseId?: string | null) =>
+    [...salesKeys.all, "scan", barcode, warehouseId] as const,
 };
 
-export function useScanBarcode(barcode: string) {
+export function useScanBarcode(params: {
+  barcode: string;
+  warehouse_id: string | null | undefined;
+}) {
+  const { barcode, warehouse_id } = params;
   return useQuery({
-    queryKey: salesKeys.scan(barcode),
-    queryFn: () => salesService.scanBarcode(barcode),
-    enabled: !!barcode && barcode.length > 0,
+    queryKey: salesKeys.scan(barcode, warehouse_id),
+    queryFn: () =>
+      salesService.scanBarcode({
+        barcode,
+        warehouse_id: warehouse_id as string,
+      }),
+    enabled: !!barcode && barcode.length > 0 && !!warehouse_id,
     retry: false,
   });
 }

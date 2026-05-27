@@ -254,13 +254,13 @@ class TestEmailView(APIView):
         
         result = EmailService.send_email(
             to_email=to_email,
-            subject="TRAP Inventory - Test Email",
-            body="This is a test email from TRAP Inventory System. If you received this, your email configuration is working correctly!",
+            subject="Quake Inventory - Test Email",
+            body="This is a test email from Quake Inventory System. If you received this, your email configuration is working correctly!",
             html_body="""
             <html>
             <body>
                 <h2>Test Email</h2>
-                <p>This is a test email from <strong>TRAP Inventory System</strong>.</p>
+                <p>This is a test email from <strong>Quake Inventory System</strong>.</p>
                 <p>If you received this, your email configuration is working correctly! ✅</p>
                 <hr>
                 <p style="color: #666; font-size: 12px;">This is an automated message.</p>

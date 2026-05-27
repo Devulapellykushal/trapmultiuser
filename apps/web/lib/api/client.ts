@@ -3,18 +3,18 @@
  * Uses environment-based configuration for production safety
  */
 import axios, {
-  AxiosError,
-  AxiosResponse,
-  InternalAxiosRequestConfig,
+    AxiosError,
+    AxiosResponse,
+    InternalAxiosRequestConfig,
 } from "axios";
 
 // API base URL from environment
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
 
 // Token storage keys (must match auth.service.ts)
-const TOKEN_KEY = "trap_access_token";
-const REFRESH_KEY = "trap_refresh_token";
+const TOKEN_KEY = "Quake_access_token";
+const REFRESH_KEY = "Quake_refresh_token";
 
 // Create axios instance with defaults
 export const apiClient = axios.create({

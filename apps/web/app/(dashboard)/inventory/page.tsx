@@ -8,10 +8,11 @@ import {
   Upload,
   Download,
   Package,
-  Ruler,
+  Layers,
   Truck,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { PageTransition } from "@/components/layout";
 import {
@@ -28,8 +29,14 @@ import { SkeletonTable } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Pagination } from "@/components/ui/pagination";
-import { useProducts, useStockSummary } from "@/hooks";
+import {
+  useProducts,
+  useStockSummary,
+  useWarehouses,
+  useInventoryWarehouseFilterStore,
+} from "@/hooks";
 import { useAuth } from "@/lib/auth";
+import { adminHref } from "@/lib/admin-routes";
 import { ProductListParams } from "@/services";
 
 // Types matching API
@@ -63,6 +70,46 @@ interface InventoryProduct {
   };
   reorderThreshold?: number;
   status: "in_stock" | "low_stock" | "out_of_stock";
+  /** True when API had no usable selling price (show em dash in table). */
+  sellingPriceUnset?: boolean;
+}
+
+function minReorderThreshold(apiProduct: Record<string, unknown>): number {
+  const direct = Number(
+    (apiProduct.reorderThreshold as number | undefined) ??
+      (apiProduct.reorder_threshold as number | undefined) ??
+      0,
+  );
+  if (direct > 0) return direct;
+
+  const variants = apiProduct.variants as
+    | Array<{ reorderThreshold?: number; reorder_threshold?: number }>
+    | undefined;
+  if (!variants?.length) return 0;
+
+  let min = Infinity;
+  for (const v of variants) {
+    const t = Number(v.reorderThreshold ?? v.reorder_threshold ?? 0);
+    if (t > 0 && t < min) min = t;
+  }
+  return min === Infinity ? 0 : min;
+}
+
+/**
+ * Stock status from API when provided; otherwise derived from ledger total vs reorder thresholds.
+ */
+function deriveRawStockStatus(apiProduct: Record<string, unknown>): string {
+  const raw = String(apiProduct.stockStatus ?? apiProduct.stock_status ?? "").toUpperCase();
+  if (["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"].includes(raw)) {
+    return raw;
+  }
+
+  const total = Number(apiProduct.totalStock ?? apiProduct.total_stock ?? 0);
+  const threshold = minReorderThreshold(apiProduct);
+
+  if (total <= 0) return "OUT_OF_STOCK";
+  if (threshold > 0 && total <= threshold) return "LOW_STOCK";
+  return "IN_STOCK";
 }
 
 function mapStockStatus(
@@ -86,11 +133,6 @@ function transformProduct(apiProduct: any): InventoryProduct {
   // pricing is a nested object with costPrice, mrp, sellingPrice
   const pricing = apiProduct.pricing;
 
-  // Debug: Log pricing data to console (remove in production)
-  if (process.env.NODE_ENV === "development" && !pricing) {
-    console.warn(`Product "${apiProduct.name}" has no pricing data`);
-  }
-
   // Parse pricing values - handle both string and number formats
   const parsePricing = (value: unknown): number => {
     if (value === null || value === undefined) return 0;
@@ -101,6 +143,38 @@ function transformProduct(apiProduct: any): InventoryProduct {
     }
     return 0;
   };
+
+  const variants = apiProduct.variants as
+    | Array<{ sellingPrice?: unknown; selling_price?: unknown }>
+    | undefined;
+
+  let sellingPriceFromVariant = 0;
+  if (variants?.length) {
+    for (const v of variants) {
+      const pv = parsePricing(v.sellingPrice ?? v.selling_price);
+      if (pv > 0) {
+        sellingPriceFromVariant = pv;
+        break;
+      }
+    }
+  }
+
+  const mainPrice = parsePricing(
+    pricing?.sellingPrice ?? pricing?.selling_price,
+  );
+  const rootSelling = parsePricing(
+    apiProduct.sellingPrice ?? apiProduct.selling_price,
+  );
+  const resolvedSelling =
+    mainPrice > 0
+      ? mainPrice
+      : sellingPriceFromVariant > 0
+        ? sellingPriceFromVariant
+        : rootSelling;
+  const sellingPriceUnset =
+    mainPrice <= 0 &&
+    sellingPriceFromVariant <= 0 &&
+    rootSelling <= 0;
 
   return {
     id: String(apiProduct.id),
@@ -114,9 +188,10 @@ function transformProduct(apiProduct: any): InventoryProduct {
     alias: apiProduct.alias || null,
     description: apiProduct.description || "",
     // API returns camelCase: pricing.costPrice, pricing.mrp, pricing.sellingPrice
-    costPrice: parsePricing(pricing?.costPrice),
+    costPrice: parsePricing(pricing?.costPrice ?? pricing?.cost_price),
     mrp: parsePricing(pricing?.mrp),
-    sellingPrice: parsePricing(pricing?.sellingPrice),
+    sellingPrice: resolvedSelling,
+    sellingPriceUnset,
     isDeleted: apiProduct.isDeleted || false,
     daysInInventory: apiProduct.daysInInventory ?? null,
     firstPurchaseDate: apiProduct.firstPurchaseDate ?? null,
@@ -126,12 +201,29 @@ function transformProduct(apiProduct: any): InventoryProduct {
     supplierName: apiProduct.supplierName || null,
     supplierCode: apiProduct.supplierCode || null,
     stock: {
-      // API returns totalStock (camelCase)
+      // API returns totalStock (camelCase); warehouseStock from ledger breakdown
       total: apiProduct.totalStock || 0,
-      byWarehouse: apiProduct.warehouseStock || [],
+      byWarehouse: (apiProduct.warehouseStock || []).map(
+        (w: {
+          warehouseId?: string;
+          warehouse_id?: string;
+          warehouseName?: string;
+          warehouse_name?: string;
+          quantity?: number;
+        }) => ({
+          warehouseId: String(w.warehouseId ?? w.warehouse_id ?? ""),
+          warehouseName: String(w.warehouseName ?? w.warehouse_name ?? ""),
+          quantity: Number(w.quantity ?? 0),
+        }),
+      ),
     },
-    reorderThreshold: apiProduct.reorderThreshold ?? 0,
-    status: mapStockStatus(apiProduct.stockStatus || "IN_STOCK"),
+    reorderThreshold:
+      apiProduct.reorderThreshold ??
+      (apiProduct.reorder_threshold as number | undefined) ??
+      minReorderThreshold(apiProduct as Record<string, unknown>),
+    status: mapStockStatus(
+      deriveRawStockStatus(apiProduct as Record<string, unknown>),
+    ),
   };
 }
 
@@ -149,8 +241,11 @@ function InventoryPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Products</h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading products...</p>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <Package className="w-6 h-6 text-[#6366F1]" />
+              Products
+            </h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Loading products...</p>
           </div>
         </div>
         <SkeletonTable rows={6} />
@@ -171,14 +266,22 @@ function InventoryPageContent() {
   // Filter state
   const [searchQuery, setSearchQuery] = React.useState("");
   const [stockFilter, setStockFilter] = React.useState<StockFilter>("all");
+
+  React.useEffect(() => {
+    const q = searchParams.get("search");
+    setSearchQuery(q ?? "");
+  }, [searchParams]);
   const [categoryFilter, setCategoryFilter] = React.useState("");
-  const [warehouseFilter, setWarehouseFilter] = React.useState("");
+  const warehouseFilter = useInventoryWarehouseFilterStore((s) => s.warehouseId);
+  const setWarehouseFilter = useInventoryWarehouseFilterStore(
+    (s) => s.setWarehouseId,
+  );
   const [brandFilter, setBrandFilter] = React.useState("");
   const [showDeleted, setShowDeleted] = React.useState(false);
   const [sortBy, setSortBy] = React.useState<SortOption>("name");
 
   // Collapsible sections state
-  const [showSizeDetails, setShowSizeDetails] = React.useState(false);
+  const [showVariantBreakdown, setShowVariantBreakdown] = React.useState(false);
   const [showSupplierDetails, setShowSupplierDetails] = React.useState(false);
 
   // Drawer state
@@ -189,6 +292,11 @@ function InventoryPageContent() {
   // Modal state
   const [addProductOpen, setAddProductOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+
+  /** Row checkboxes in the product table (bulk actions can use this later). */
+  const [selectedProductIds, setSelectedProductIds] = React.useState<
+    Set<string>
+  >(() => new Set());
 
   // Reset page when filters change
   React.useEffect(() => {
@@ -206,14 +314,21 @@ function InventoryPageContent() {
   React.useEffect(() => {
     if (searchParams.get("openAddProduct") === "true") {
       setAddProductOpen(true);
-      window.history.replaceState({}, "", "/inventory");
+      window.history.replaceState({}, "", adminHref("/inventory"));
     }
   }, [searchParams]);
+
+  React.useEffect(() => {
+    return () => {
+      useInventoryWarehouseFilterStore.getState().resetWarehouse();
+    };
+  }, []);
 
   // API hooks
   const {
     data: productsResponse,
     isLoading: productsLoading,
+    isFetching: productsFetching,
     isError: productsError,
     refetch,
   } = useProducts({
@@ -228,6 +343,7 @@ function InventoryPageContent() {
   } as ProductListParams);
 
   const { data: stockSummary } = useStockSummary();
+  const { data: warehousesData = [] } = useWarehouses();
 
   // Transform products
   const products: InventoryProduct[] = React.useMemo(() => {
@@ -235,19 +351,21 @@ function InventoryPageContent() {
     return productsResponse.results.map(transformProduct);
   }, [productsResponse]);
 
-  // Compute size-wise summary
-  const sizeSummary = React.useMemo(() => {
-    const sizeMap: Record<string, { count: number; stock: number }> = {};
+  // Group by primary variant hint (API `size` field — e.g. apparel size, pack, grade)
+  const variantSummary = React.useMemo(() => {
+    const UNLABELED = "Unlabeled";
+    const bucketMap: Record<string, { count: number; stock: number }> = {};
     products.forEach((product) => {
-      const size = product.size || "No Size";
-      if (!sizeMap[size]) {
-        sizeMap[size] = { count: 0, stock: 0 };
+      const raw = product.size?.trim();
+      const bucket = raw && raw.length > 0 ? raw : UNLABELED;
+      if (!bucketMap[bucket]) {
+        bucketMap[bucket] = { count: 0, stock: 0 };
       }
-      sizeMap[size].count += 1;
-      sizeMap[size].stock += product.stock.total;
+      bucketMap[bucket].count += 1;
+      bucketMap[bucket].stock += product.stock.total;
     });
-    return Object.entries(sizeMap)
-      .map(([size, data]) => ({ size, ...data }))
+    return Object.entries(bucketMap)
+      .map(([bucket, data]) => ({ bucket, ...data }))
       .sort((a, b) => b.stock - a.stock);
   }, [products]);
 
@@ -285,6 +403,7 @@ function InventoryPageContent() {
     setBrandFilter("");
     setShowDeleted(false);
     setSortBy("name");
+    setSelectedProductIds(new Set());
   };
 
   // Sort products
@@ -304,6 +423,26 @@ function InventoryPageContent() {
     });
     return result;
   }, [products, sortBy]);
+
+  // Drop selections that are no longer on the current page / result set
+  React.useEffect(() => {
+    const allowed = new Set(sortedProducts.map((p) => p.id));
+    setSelectedProductIds((prev) => {
+      let stale = false;
+      for (const id of prev) {
+        if (!allowed.has(id)) {
+          stale = true;
+          break;
+        }
+      }
+      if (!stale) return prev;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (allowed.has(id)) next.add(id);
+      });
+      return next;
+    });
+  }, [sortedProducts]);
 
   // Handlers
   const handleProductClick = (product: InventoryProduct) => {
@@ -327,8 +466,11 @@ function InventoryPageContent() {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-[#F5F6FA]">Products</h1>
-              <p className="text-sm text-[#6F7285] mt-1">Loading products...</p>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Package className="w-6 h-6 text-[#6366F1]" />
+                Products
+              </h1>
+              <p className="text-sm text-[var(--text-muted)] mt-1">Loading products...</p>
             </div>
           </div>
           <SkeletonTable rows={6} />
@@ -342,8 +484,11 @@ function InventoryPageContent() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Products</h1>
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Package className="w-6 h-6 text-[#6366F1]" />
+            Products
+          </h1>
+          <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
             <ErrorState
               message="Could not load products. Check if backend is running."
               onRetry={() => refetch()}
@@ -368,8 +513,11 @@ function InventoryPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Products</h1>
-            <p className="text-sm text-[#6F7285] mt-1">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <Package className="w-6 h-6 text-[#6366F1]" />
+              Products
+            </h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               {products.length} of {summary.total_products || products.length}{" "}
               products
               {showDeleted && " (including deleted)"}
@@ -380,7 +528,7 @@ function InventoryPageContent() {
             <Tooltip content="Export available after data sync">
               <button
                 disabled
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[#6F7285] text-sm cursor-not-allowed opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[var(--text-muted)] text-sm cursor-not-allowed opacity-50"
               >
                 <Download className="w-4 h-4 stroke-[1.5]" />
                 Export
@@ -391,7 +539,7 @@ function InventoryPageContent() {
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] text-sm hover:bg-white/[0.08] transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[var(--text-primary)] text-sm hover:bg-white/[0.08] transition-colors"
               >
                 <Upload className="w-4 h-4 stroke-[1.5]" />
                 Import
@@ -402,10 +550,10 @@ function InventoryPageContent() {
             {isAdmin && (
               <button
                 onClick={() => setAddProductOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#6366F1] text-white text-sm font-medium hover:bg-[#7376FF] transition-colors"
               >
                 <Plus className="w-4 h-4 stroke-[2]" />
-                Add Product
+                Add a product
               </button>
             )}
           </div>
@@ -433,49 +581,57 @@ function InventoryPageContent() {
             color="#E74C3C"
           />
         </div>
+        <p className="text-xs text-[var(--text-muted)] max-w-3xl">
+          Summary counts are for your whole catalogue. A product shows{" "}
+          <span className="text-[var(--text-primary)]">Out of stock</span> when
+          it has zero units recorded—after you add a product, record incoming stock
+          (purchase or stock adjustment) so the quantity matches what is on the shelf.
+        </p>
 
-        {/* Size-wise & Supplier-wise Summary Sections */}
+        {/* Variant & supplier rollups */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Size-wise Details */}
-          <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+          {/* Variant breakdown (uses product primary variant hint from API) */}
+          <div className="rounded-xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-default)] overflow-hidden">
             <button
-              onClick={() => setShowSizeDetails(!showSizeDetails)}
+              onClick={() =>
+                setShowVariantBreakdown(!showVariantBreakdown)
+              }
               className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-                  <Ruler className="w-5 h-5 text-[#C6A15B]" />
+                <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+                  <Layers className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-[#F5F6FA]">
-                    Size-wise Details
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Variant breakdown
                   </h3>
-                  <p className="text-xs text-[#6F7285]">
-                    {sizeSummary.length} sizes
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {variantSummary.length} groups
                   </p>
                 </div>
               </div>
-              {showSizeDetails ? (
+              {showVariantBreakdown ? (
                 <ChevronUp className="w-5 h-5 text-[#6F7285]" />
               ) : (
                 <ChevronDown className="w-5 h-5 text-[#6F7285]" />
               )}
             </button>
-            {showSizeDetails && (
+            {showVariantBreakdown && (
               <div className="px-4 pb-4 space-y-2 max-h-64 overflow-auto">
-                {sizeSummary.length === 0 ? (
+                {variantSummary.length === 0 ? (
                   <p className="text-sm text-[#6F7285] text-center py-4">
-                    No size data available
+                    No products to summarize
                   </p>
                 ) : (
-                  sizeSummary.map((item) => (
+                  variantSummary.map((item) => (
                     <div
-                      key={item.size}
+                      key={item.bucket}
                       className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-[#F5F6FA]">
-                          {item.size}
+                          {item.bucket}
                         </span>
                         <span className="text-xs text-[#6F7285]">
                           ({item.count} products)
@@ -499,21 +655,21 @@ function InventoryPageContent() {
             )}
           </div>
 
-          {/* Supplier-wise Details */}
-          <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+          {/* By supplier */}
+          <div className="rounded-xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-default)] overflow-hidden">
             <button
               onClick={() => setShowSupplierDetails(!showSupplierDetails)}
               className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#2ECC71]/10">
-                  <Truck className="w-5 h-5 text-[#2ECC71]" />
+                <div className="p-2 rounded-lg bg-[#A855F7] shadow-sm">
+                  <Truck className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-[#F5F6FA]">
-                    Supplier-wise Details
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    By supplier
                   </h3>
-                  <p className="text-xs text-[#6F7285]">
+                  <p className="text-xs text-[var(--text-muted)]">
                     {supplierSummary.length} suppliers
                   </p>
                 </div>
@@ -583,9 +739,16 @@ function InventoryPageContent() {
           hasActiveFilters={hasActiveFilters}
         />
 
+        {productsFetching && searchQuery.trim() !== "" ? (
+          <p className="text-xs text-[var(--text-muted)] flex items-center gap-2 -mt-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            Searching products…
+          </p>
+        ) : null}
+
         {/* Product List or Empty State */}
         {products.length === 0 ? (
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
             <EmptyState
               icon={Package}
               title={emptyStates.inventory.title}
@@ -594,12 +757,12 @@ function InventoryPageContent() {
                 isAdmin
                   ? [
                       {
-                        label: "Add Product",
+                        label: "Add a product",
                         onClick: () => setAddProductOpen(true),
                         variant: "primary",
                       },
                       {
-                        label: "Import Products",
+                        label: "Import from file",
                         onClick: () => setImportOpen(true),
                         variant: "secondary",
                       },
@@ -613,6 +776,8 @@ function InventoryPageContent() {
             <InventoryList
               products={sortedProducts}
               onProductClick={handleProductClick}
+              selectedIds={selectedProductIds}
+              onSelectionChange={setSelectedProductIds}
             />
             {/* Pagination */}
             {productsResponse?.meta && (
@@ -642,7 +807,14 @@ function InventoryPageContent() {
         />
 
         {/* Import Modal */}
-        <ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
+        <ImportModal
+          isOpen={importOpen}
+          onClose={() => setImportOpen(false)}
+          warehouses={warehousesData}
+          onImported={() => {
+            void refetch();
+          }}
+        />
       </div>
     </PageTransition>
   );
@@ -658,11 +830,13 @@ function StockCard({
   color?: string;
 }) {
   return (
-    <div className="p-4 rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08]">
-      <p className="text-xs text-[#6F7285] uppercase tracking-wide">{label}</p>
+    <div className="p-4 rounded-xl bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border-default)]">
+      <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">{label}</p>
       <p
-        className="text-2xl font-bold tabular-nums mt-1"
-        style={{ color: color || "#F5F6FA" }}
+        className={`text-2xl font-bold tabular-nums mt-1 ${
+          color ? "" : "text-[var(--text-primary)]"
+        }`}
+        style={color ? { color } : undefined}
       >
         {value}
       </p>

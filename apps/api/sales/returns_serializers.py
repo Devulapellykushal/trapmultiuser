@@ -1,5 +1,5 @@
 """
-Returns Serializers for TRAP Inventory System.
+Returns Serializers for Quake Inventory System.
 
 PHASE 15: RETURNS, REFUNDS & ADJUSTMENTS
 """

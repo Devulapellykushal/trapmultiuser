@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
+import { ADMIN_BASE, adminHref } from "@/lib/admin-routes";
 
 /**
  * Centralized navigation hook for all page transitions.
@@ -16,20 +17,23 @@ export function useNavigation() {
 
   // Dashboard Quick Actions
   const goToNewSale = useCallback(() => navigate("/pos"), [navigate]);
-  const goToAddProduct = useCallback(() => navigate("/inventory?openAddProduct=true"), [navigate]);
-  const goToInvoices = useCallback(() => navigate("/invoices"), [navigate]);
-  const goToAnalytics = useCallback(() => navigate("/analytics"), [navigate]);
-  const goToInventory = useCallback(() => navigate("/inventory"), [navigate]);
-  const goToDashboard = useCallback(() => navigate("/"), [navigate]);
-  const goToSettings = useCallback(() => navigate("/settings"), [navigate]);
+  const goToAddProduct = useCallback(
+    () => navigate(`${adminHref("/inventory")}?openAddProduct=true`),
+    [navigate],
+  );
+  const goToInvoices = useCallback(() => navigate(adminHref("/invoices")), [navigate]);
+  const goToAnalytics = useCallback(() => navigate(adminHref("/analytics")), [navigate]);
+  const goToInventory = useCallback(() => navigate(adminHref("/inventory")), [navigate]);
+  const goToDashboard = useCallback(() => navigate(ADMIN_BASE), [navigate]);
+  const goToSettings = useCallback(() => navigate(adminHref("/settings")), [navigate]);
 
   // Detail views
   const goToProduct = useCallback((productId: string | number) => {
-    navigate(`/inventory/${productId}`);
+    navigate(`${adminHref("/inventory")}/${productId}`);
   }, [navigate]);
 
   const goToInvoice = useCallback((invoiceId: string | number) => {
-    navigate(`/invoices/${invoiceId}`);
+    navigate(`${adminHref("/invoices")}/${invoiceId}`);
   }, [navigate]);
 
   const goToReceipt = useCallback((saleId: string | number) => {

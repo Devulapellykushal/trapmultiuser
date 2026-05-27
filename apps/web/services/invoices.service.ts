@@ -28,15 +28,17 @@ export interface Invoice {
   discount: string;
   discount_percent: number;
   total: string;
-  payment_method: "cash" | "card";
-  status: "paid" | "cancelled" | "refunded";
+  payment_method: "cash" | "card" | "upi" | "credit";
+  status: "paid" | "cancelled" | "refunded" | "credit";
   cashier: string;
   created_at: string;
 }
 
 export interface InvoiceListParams {
   search?: string;
-  status?: "paid" | "cancelled" | "refunded";
+  /** When set, list returns invoice(s) for this sale (POS “View Invoice” deep link). */
+  sale_id?: string;
+  status?: "paid" | "cancelled" | "refunded" | "credit";
   payment_method?: "cash" | "card" | "upi" | "credit";
   date_from?: string;
   date_to?: string;

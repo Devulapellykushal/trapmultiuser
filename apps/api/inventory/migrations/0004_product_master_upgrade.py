@@ -31,7 +31,7 @@ def generate_barcode():
     timestamp_part = str(int(time.time()))[-6:]
     random_part = ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=5))
     
-    return f"TRAP-{timestamp_part}-{random_part}"
+    return f"Quake-{timestamp_part}-{random_part}"
 
 
 def backfill_sku_and_barcode(apps, schema_editor):

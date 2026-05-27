@@ -1,5 +1,5 @@
 """
-Inventory Tests for TRAP Inventory System.
+Inventory Tests for Quake Inventory System.
 Tests for ledger-based stock management and hardening rules.
 
 HARDENING TESTS (Phase 2.1):
@@ -9,11 +9,14 @@ HARDENING TESTS (Phase 2.1):
 - Single entry point for stock mutation
 """
 
+import uuid
 from decimal import Decimal
 from django.test import TestCase
 from django.db import transaction
 from rest_framework.test import APITestCase
 from rest_framework import status
+
+from core.test_username import unique_username
 
 from .models import Warehouse, Product, ProductVariant, StockLedger, StockSnapshot
 from .serializers import ProductVariantUpdateSerializer
@@ -40,12 +43,12 @@ class ProductModelTest(TestCase):
     def test_create_product_with_variant(self):
         product = Product.objects.create(
             name="Luxury T-Shirt",
-            brand="TRAP",
+            brand="Quake",
             category="Apparel"
         )
         variant = ProductVariant.objects.create(
             product=product,
-            sku="TRAP-TS-001-M-BLK",
+            sku="Quake-TS-001-M-BLK",
             size="M",
             color="Black",
             cost_price=Decimal("25.00"),
@@ -296,7 +299,7 @@ class StockSummaryTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Sum WH', code='SUM-WH')
         self.product1 = Product.objects.create(
@@ -351,7 +354,7 @@ class SoftDeleteTest(APITestCase):
         # Create admin user for authentication
         from users.models import User
         self.admin_user = User.objects.create_user(
-            username='testadmin',
+            username=unique_username('testadmin'),
             password='testpass123',
             role='ADMIN'
         )
@@ -553,7 +556,7 @@ class PriceImmutabilityTest(TestCase):
         """
         from users.models import User
         admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         
         # Add stock via InventoryMovement (Phase 11/12)
@@ -600,7 +603,7 @@ class PriceImmutabilityTest(TestCase):
         """
         from users.models import User
         admin = User.objects.create_user(
-            username='testadmin2', password='testpass', role='ADMIN'
+            username=unique_username('testadmin2'), password='testpass', role='ADMIN'
         )
         
         # Add stock via InventoryMovement (Phase 11/12)
@@ -740,20 +743,19 @@ class SKUGenerationTest(TestCase):
     """
     
     def test_sku_format_deterministic(self):
-        """Test that SKU follows retail-grade format."""
+        """Test that SKU follows retail-grade format (uppercase BRAND-CATEGORY-NNNNNN)."""
         product = Product.objects.create(
             name="Test Polo",
-            brand="TRAP",
+            brand="Quake",
             category="POLO"
         )
         
-        # SKU should match format: BRAND-CATEGORY-NNNNNN
         self.assertIsNotNone(product.sku)
-        self.assertTrue(product.sku.startswith('TRAP-POLO-'))
+        # generate_retail_sku normalizes to uppercase alphanumeric segments
+        self.assertTrue(product.sku.startswith("QUAKE-POLO-"), product.sku)
         
-        # Sequence part should be 6 digits
-        parts = product.sku.split('-')
-        self.assertEqual(len(parts), 3)
+        parts = product.sku.split("-")
+        self.assertEqual(len(parts), 3, product.sku)
         self.assertEqual(len(parts[2]), 6)
         self.assertTrue(parts[2].isdigit())
     
@@ -781,7 +783,7 @@ class SKUGenerationTest(TestCase):
         """Test that SKU cannot be changed after creation."""
         product = Product.objects.create(
             name="Test Product",
-            brand="TRAP",
+            brand="Quake",
             category="TEE"
         )
         original_sku = product.sku
@@ -919,7 +921,7 @@ class OpeningStockTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='TEST-WH')
         self.product = Product.objects.create(
@@ -980,7 +982,7 @@ class SaleReducesStockTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='SALE-WH')
         self.product = Product.objects.create(
@@ -1040,7 +1042,7 @@ class OverSaleBlockedTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='OVER-WH')
         self.product = Product.objects.create(
@@ -1105,7 +1107,7 @@ class LedgerDerivationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='testadmin', password='testpass', role='ADMIN'
+            username=unique_username('testadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='LED-WH')
         self.product = Product.objects.create(
@@ -1182,10 +1184,10 @@ class RBACMovementTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.staff = User.objects.create_user(
-            username='staff', password='staffpass', role='STAFF'
+            username=unique_username('staff'), password='staffpass', role='STAFF'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='RBAC-WH')
         self.product = Product.objects.create(
@@ -1247,7 +1249,7 @@ class AuditTrailTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='auditadmin', password='testpass', role='ADMIN'
+            username=unique_username('auditadmin'), password='testpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Audit WH', code='AUD-WH')
         self.product = Product.objects.create(
@@ -1266,7 +1268,7 @@ class AuditTrailTest(TestCase):
         )
         
         self.assertEqual(movement.created_by, self.admin)
-        self.assertEqual(movement.created_by.username, 'auditadmin')
+        self.assertEqual(movement.created_by.username, self.admin.username)
     
     def test_movement_has_timestamp(self):
         """Test that movement has auto-generated timestamp."""
@@ -1329,7 +1331,7 @@ class ProductWithNoMovementsStockTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.product = Product.objects.create(
             name="Empty Product", brand="TEST", category="TEST"
@@ -1355,7 +1357,7 @@ class ProductWithMovementsStockTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Prod WH', code='PROD-WH')
         self.product = Product.objects.create(
@@ -1397,7 +1399,7 @@ class InventoryListNot500Test(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
     
     def test_products_list_returns_200(self):
@@ -1427,7 +1429,7 @@ class StockSummaryLedgerTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Sum2 WH', code='SUM2-WH')
         
@@ -1472,10 +1474,10 @@ class WarehouseCreateTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.staff = User.objects.create_user(
-            username='staff', password='staffpass', role='STAFF'
+            username=unique_username('staff'), password='staffpass', role='STAFF'
         )
     
     def test_admin_can_create_warehouse(self):
@@ -1491,8 +1493,22 @@ class WarehouseCreateTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'Main Warehouse')
         self.assertEqual(response.data['code'], 'MAIN-WH')  # Uppercase enforced
-    
-    def test_staff_cannot_create_warehouse(self):
+
+    def test_admin_create_warehouse_without_code_auto_generates(self):
+        """Omitting code yields a unique generated warehouse code."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            '/api/v1/inventory/warehouses/',
+            {
+                'name': 'Auto Code WH',
+                'address': '1234567890 twelve chars min',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Auto Code WH')
+        code = (response.data.get('code') or '').strip()
+        self.assertGreater(len(code), 3)
         """Test that staff cannot create a warehouse."""
         self.client.force_authenticate(user=self.staff)
         
@@ -1523,7 +1539,7 @@ class OpeningStockOnceTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='TEST-WH')
         self.product = Product.objects.create(
@@ -1597,7 +1613,7 @@ class OpeningStockPositiveTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(name='Test WH', code='TEST-WH')
         self.product = Product.objects.create(
@@ -1639,7 +1655,7 @@ class WarehouseScopedStockTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse_a = Warehouse.objects.create(name='Warehouse A', code='WH-A')
         self.warehouse_b = Warehouse.objects.create(name='Warehouse B', code='WH-B')
@@ -1713,7 +1729,7 @@ class GlobalStockSumTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse_a = Warehouse.objects.create(name='Warehouse A', code='WH-A')
         self.warehouse_b = Warehouse.objects.create(name='Warehouse B', code='WH-B')
@@ -1766,5 +1782,245 @@ class GlobalStockSumTest(TestCase):
         self.assertEqual(stock_b, 50)
 
 
+class BulkImportParseTest(TestCase):
+    """CSV parsing for bulk import."""
+
+    def test_parse_csv_skips_rows_without_name(self):
+        from .bulk_import import parse_csv_bytes
+
+        body = (
+            b"name,brand,category,pricing_cost_price,pricing_mrp,pricing_selling_price\n"
+            b",,,\n"
+            b"Item A,Quake,Tee,10,20,15\n"
+        )
+        rows = parse_csv_bytes(body)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "Item A")
 
 
+class BulkProductImportAPITest(APITestCase):
+    """Bulk import template download and CSV upload."""
+
+    def setUp(self):
+        import csv
+        import io
+
+        from users.models import User
+
+        self.admin = User.objects.create_user(
+            username=unique_username("impadmin"),
+            password="testpass123",
+            role="ADMIN",
+        )
+        self.staff = User.objects.create_user(
+            username=unique_username("impstaff"),
+            password="testpass123",
+            role="STAFF",
+        )
+        self.wh = Warehouse.objects.create(name="Import WH", code="IMPWH")
+        buf = io.StringIO()
+        w = csv.DictWriter(
+            buf,
+            fieldnames=[
+                "warehouse_code",
+                "name",
+                "brand",
+                "category",
+                "description",
+                "product_code",
+                "brand_code",
+                "alias",
+                "country_of_origin",
+                "gender",
+                "material",
+                "season",
+                "attributes_json",
+                "supplier_code",
+                "is_active",
+                "product_sku",
+                "product_barcode",
+                "pricing_cost_price",
+                "pricing_mrp",
+                "pricing_selling_price",
+                "pricing_gst_percentage",
+                "variant_sku",
+                "variant_size",
+                "variant_color",
+                "variant_cost_price",
+                "variant_selling_price",
+                "variant_reorder_threshold",
+                "initial_stock",
+            ],
+        )
+        w.writeheader()
+        w.writerow(
+            {
+                "warehouse_code": "IMPWH",
+                "name": "Bulk CSV Tee",
+                "brand": "Quake",
+                "category": "Apparel",
+                "description": "",
+                "product_code": "",
+                "brand_code": "",
+                "alias": "",
+                "country_of_origin": "",
+                "gender": "UNISEX",
+                "material": "Cotton",
+                "season": "",
+                "attributes_json": "",
+                "supplier_code": "",
+                "is_active": "true",
+                "product_sku": "",
+                "product_barcode": "",
+                "pricing_cost_price": "100",
+                "pricing_mrp": "200",
+                "pricing_selling_price": "180",
+                "pricing_gst_percentage": "5",
+                "variant_sku": "",
+                "variant_size": "M",
+                "variant_color": "Blue",
+                "variant_cost_price": "",
+                "variant_selling_price": "",
+                "variant_reorder_threshold": "5",
+                "initial_stock": "2",
+            }
+        )
+        self.sample_csv = buf.getvalue().encode("utf-8")
+
+    def test_import_template_csv(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            "/api/v1/inventory/products/import-template/",
+            {"file_format": "csv"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(b"warehouse_code", response.content)
+
+    def test_import_template_xlsx(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            "/api/v1/inventory/products/import-template/",
+            {"file_format": "xlsx"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.content.startswith(b"PK"))
+
+    def test_import_bulk_csv_creates_product(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_authenticate(user=self.admin)
+        upload = SimpleUploadedFile("rows.csv", self.sample_csv, content_type="text/csv")
+        response = self.client.post(
+            "/api/v1/inventory/products/import-bulk/",
+            {"file": upload},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 1)
+        self.assertEqual(response.data["failed"], 0)
+        self.assertTrue(Product.objects.filter(name="Bulk CSV Tee").exists())
+
+    def test_import_bulk_xlsx_creates_product(self):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from openpyxl import Workbook
+
+        fieldnames = [
+            "warehouse_code",
+            "name",
+            "brand",
+            "category",
+            "description",
+            "product_code",
+            "brand_code",
+            "alias",
+            "country_of_origin",
+            "gender",
+            "material",
+            "season",
+            "attributes_json",
+            "supplier_code",
+            "is_active",
+            "product_sku",
+            "product_barcode",
+            "pricing_cost_price",
+            "pricing_mrp",
+            "pricing_selling_price",
+            "pricing_gst_percentage",
+            "variant_sku",
+            "variant_size",
+            "variant_color",
+            "variant_cost_price",
+            "variant_selling_price",
+            "variant_reorder_threshold",
+            "initial_stock",
+        ]
+        row = {
+            "warehouse_code": "IMPWH",
+            "name": "Bulk XLSX Tee",
+            "brand": "Quake",
+            "category": "Apparel",
+            "description": "",
+            "product_code": "",
+            "brand_code": "",
+            "alias": "",
+            "country_of_origin": "",
+            "gender": "UNISEX",
+            "material": "Cotton",
+            "season": "",
+            "attributes_json": "",
+            "supplier_code": "",
+            "is_active": "true",
+            "product_sku": "",
+            "product_barcode": "",
+            "pricing_cost_price": "100",
+            "pricing_mrp": "200",
+            "pricing_selling_price": "180",
+            "pricing_gst_percentage": "5",
+            "variant_sku": "",
+            "variant_size": "L",
+            "variant_color": "Green",
+            "variant_cost_price": "",
+            "variant_selling_price": "",
+            "variant_reorder_threshold": "3",
+            "initial_stock": "1",
+        }
+
+        wb = Workbook()
+        ws = wb.active
+        ws.append(fieldnames)
+        ws.append([row.get(h, "") for h in fieldnames])
+        buf = BytesIO()
+        wb.save(buf)
+        xlsx_bytes = buf.getvalue()
+
+        self.client.force_authenticate(user=self.admin)
+        upload = SimpleUploadedFile(
+            "rows.xlsx",
+            xlsx_bytes,
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+        response = self.client.post(
+            "/api/v1/inventory/products/import-bulk/",
+            {"file": upload},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 1)
+        self.assertEqual(response.data["failed"], 0)
+        self.assertTrue(Product.objects.filter(name="Bulk XLSX Tee").exists())
+
+    def test_staff_cannot_import_bulk(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_authenticate(user=self.staff)
+        upload = SimpleUploadedFile("rows.csv", self.sample_csv, content_type="text/csv")
+        response = self.client.post(
+            "/api/v1/inventory/products/import-bulk/",
+            {"file": upload},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

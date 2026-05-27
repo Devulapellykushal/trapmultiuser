@@ -1,5 +1,5 @@
 """
-Reports Tests for TRAP Inventory System.
+Reports Tests for Quake Inventory System.
 
 PHASE 16: REPORTS & ANALYTICS TESTS
 ====================================
@@ -14,6 +14,7 @@ Required tests:
 
 import uuid
 from decimal import Decimal
+from core.test_username import unique_username
 from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -39,7 +40,7 @@ class InventoryReportAccuracyTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -50,7 +51,7 @@ class InventoryReportAccuracyTest(TestCase):
             brand="TEST",
             category="Electronics",
             sku="RPT-001",
-            barcode_value="TRAP-RPT-001"
+            barcode_value="Quake-RPT-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -94,7 +95,7 @@ class InventoryReportAccuracyTest(TestCase):
         sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-RPT-001', 'quantity': 25}],
+            items=[{'barcode': 'Quake-RPT-001', 'quantity': 25}],
             payments=[{'method': 'CASH', 'amount': Decimal('2500.00')}],
             user=self.admin
         )
@@ -114,7 +115,7 @@ class InventoryReportAccuracyTest(TestCase):
         sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-RPT-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-RPT-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -143,7 +144,7 @@ class SalesSummaryMathTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -154,7 +155,7 @@ class SalesSummaryMathTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="SALES-001",
-            barcode_value="TRAP-SALES-001"
+            barcode_value="Quake-SALES-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -179,7 +180,7 @@ class SalesSummaryMathTest(TestCase):
             sale = sales_services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-SALES-001', 'quantity': 5}],
+                items=[{'barcode': 'Quake-SALES-001', 'quantity': 5}],
                 payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
                 user=self.admin
             )
@@ -199,7 +200,7 @@ class SalesSummaryMathTest(TestCase):
             sales_services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-SALES-001', 'quantity': 10}],
+                items=[{'barcode': 'Quake-SALES-001', 'quantity': 10}],
                 payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
                 user=self.admin
             )
@@ -228,7 +229,7 @@ class ProfitCalculationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -239,7 +240,7 @@ class ProfitCalculationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PROFIT-001",
-            barcode_value="TRAP-PROFIT-001"
+            barcode_value="Quake-PROFIT-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -262,7 +263,7 @@ class ProfitCalculationTest(TestCase):
         sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-PROFIT-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-PROFIT-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -281,7 +282,7 @@ class ProfitCalculationTest(TestCase):
         sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-PROFIT-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-PROFIT-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -309,7 +310,7 @@ class GSTReportTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -320,7 +321,7 @@ class GSTReportTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="GST-001",
-            barcode_value="TRAP-GST-001"
+            barcode_value="Quake-GST-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -343,7 +344,7 @@ class GSTReportTest(TestCase):
         sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GST-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-GST-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -360,7 +361,7 @@ class GSTReportTest(TestCase):
         sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GST-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-GST-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -400,12 +401,12 @@ class RBACReportAccessTest(APITestCase):
         from users.models import User
         
         self.admin = User.objects.create_user(
-            username='admin',
+            username=unique_username('admin'),
             password='adminpass',
             role='ADMIN'
         )
         self.staff = User.objects.create_user(
-            username='staff',
+            username=unique_username('staff'),
             password='staffpass',
             role='STAFF'
         )
@@ -420,6 +421,20 @@ class RBACReportAccessTest(APITestCase):
         
         response = self.client.get('/api/v1/reports/inventory/current/')
         
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_staff_can_access_sales_summary_and_trends(self):
+        """Staff can load dashboard sales aggregates."""
+        self.client.force_authenticate(user=self.staff)
+        r1 = self.client.get('/api/v1/reports/sales/summary/')
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        r2 = self.client.get('/api/v1/reports/sales/trends/?group_by=day')
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+    
+    def test_staff_cannot_access_product_sales_report(self):
+        """Product-level sales breakdown remains manager/admin."""
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/v1/reports/sales/by-product/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_staff_cannot_access_profit_report(self):

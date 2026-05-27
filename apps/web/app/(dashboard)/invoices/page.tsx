@@ -1,220 +1,29 @@
 "use client";
 
-import * as React from "react";
-import { FileText, DollarSign, Receipt } from "lucide-react";
-import { PageTransition } from "@/components/layout";
 import {
   InvoiceFilters,
-  InvoiceTable,
   InvoicePreview,
+  InvoiceTable,
   PaymentFilter,
   StatusFilter,
 } from "@/components/invoices";
+import { PageTransition } from "@/components/layout";
 import { EmptyState, emptyStates } from "@/components/ui/empty-state";
-import { SkeletonTable } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Pagination } from "@/components/ui/pagination";
+import { SkeletonTable } from "@/components/ui/skeleton";
 import { useInvoices } from "@/hooks";
 import { api } from "@/lib/api";
-
-// Types matching component expectations
-interface InvoiceItem {
-  productId: string;
-  name: string;
-  sku?: string;
-  variantDetails?: string;
-  quantity: number;
-  unitPrice?: number;
-  total: number;
-  gstPercentage?: number;
-  gstAmount?: number;
-}
-
-interface PaymentDetail {
-  method: string;
-  amount: number;
-}
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  time?: string;
-  customer: {
-    name: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    gstin?: string;
-  };
-  items: InvoiceItem[];
-  subtotal?: number;
-  discount?: number;
-  discountType?: string;
-  discountPercent?: number;
-  gstTotal?: number;
-  total: number;
-  paymentMethod: "cash" | "card" | "upi" | "credit";
-  paymentMethods?: PaymentDetail[];
-  status: "paid" | "cancelled" | "refunded";
-  cashier?: string;
-}
-
-// API uses CamelCaseJSONRenderer, so all fields are camelCase
-interface ApiInvoice {
-  id: string;
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  createdAt?: string;
-  billingName?: string;
-  billingPhone?: string;
-  billingGstin?: string;
-  saleCustomerEmail?: string;
-  saleCustomerAddress?: string;
-  discountAmount?: string;
-  discountType?: string;
-  gstTotal?: string;
-  totalAmount?: string;
-  subtotalAmount?: string;
-  discountValue?: string;
-  salePayments?: Array<{ method?: string; amount?: string }>;
-  saleCreatedBy?: { name?: string; username?: string };
-  saleCreatedByName?: string;
-  items?: Array<{
-    id: string;
-    productName?: string;
-    sku?: string;
-    variantDetails?: string;
-    quantity?: number;
-    unitPrice?: string;
-    lineTotal?: string;
-    lineTotalWithGst?: string;
-    gstPercentage?: string;
-    gstAmount?: string;
-  }>;
-}
-
-// Helper to get the primary payment method from payments array
-// API returns payment methods in UPPERCASE (CASH, CARD, UPI, CREDIT)
-function getPrimaryPaymentMethod(
-  payments?: Array<{ method?: string; amount?: string }>,
-): "cash" | "card" | "upi" | "credit" {
-  if (!payments || payments.length === 0) return "cash";
-
-  // Get the first (primary) payment method and normalize to lowercase
-  const method = (payments[0]?.method || "CASH").toUpperCase();
-
-  switch (method) {
-    case "UPI":
-      return "upi";
-    case "CARD":
-      return "card";
-    case "CREDIT":
-      return "credit";
-    case "CASH":
-    default:
-      return "cash";
-  }
-}
-
-// Helper to format date safely
-function formatDateSafe(dateStr?: string): string {
-  if (!dateStr) return "";
-  // Handle ISO format (2026-01-31T10:30:00Z or 2026-01-31)
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return "";
-    return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD
-  } catch {
-    return "";
-  }
-}
-
-// Transform API response from list endpoint (with payment info)
-// API uses CamelCaseJSONRenderer, so all fields are camelCase
-function transformInvoiceList(apiInvoice: ApiInvoice): Invoice {
-  const paymentMethod = getPrimaryPaymentMethod(apiInvoice.salePayments);
-
-  return {
-    id: String(apiInvoice.id),
-    invoiceNumber: apiInvoice.invoiceNumber || "",
-    date:
-      formatDateSafe(apiInvoice.invoiceDate) ||
-      formatDateSafe(apiInvoice.createdAt),
-    time: apiInvoice.createdAt?.split("T")[1]?.slice(0, 5) || "",
-    customer: {
-      name: apiInvoice.billingName || "Walk-in Customer",
-      phone: apiInvoice.billingPhone || undefined,
-    },
-    items: [], // Will be fetched on click
-    subtotal: parseFloat(apiInvoice.subtotalAmount || "0") || 0,
-    discount: parseFloat(apiInvoice.discountAmount || "0") || 0,
-    discountType: apiInvoice.discountType || "NONE",
-    gstTotal: parseFloat(apiInvoice.gstTotal || "0") || 0,
-    total: parseFloat(apiInvoice.totalAmount || "0") || 0,
-    paymentMethod: paymentMethod,
-    status: "paid",
-    cashier: apiInvoice.saleCreatedByName || "Admin",
-  };
-}
-
-// Transform full invoice details
-// API uses CamelCaseJSONRenderer, so all fields are camelCase
-function transformInvoiceDetail(apiInvoice: ApiInvoice): Invoice {
-  // Get payment method from salePayments
-  const paymentMethod = getPrimaryPaymentMethod(apiInvoice.salePayments);
-
-  // Get all payment methods for display
-  const paymentMethods = (apiInvoice.salePayments || []).map((p) => ({
-    method: p.method || "CASH",
-    amount: parseFloat(p.amount || "0") || 0,
-  }));
-
-  // Get cashier name from saleCreatedBy
-  const cashierName =
-    apiInvoice.saleCreatedBy?.name ||
-    apiInvoice.saleCreatedBy?.username ||
-    apiInvoice.saleCreatedByName ||
-    "Admin";
-
-  return {
-    id: String(apiInvoice.id),
-    invoiceNumber: apiInvoice.invoiceNumber || "",
-    date:
-      formatDateSafe(apiInvoice.invoiceDate) ||
-      formatDateSafe(apiInvoice.createdAt),
-    time: apiInvoice.createdAt?.split("T")[1]?.slice(0, 5) || "",
-    customer: {
-      name: apiInvoice.billingName || "Walk-in Customer",
-      phone: apiInvoice.billingPhone || undefined,
-      email: apiInvoice.saleCustomerEmail || undefined,
-      address: apiInvoice.saleCustomerAddress || undefined,
-      gstin: apiInvoice.billingGstin || undefined,
-    },
-    items: (apiInvoice.items || []).map((item) => ({
-      productId: String(item.id),
-      // Use productName, fall back to SKU if empty
-      name: item.productName || item.sku || "Unknown Product",
-      sku: item.sku || "",
-      variantDetails: item.variantDetails || "",
-      quantity: item.quantity || 0,
-      unitPrice: parseFloat(item.unitPrice || "0") || 0,
-      total: parseFloat(item.lineTotalWithGst || item.lineTotal || "0") || 0,
-      gstPercentage: parseFloat(item.gstPercentage || "0") || 0,
-      gstAmount: parseFloat(item.gstAmount || "0") || 0,
-    })),
-    subtotal: parseFloat(apiInvoice.subtotalAmount || "0") || 0,
-    discount: parseFloat(apiInvoice.discountAmount || "0") || 0,
-    discountType: apiInvoice.discountType || "NONE",
-    discountPercent: parseFloat(apiInvoice.discountValue || "0") || 0,
-    gstTotal: parseFloat(apiInvoice.gstTotal || "0") || 0,
-    total: parseFloat(apiInvoice.totalAmount || "0") || 0,
-    paymentMethod: paymentMethod,
-    paymentMethods: paymentMethods,
-    status: "paid",
-    cashier: cashierName,
-  };
-}
+import {
+  type ApiInvoice,
+  type Invoice,
+  transformInvoiceDetail,
+  transformInvoiceList,
+} from "@/lib/invoices/transform-api-invoice";
+import { DollarSign, FileText, Receipt } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
+import { adminHref } from "@/lib/admin-routes";
 
 // Format currency helper
 function formatCurrency(amount: number): string {
@@ -227,6 +36,10 @@ function formatCurrency(amount: number): string {
 }
 
 export default function InvoicesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const handledSaleIdFromUrlRef = React.useRef<string | null>(null);
+
   // Pagination state
   const [page, setPage] = React.useState(1);
   const pageSize = 20;
@@ -325,13 +138,68 @@ export default function InvoicesPage() {
     setTimeout(() => setSelectedInvoice(null), 300);
   };
 
+  // Open invoice preview when POS navigates here with `?sale_id=` (View Invoice).
+  React.useEffect(() => {
+    const raw = searchParams.get("sale_id");
+    if (!raw) {
+      handledSaleIdFromUrlRef.current = null;
+      return;
+    }
+    if (handledSaleIdFromUrlRef.current === raw) return;
+    handledSaleIdFromUrlRef.current = raw;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await api.get<{ results: ApiInvoice[] }>("/invoices/", {
+          sale_id: raw,
+          page_size: 5,
+        });
+        const first = data.results?.[0];
+        router.replace(adminHref("/invoices"), { scroll: false });
+        if (cancelled || !first) {
+          return;
+        }
+        setLoadingDetail(true);
+        try {
+          const fullInvoice = await api.get<ApiInvoice>(
+            `/invoices/${first.id}/`,
+          );
+          if (!cancelled) {
+            setSelectedInvoice(transformInvoiceDetail(fullInvoice));
+            setPreviewOpen(true);
+          }
+        } catch (error) {
+          console.error("Failed to fetch invoice details:", error);
+          if (!cancelled) {
+            setSelectedInvoice(transformInvoiceList(first));
+            setPreviewOpen(true);
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingDetail(false);
+          }
+        }
+      } catch {
+        router.replace(adminHref("/invoices"), { scroll: false });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, router]);
+
   // Loading state
   if (isLoading) {
     return (
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Invoices</h1>
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <FileText className="w-6 h-6 text-[#6366F1]" />
+              Invoices
+            </h1>
             <p className="text-sm text-[#6F7285] mt-1">Loading invoices...</p>
           </div>
           <SkeletonTable rows={6} />
@@ -345,7 +213,10 @@ export default function InvoicesPage() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Invoices</h1>
+          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+            <FileText className="w-6 h-6 text-[#6366F1]" />
+            Invoices
+          </h1>
           <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
             <ErrorState
               message="Could not load invoices. Check if backend is running."
@@ -362,7 +233,10 @@ export default function InvoicesPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Invoices</h1>
+          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+            <FileText className="w-6 h-6 text-[#6366F1]" />
+            Invoices
+          </h1>
           <p className="text-sm text-[#6F7285] mt-1">Sales & billing history</p>
         </div>
 

@@ -1,9 +1,10 @@
 "use client";
 
-import * as React from "react";
-import { X, Download, Printer } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { apiClient } from "@/lib/api";
+import { formatDateTimeIST } from "@/lib/invoices/format-ist";
+import { AnimatePresence, motion } from "framer-motion";
+import { Download, Printer, X } from "lucide-react";
+import * as React from "react";
 
 // Invoice types
 interface InvoiceItem {
@@ -23,11 +24,24 @@ interface PaymentDetail {
   amount: number;
 }
 
+interface InvoiceWarehouse {
+  name: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  sellerImageUrl?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIfsc?: string;
+}
+
 interface Invoice {
   id: string;
   invoiceNumber: string;
   date: string;
   time?: string;
+  /** ISO instant for IST date+time on the printed header. */
+  occurredAtIso?: string;
   customer: {
     name: string;
     phone?: string;
@@ -44,23 +58,82 @@ interface Invoice {
   total: number;
   paymentMethod: "cash" | "card" | "upi" | "credit";
   paymentMethods?: PaymentDetail[];
-  status: "paid" | "cancelled" | "refunded";
+  status: "paid" | "cancelled" | "refunded" | "credit";
   cashier?: string;
+  warehouse?: InvoiceWarehouse | null;
 }
 
 const RUPEE = "\u20B9";
 
-const STORE_INFO = {
-  name: "EDIT - BY TRAP",
-  addressLine1: "P No 385, Ground Floor",
-  addressLine2: "Film Nagar, Jubilee Hills",
-  addressLine3: "Hyderabad-500033",
-  gstin: "36AAXFT4221H1ZU",
-  stateLine: "State Name : Telangana, Code : 36",
+/**
+ * Legal / company defaults for GST, state line, bank, and signatory — aligned
+ * with `apps/api/invoices/pdf/seller_context.py` until BusinessSettings is wired here.
+ */
+const PRINT_LEGAL = {
+  legalEntityName: "Thirumala Wheels",
+  addressLines: [
+    "P No 385, Ground Floor",
+    "Film Nagar, Jubilee Hills",
+    "Hyderabad-500033",
+  ] as string[],
+  gstin: "",
+  stateLine: "State Name : Telangana",
   bankName: "ICICI Bank Account - OD",
   bankAccount: "041005006897",
   bankIfsc: "ICIC0000410",
 };
+
+function warehouseAddressLines(address: string | undefined): string[] {
+  if (!address?.trim()) return [];
+  const lines: string[] = [];
+  for (const part of address.replace(/\r\n/g, "\n").split("\n")) {
+    const s = part.trim();
+    if (s) lines.push(s);
+  }
+  return lines;
+}
+
+function resolvePrintedSeller(invoice: Invoice) {
+  const wh = invoice.warehouse;
+  const whName = wh?.name?.trim();
+  const sellerTitle = whName || PRINT_LEGAL.legalEntityName;
+
+  const whAddr = wh?.address?.trim();
+  const addressLines = whAddr
+    ? warehouseAddressLines(whAddr)
+    : [...PRINT_LEGAL.addressLines];
+
+  const whHasBank = Boolean(
+    wh?.bankName?.trim() || wh?.bankAccount?.trim() || wh?.bankIfsc?.trim(),
+  );
+  let bankName = PRINT_LEGAL.bankName;
+  let bankAccount = PRINT_LEGAL.bankAccount;
+  let bankIfsc = PRINT_LEGAL.bankIfsc;
+  if (whHasBank && wh) {
+    bankName = wh.bankName?.trim() || PRINT_LEGAL.bankName;
+    bankAccount = wh.bankAccount?.trim() || PRINT_LEGAL.bankAccount;
+    bankIfsc = wh.bankIfsc?.trim() || PRINT_LEGAL.bankIfsc;
+  }
+
+  const contactLines: string[] = [];
+  const em = wh?.email?.trim();
+  const ph = wh?.phone?.trim();
+  if (em) contactLines.push(`E-mail : ${em}`);
+  if (ph) contactLines.push(`Mobile : ${ph}`);
+
+  return {
+    sellerTitle,
+    addressLines,
+    contactLines,
+    sellerImageUrl: wh?.sellerImageUrl?.trim() || undefined,
+    gstin: PRINT_LEGAL.gstin,
+    stateLine: PRINT_LEGAL.stateLine,
+    bankName,
+    bankAccount,
+    bankIfsc,
+    signatoryName: PRINT_LEGAL.legalEntityName,
+  };
+}
 
 const MONTHS = [
   "Jan",
@@ -232,12 +305,41 @@ export function InvoicePreview({
     };
   }, [isOpen]);
 
-  // Print handler
+  // Print: clone sheet to body so print engines are not affected by hidden
+  // ancestors (e.g. Framer motion) inside the modal tree. Same path is used
+  // when PDF download fails so "Save as PDF" is not the whole invoices page.
+  const printInvoiceSheet = React.useCallback(() => {
+    const el = document.getElementById("invoice-print-root");
+    if (!el) {
+      window.print();
+      return;
+    }
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.removeAttribute("id");
+    clone.setAttribute("aria-hidden", "true");
+    clone.classList.add("invoice-print-clone");
+    document.body.appendChild(clone);
+
+    document.documentElement.classList.add("invoice-print-active");
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      document.documentElement.classList.remove("invoice-print-active");
+      clone.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.setTimeout(cleanup, 3_000);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
+  }, []);
+
   const handlePrint = () => {
-    window.print();
+    printInvoiceSheet();
   };
 
-  // Download handler (stub for PDF endpoint)
   const [isDownloading, setIsDownloading] = React.useState(false);
   const handleDownload = async () => {
     if (!invoice) return;
@@ -245,9 +347,26 @@ export function InvoicePreview({
     try {
       const response = await apiClient.get(`/invoices/${invoice.id}/pdf/`, {
         responseType: "blob",
+        headers: { Accept: "application/pdf,*/*" },
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: "application/pdf" });
+
+      const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+      const isPdf =
+        head.length === 4 &&
+        head[0] === 0x25 &&
+        head[1] === 0x50 &&
+        head[2] === 0x44 &&
+        head[3] === 0x46;
+      if (!isPdf) {
+        throw new Error("Not a PDF response");
+      }
+
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${invoice.invoiceNumber || "invoice"}.pdf`;
@@ -256,7 +375,7 @@ export function InvoicePreview({
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      window.print();
+      printInvoiceSheet();
     } finally {
       setIsDownloading(false);
     }
@@ -264,7 +383,11 @@ export function InvoicePreview({
 
   if (!invoice) return null;
 
-  const formattedDate = formatInvoiceDate(invoice.date);
+  const printed = resolvePrintedSeller(invoice);
+
+  const formattedDate = invoice.occurredAtIso
+    ? formatDateTimeIST(invoice.occurredAtIso)
+    : formatInvoiceDate(invoice.date);
   const paymentTerms =
     invoice.paymentMethods && invoice.paymentMethods.length > 0
       ? invoice.paymentMethods.map((p) => toPaymentLabel(p.method)).join(", ")
@@ -291,18 +414,17 @@ export function InvoicePreview({
       : "Discount";
 
   const amountWords = `INR ${amountToIndianWords(invoice.total)} Only`;
-  const minRows = Math.max(8, invoice.items.length);
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:static print:inset-auto print:block print:p-0">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm print:hidden"
             onClick={onClose}
           />
 
@@ -312,11 +434,11 @@ export function InvoicePreview({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="relative z-10 w-full max-w-6xl max-h-[90vh] overflow-auto rounded-2xl shadow-2xl"
+            className="relative z-10 w-full max-w-6xl max-h-[90vh] overflow-auto rounded-2xl shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none"
           >
-            <div className="bg-[#FAFAFA] text-[#1A1B23]">
+            <div className="bg-[#FAFAFA] text-[#1A1B23] print:bg-white">
               {/* Header Actions */}
-              <div className="flex items-center justify-between p-4 bg-[#1A1B23] text-white">
+              <div className="flex items-center justify-between p-4 bg-[#1A1B23] text-white print:hidden">
                 <h2 className="text-lg font-semibold">Invoice Preview</h2>
                 <div className="flex items-center gap-2">
                   <button
@@ -329,7 +451,7 @@ export function InvoicePreview({
                   <button
                     onClick={handleDownload}
                     disabled={isDownloading}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C6A15B] text-[#111111] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
                   >
                     <Download className="w-4 h-4" />
                     {isDownloading ? "Downloading..." : "Download"}
@@ -343,109 +465,87 @@ export function InvoicePreview({
                 </div>
               </div>
 
-              <div className="p-6 md:p-8">
-                <div className="mx-auto w-full max-w-[980px] bg-white border border-black text-black print:max-w-none">
-                  <div className="border-b border-black py-1 text-center text-sm font-semibold tracking-[0.18em]">
+              <div className="p-6 md:p-8 print:p-4">
+                <div
+                  id="invoice-print-root"
+                  className="invoice-print-sheet mx-auto w-full max-w-[980px] bg-white border border-[#111111] text-[#111111] [print-color-adjust:exact] print:max-w-none"
+                >
+                  <div className="border-b border-[#111111] py-2 text-center text-[13px] font-bold tracking-[0.2em] uppercase text-[#111111]">
+                    QUAKE INVENTORY SYSTEM
+                  </div>
+                  <div className="border-b border-[#111111] py-1.5 text-center text-sm font-bold tracking-[0.18em] text-[#111111]">
                     INVOICE
                   </div>
 
-                  <div className="grid grid-cols-12 border-b border-black">
-                    <div className="col-span-7 border-r border-black p-2 text-[10px] leading-tight">
-                      <div className="text-[13px] font-bold">
-                        {STORE_INFO.name}
+                  <div className="grid grid-cols-12 border-b border-[#111111]">
+                    <div className="col-span-7 border-r border-[#111111] p-2.5 text-[11px] leading-snug text-[#111111]">
+                      <div className="flex flex-row items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-bold text-[#111111]">
+                            {printed.sellerTitle}
+                          </div>
+                          {printed.addressLines.map((line, i) => (
+                            <div key={`${i}-${line}`} className="font-medium">
+                              {line}
+                            </div>
+                          ))}
+                          {printed.contactLines.map((line, i) => (
+                            <div key={`c-${i}-${line}`} className="font-medium">
+                              {line}
+                            </div>
+                          ))}
+                          <div className="mt-0.5 font-semibold">
+                            GSTIN/UIN: {printed.gstin}
+                          </div>
+                          <div className="font-medium">{printed.stateLine}</div>
+                        </div>
+                        {printed.sellerImageUrl ? (
+                          <div className="shrink-0 w-[100px] max-w-[38%] sm:w-[120px]">
+                            <div className="flex max-h-[92px] w-full items-center justify-center overflow-hidden rounded border border-[#cccccc] bg-[#f6f6f6] p-1">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={printed.sellerImageUrl}
+                                alt=""
+                                className="max-h-[84px] w-auto max-w-full object-contain"
+                              />
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <div>{STORE_INFO.addressLine1}</div>
-                      <div>{STORE_INFO.addressLine2}</div>
-                      <div>{STORE_INFO.addressLine3}</div>
-                      <div>GSTIN/UIN: {STORE_INFO.gstin}</div>
-                      <div>{STORE_INFO.stateLine}</div>
                     </div>
 
                     <div className="col-span-5">
-                      <table className="w-full border-collapse text-[9px]">
+                      <table className="w-full border-collapse text-[11px] text-[#111111]">
                         <tbody>
                           <tr>
-                            <td className="w-1/2 border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Invoice No.</div>
-                              <div className="font-semibold text-[9px]">
-                                {invoice.invoiceNumber || ""}
+                            <td className="w-1/2 border-r border-b border-[#111111] p-2 align-top">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                                Invoice No.
+                              </div>
+                              <div className="mt-0.5 text-[12px] font-bold leading-tight">
+                                {invoice.invoiceNumber || "—"}
                               </div>
                             </td>
-                            <td className="w-1/2 border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Dated</div>
-                              <div className="font-semibold text-[9px]">
+                            <td className="w-1/2 border-b border-[#111111] p-2 align-top">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                                Dated (IST)
+                              </div>
+                              <div className="mt-0.5 text-[12px] font-bold leading-tight">
                                 {formattedDate}
                               </div>
                             </td>
                           </tr>
                           <tr>
-                            <td className="border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Delivery Note</div>
-                              <div className="h-3" />
-                            </td>
-                            <td className="border-b border-black p-1 align-top">
-                              <div className="text-[8px]">
-                                Mode/Terms of Payment
+                            <td
+                              className="border-b border-[#111111] p-2 align-top"
+                              colSpan={2}
+                            >
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                                Mode / Terms of Payment
                               </div>
-                              <div className="font-semibold text-[9px]">
+                              <div className="mt-0.5 text-[12px] font-bold">
                                 {paymentTerms}
                               </div>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">
-                                Reference No. &amp; Date.
-                              </div>
-                              <div className="h-3" />
-                            </td>
-                            <td className="border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Other References</div>
-                              <div className="h-3" />
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">
-                                Buyer&apos;s Order No.
-                              </div>
-                              <div className="h-3" />
-                            </td>
-                            <td className="border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Dated</div>
-                              <div className="h-3" />
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Dispatch Doc No.</div>
-                              <div className="h-3" />
-                            </td>
-                            <td className="border-b border-black p-1 align-top">
-                              <div className="text-[8px]">
-                                Delivery Note Date
-                              </div>
-                              <div className="h-3" />
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border-r border-b border-black p-1 align-top">
-                              <div className="text-[8px]">
-                                Dispatched through
-                              </div>
-                              <div className="h-3" />
-                            </td>
-                            <td className="border-b border-black p-1 align-top">
-                              <div className="text-[8px]">Destination</div>
-                              <div className="h-3" />
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="p-1 align-top" colSpan={2}>
-                              <div className="text-[8px]">
-                                Terms of Delivery
-                              </div>
-                              <div className="h-4" />
                             </td>
                           </tr>
                         </tbody>
@@ -453,9 +553,11 @@ export function InvoicePreview({
                     </div>
                   </div>
 
-                  <div className="border-b border-black p-2 text-[9px] leading-tight">
-                    <div className="text-[8px]">Buyer (Bill to)</div>
-                    <div className="text-[10px] font-semibold mt-0.5">
+                  <div className="border-b border-[#111111] p-2.5 text-[11px] leading-snug text-[#111111]">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                      Buyer (Bill to)
+                    </div>
+                    <div className="text-[12px] font-bold mt-1 text-[#111111]">
                       {customerLine || "Walk-in Customer"}
                     </div>
                     {invoice.customer.email ? (
@@ -467,38 +569,38 @@ export function InvoicePreview({
                     {invoice.customer.gstin ? (
                       <div>GSTIN : {invoice.customer.gstin}</div>
                     ) : null}
-                    <div className="mt-1">
-                      State Name : Telangana, Code : 36
+                    <div className="mt-1 font-semibold text-[#111111]">
+                      State Name : Telangana
                     </div>
                   </div>
 
-                  <table className="w-full border-collapse text-[9px]">
+                  <table className="w-full border-collapse text-[11px] text-[#111111]">
                     <thead>
                       <tr>
-                        <th className="border-r border-b border-black px-1 py-1 text-left font-medium w-[5%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-left font-bold w-[5%] text-[#111111]">
                           Sl
                           <br />
                           No.
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-left font-medium w-[40%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-left font-bold w-[40%] text-[#111111]">
                           Description of Goods
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-center font-medium w-[10%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#111111]">
                           HSN/SAC
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-center font-medium w-[10%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#111111]">
                           Quantity
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-right font-medium w-[11%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-bold w-[11%] text-[#111111]">
                           Rate
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-center font-medium w-[6%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[6%] text-[#111111]">
                           per
                         </th>
-                        <th className="border-r border-b border-black px-1 py-1 text-center font-medium w-[8%]">
+                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[8%] text-[#111111]">
                           Disc. %
                         </th>
-                        <th className="border-b border-black px-1 py-1 text-right font-medium w-[10%]">
+                        <th className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold w-[10%] text-[#111111]">
                           Amount
                         </th>
                       </tr>
@@ -512,155 +614,148 @@ export function InvoicePreview({
 
                         return (
                           <tr key={`${item.productId}-${index}`}>
-                            <td className="border-r border-b border-black px-1 py-1 text-center align-top">
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
                               {index + 1}
                             </td>
-                            <td className="border-r border-b border-black px-1 py-1 align-top">
-                              <div className="font-semibold leading-tight">
-                                {item.name || "Unknown Product"}
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 align-top">
+                              <div className="font-bold leading-tight text-[#111111]">
+                                {(item.name || "").trim() ||
+                                  item.sku ||
+                                  "Unknown Product"}
                               </div>
                               {item.sku || item.variantDetails ? (
-                                <div className="text-[8px] text-gray-600 mt-0.5 leading-tight">
+                                <div className="text-[10px] font-medium text-[#3d3d3d] mt-0.5 leading-tight">
                                   {item.sku ? `SKU: ${item.sku}` : ""}
                                   {item.sku && item.variantDetails ? " | " : ""}
                                   {item.variantDetails || ""}
                                 </div>
                               ) : null}
                             </td>
-                            <td className="border-r border-b border-black px-1 py-1 text-center align-top"></td>
-                            <td className="border-r border-b border-black px-1 py-1 text-center align-top font-semibold">
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top" />
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-bold">
                               {qty} Nos
                             </td>
-                            <td className="border-r border-b border-black px-1 py-1 text-right align-top">
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right align-top font-medium">
                               {formatAmount(rate)}
                             </td>
-                            <td className="border-r border-b border-black px-1 py-1 text-center align-top">
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
                               Nos
                             </td>
-                            <td className="border-r border-b border-black px-1 py-1 text-center align-top">
+                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
                               -
                             </td>
-                            <td className="border-b border-black px-1 py-1 text-right align-top font-semibold">
+                            <td className="border-b border-[#111111] px-1.5 py-1.5 text-right align-top font-bold">
                               {formatAmount(item.total || 0)}
                             </td>
                           </tr>
                         );
                       })}
 
-                      {Array.from({
-                        length: Math.max(0, minRows - invoice.items.length),
-                      }).map((_, idx) => (
-                        <tr key={`filler-${idx}`} className="h-8">
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-r border-b border-black" />
-                          <td className="border-b border-black" />
-                        </tr>
-                      ))}
-
                       {isDiscountApplied ? (
                         <tr>
                           <td
-                            className="border-r border-b border-black px-1 py-1 text-right"
+                            className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-medium"
                             colSpan={7}
                           >
                             {discountLabel}
                           </td>
-                          <td className="border-b border-black px-1 py-1 text-right">
+                          <td className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
                             - {formatCurrency(invoice.discount || 0)}
                           </td>
                         </tr>
                       ) : null}
 
                       <tr>
-                        <td className="border-r border-b border-black px-1 py-1" />
-                        <td className="border-r border-b border-black px-1 py-1 text-right font-semibold">
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
                           Total
                         </td>
-                        <td className="border-r border-b border-black px-1 py-1" />
-                        <td className="border-r border-b border-black px-1 py-1 text-center font-semibold">
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold">
                           {totalQuantity} Nos
                         </td>
-                        <td className="border-r border-b border-black px-1 py-1" />
-                        <td className="border-r border-b border-black px-1 py-1" />
-                        <td className="border-r border-b border-black px-1 py-1" />
-                        <td className="border-b border-black px-1 py-1 text-right font-semibold">
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
+                        <td className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
                           {formatCurrency(invoice.total || 0)}
                         </td>
                       </tr>
 
                       <tr>
                         <td
-                          className="border-r border-black px-1 py-1"
+                          className="border-r border-[#111111] px-1.5 py-1.5"
                           colSpan={7}
                         >
-                          <div className="text-[8px]">
+                          <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
                             Amount Chargeable (in words)
                           </div>
-                          <div className="text-[10px] font-semibold mt-0.5">
+                          <div className="text-[12px] font-bold mt-0.5 text-[#111111]">
                             {amountWords}
                           </div>
                         </td>
-                        <td className="px-1 py-1 text-right text-[8px] italic align-top">
-                          E. &amp; O.E
+                        <td className="px-1.5 py-1.5 text-right text-[10px] align-top text-[#111111]">
+                          <div className="font-medium italic">E. &amp; O.E.</div>
+                          <div className="text-[8px] font-normal not-italic leading-tight mt-0.5 text-[#333333]">
+                            Errors &amp; omissions excepted
+                          </div>
                         </td>
                       </tr>
                     </tbody>
                   </table>
 
-                  <div className="grid grid-cols-12 border-t border-black">
-                    <div className="col-span-7 border-r border-black p-2 text-[9px] leading-tight flex flex-col justify-end min-h-[88px]">
-                      <div className="mb-1">Declaration</div>
-                      <div>
+                  <div className="grid grid-cols-12 border-t border-[#111111]">
+                    <div className="col-span-7 border-r border-[#111111] p-2.5 text-[11px] leading-snug flex flex-col justify-end min-h-[72px] text-[#111111]">
+                      <div className="mb-1 font-bold">Declaration</div>
+                      <div className="font-medium">
                         1) Prices are inclusive of taxes. 2) Subject to
                         Hyderabad Jurisdiction. 3) Goods Once sold will not be
                         taken back.
                       </div>
                     </div>
 
-                    <div className="col-span-5 p-2 text-[9px] leading-tight min-h-[88px]">
-                      <div className="text-center text-[10px] mb-1">
+                    <div className="col-span-5 p-2.5 text-[11px] leading-snug min-h-[72px] text-[#111111]">
+                      <div className="text-center text-[12px] mb-1 font-bold">
                         Company&apos;s Bank Details
                       </div>
-                      <table className="w-full text-[9px] mb-3">
+                      <table className="w-full text-[11px] mb-3 font-medium">
                         <tbody>
                           <tr>
                             <td className="w-[45%]">Bank Name</td>
                             <td className="w-[5%]">:</td>
-                            <td className="font-semibold">
-                              {STORE_INFO.bankName}
+                            <td className="font-bold">
+                              {printed.bankName}
                             </td>
                           </tr>
                           <tr>
                             <td>A/c No.</td>
                             <td>:</td>
-                            <td className="font-semibold">
-                              {STORE_INFO.bankAccount}
+                            <td className="font-bold">
+                              {printed.bankAccount}
                             </td>
                           </tr>
                           <tr>
                             <td>Branch &amp; IFS Code</td>
                             <td>:</td>
-                            <td className="font-semibold">
-                              {STORE_INFO.bankIfsc}
+                            <td className="font-bold">
+                              {printed.bankIfsc}
                             </td>
                           </tr>
                         </tbody>
                       </table>
-                      <div className="text-right font-semibold mb-4">
-                        for {STORE_INFO.name}
+                      <div className="text-right font-bold mb-4 text-[#111111]">
+                        for {printed.signatoryName}
                       </div>
-                      <div className="text-right">Authorised Signatory</div>
+                      <div className="text-right font-semibold text-[#111111]">
+                        Authorised Signatory
+                      </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-black py-1 text-center text-[10px]">
-                    This is a Computer Generated Invoice
-                  </div>
+                  <div className="border-t border-[#111111] py-1.5 text-center text-[11px] font-semibold text-[#111111]">
+  This is a Computer Generated Invoice - Handled by p4ai.in
+</div>
+
                 </div>
               </div>
             </div>

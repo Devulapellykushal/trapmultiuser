@@ -1,5 +1,5 @@
 """
-User Serializers for TRAP Inventory System.
+User Serializers for Quake Inventory System.
 """
 
 from rest_framework import serializers
@@ -150,31 +150,52 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     """Serializer for login request."""
-    
+
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    
+    role = serializers.ChoiceField(
+        choices=[User.Role.ADMIN, User.Role.STAFF],
+        required=False,
+        write_only=True,
+        help_text=(
+            "Optional. When sent, must match the account's role so the UI "
+            "matches what the user selected at sign-in."
+        ),
+    )
+
     def validate(self, data):
         email = data.get('email')
         password = data.get('password')
-        
+        requested_role = data.pop('role', None)
+
         if not email or not password:
             raise serializers.ValidationError("Email and password are required")
-        
+
         # Try to find user by email
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             raise serializers.ValidationError("Invalid email or password")
-        
+
         # Check password
         if not user.check_password(password):
             raise serializers.ValidationError("Invalid email or password")
-        
+
         # Check if user is active
         if not user.is_active:
             raise serializers.ValidationError("User account is disabled")
-        
+
+        if requested_role is not None and user.role != requested_role:
+            label = "Administrator" if user.role == User.Role.ADMIN else "Staff"
+            raise serializers.ValidationError(
+                {
+                    "role": (
+                        f"This account is {user.role}. Choose “{label}” above, "
+                        "or sign in with a different email."
+                    )
+                }
+            )
+
         data['user'] = user
         return data
 

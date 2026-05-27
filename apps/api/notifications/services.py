@@ -10,7 +10,7 @@ Handles:
 import logging
 import requests
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from decimal import Decimal
 
 from django.db.models import F, Q, Sum
@@ -26,6 +26,38 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _product_field_display(value: Union[str, object, None]) -> Optional[str]:
+    """
+    Serialize brand/category for API payloads.
+
+    Product.brand and Product.category are CharFields (plain strings). Legacy code
+    assumed FKs with .name; this helper supports both strings and related objects.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        s = value.strip()
+        return s or None
+    name = getattr(value, "name", None)
+    if name is not None:
+        s = str(name).strip()
+        return s or None
+    s = str(value).strip()
+    return s or None
+
+
+def _variant_detail_join(size: Optional[str], color: Optional[str]) -> Optional[str]:
+    """Industry-neutral variant line (no apparel-specific labels)."""
+    parts = []
+    for raw in (size, color):
+        if raw is None:
+            continue
+        chunk = str(raw).strip()
+        if chunk:
+            parts.append(chunk)
+    return " · ".join(parts) if parts else None
 
 
 class LowStockService:
@@ -45,7 +77,7 @@ class LowStockService:
             List of low stock products with details
         """
         from inventory.models import ProductVariant, Warehouse
-        from inventory.services import get_current_stock
+        from inventory.services import get_product_stock
         
         # Get variants with reorder threshold set
         variants = ProductVariant.objects.filter(
@@ -53,7 +85,7 @@ class LowStockService:
             is_active=True,
             product__is_active=True,
             product__is_deleted=False
-        ).select_related('product__brand', 'product__category')
+        ).select_related('product', 'product__supplier', 'product__pricing')
         
         low_stock_items = []
         
@@ -67,7 +99,7 @@ class LowStockService:
             for warehouse in warehouses:
                 # Get current stock using the inventory service
                 try:
-                    current_stock = get_current_stock(variant, warehouse)
+                    current_stock = get_product_stock(variant.product_id, warehouse.id)
                 except Exception as e:
                     logger.error(f"Error getting stock for variant {variant.id}: {e}")
                     current_stock = 0
@@ -88,20 +120,16 @@ class LowStockService:
                         urgency = 'LOW'
                     
                     product = variant.product
-                    variant_details = []
-                    if variant.size:
-                        variant_details.append(f"Size: {variant.size}")
-                    if variant.color:
-                        variant_details.append(f"Color: {variant.color}")
-                    
+                    variant_details = _variant_detail_join(variant.size, variant.color)
+
                     low_stock_items.append({
                         'id': str(variant.id),
                         'product_id': str(product.id),
                         'name': product.name,
                         'sku': variant.sku or product.sku or '',
-                        'variant_details': ', '.join(variant_details) if variant_details else None,
-                        'brand': product.brand.name if product.brand else None,
-                        'category': product.category.name if product.category else None,
+                        'variant_details': variant_details,
+                        'brand': _product_field_display(product.brand),
+                        'category': _product_field_display(product.category),
                         'warehouse_id': str(warehouse.id),
                         'warehouse_name': warehouse.name,
                         'current_stock': current_stock,
@@ -380,7 +408,7 @@ class EmailService:
             </p>
             <p>Please review and restock as needed.</p>
             <hr>
-            <p style="color: #666; font-size: 12px;">This is an automated message from TRAP Inventory System.</p>
+            <p style="color: #666; font-size: 12px;">This is an automated message from Quake Inventory System.</p>
         </body>
         </html>
         """
@@ -632,7 +660,7 @@ class WhatsAppService:
         
         message_parts.append("")
         message_parts.append("Thank you for your purchase! 🙏")
-        message_parts.append("_TRAP Inventory System_")
+        message_parts.append("_Quake Inventory System_")
         
         message = "\n".join(message_parts)
         

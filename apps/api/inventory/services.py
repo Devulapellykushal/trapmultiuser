@@ -1,5 +1,5 @@
 """
-Inventory Services for TRAP Inventory System.
+Inventory Services for Quake Inventory System.
 Core business logic for stock management with ledger-based approach.
 
 CRITICAL: All stock changes MUST go through this service layer.
@@ -411,6 +411,48 @@ def get_product_stock(
     
     total = queryset.aggregate(total=Sum('quantity'))['total']
     return total or 0
+
+
+def get_product_stock_breakdown_by_warehouse(
+    product_id: Union[UUID, str],
+) -> list[dict]:
+    """
+    Net quantity per warehouse from the InventoryMovement ledger.
+
+    Mirrors Product-level stock (movements attach to Product, not variant).
+    Skips movements with null warehouse_id (store-only rows, legacy data).
+    """
+    from django.db.models import Sum, Max
+
+    rows = (
+        InventoryMovement.objects.filter(
+            product_id=product_id,
+            warehouse_id__isnull=False,
+        )
+        .values(
+            'warehouse_id',
+            'warehouse__name',
+            'warehouse__code',
+        )
+        .annotate(
+            quantity=Sum('quantity'),
+            last_updated=Max('created_at'),
+        )
+        .order_by('warehouse__name', 'warehouse_id')
+    )
+    breakdown: list[dict] = []
+    for row in rows:
+        qty = row['quantity'] or 0
+        breakdown.append(
+            {
+                'warehouse_id': row['warehouse_id'],
+                'warehouse_name': row['warehouse__name'] or '',
+                'warehouse_code': row['warehouse__code'] or '',
+                'quantity': int(qty),
+                'last_updated': row['last_updated'],
+            }
+        )
+    return breakdown
 
 
 def get_store_product_stock(

@@ -1,5 +1,5 @@
 """
-Invoice Tests for TRAP Inventory System.
+Invoice Tests for Quake Inventory System.
 
 PHASE 14: INVOICE PDFs & COMPLIANCE
 ====================================
@@ -9,8 +9,10 @@ Tests for invoice generation with GST compliance.
 import uuid
 from decimal import Decimal
 from django.test import TestCase
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
+
+from core.test_username import unique_username
 
 from inventory.models import Warehouse, Product, ProductVariant
 from inventory import services as inventory_services
@@ -33,7 +35,9 @@ class InvoiceCreationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -44,7 +48,7 @@ class InvoiceCreationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="INV-001",
-            barcode_value="TRAP-INV-001"
+            barcode_value="Quake-INV-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -65,7 +69,7 @@ class InvoiceCreationTest(TestCase):
         self.sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-INV-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
+            items=[{'barcode': 'Quake-INV-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],  # MRP-inclusive (GST extracted for reporting)
             user=self.admin
         )
@@ -79,7 +83,9 @@ class InvoiceCreationTest(TestCase):
         )
         
         self.assertIsNotNone(invoice.id)
-        self.assertIn('TRAP/INV', invoice.invoice_number)
+        # Unified numbering: invoice uses the sale's INV-YYYY-NNNNNN (sales sequence).
+        self.assertEqual(invoice.invoice_number, self.sale.invoice_number)
+        self.assertTrue(invoice.invoice_number.startswith('INV-'))
         self.assertEqual(invoice.sale_id, self.sale.id)
     
     def test_invoice_has_correct_totals(self):
@@ -107,7 +113,9 @@ class InvoiceIdempotencyTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -118,7 +126,7 @@ class InvoiceIdempotencyTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="IDEMP-001",
-            barcode_value="TRAP-IDEMP-001"
+            barcode_value="Quake-IDEMP-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -138,7 +146,7 @@ class InvoiceIdempotencyTest(TestCase):
         self.sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IDEMP-001', 'quantity': 1}],
+            items=[{'barcode': 'Quake-IDEMP-001', 'quantity': 1}],
             payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],
             user=self.admin
         )
@@ -197,7 +205,9 @@ class InvoiceTotalsMatchSaleTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -208,7 +218,7 @@ class InvoiceTotalsMatchSaleTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="GSTMATCH-001",
-            barcode_value="TRAP-GSTMATCH-001"
+            barcode_value="Quake-GSTMATCH-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -229,7 +239,7 @@ class InvoiceTotalsMatchSaleTest(TestCase):
         self.sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GSTMATCH-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
+            items=[{'barcode': 'Quake-GSTMATCH-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
             payments=[{'method': 'CASH', 'amount': Decimal('180.00')}],  # MRP-inclusive after 10% discount
             user=self.admin,
             discount_type='PERCENT',
@@ -273,7 +283,9 @@ class PDFGenerationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -284,7 +296,7 @@ class PDFGenerationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PDF-001",
-            barcode_value="TRAP-PDF-001"
+            barcode_value="Quake-PDF-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -304,7 +316,7 @@ class PDFGenerationTest(TestCase):
         self.sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-PDF-001', 'quantity': 1}],
+            items=[{'barcode': 'Quake-PDF-001', 'quantity': 1}],
             payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],
             user=self.admin
         )
@@ -333,6 +345,9 @@ class PDFGenerationTest(TestCase):
         pdf_path = os.path.join(settings.BASE_DIR, 'media', pdf_filename)
         
         self.assertTrue(os.path.exists(pdf_path))
+        self.assertGreater(os.path.getsize(pdf_path), 256)
+        with open(pdf_path, "rb") as fh:
+            self.assertEqual(fh.read(5), b"%PDF-")
 
 
 # =============================================================================
@@ -348,7 +363,9 @@ class InvoiceImmutabilityTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -359,7 +376,7 @@ class InvoiceImmutabilityTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="IMMUT-001",
-            barcode_value="TRAP-IMMUT-001"
+            barcode_value="Quake-IMMUT-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -379,7 +396,7 @@ class InvoiceImmutabilityTest(TestCase):
         self.sale = sales_services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IMMUT-001', 'quantity': 1}],
+            items=[{'barcode': 'Quake-IMMUT-001', 'quantity': 1}],
             payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],
             user=self.admin
         )
@@ -431,7 +448,9 @@ class SaleStatusValidationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=f"invtest_{uuid.uuid4().hex[:12]}",
+            password='adminpass',
+            role='ADMIN',
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -478,13 +497,13 @@ class InvoiceSequenceTest(TestCase):
     """
     
     def test_first_invoice_number_format(self):
-        """Test that first invoice is TRAP/INV/YYYY/0001."""
+        """Test that first invoice is Quake/INV/YYYY/0001."""
         from django.utils import timezone
         
         invoice_number = InvoiceSequence.get_next_invoice_number()
         year = timezone.now().year
         
-        self.assertIn(f'TRAP/INV/{year}/', invoice_number)
+        self.assertIn(f'Quake/INV/{year}/', invoice_number)
     
     def test_sequential_invoice_numbers(self):
         """Test that invoice numbers are sequential."""
@@ -498,3 +517,49 @@ class InvoiceSequenceTest(TestCase):
         # Verify sequential
         for i in range(len(sequences) - 1):
             self.assertEqual(sequences[i + 1], sequences[i] + 1)
+
+
+class SaleInvoiceSequenceTest(TestCase):
+    """POS Sale.invoice_number stream: INV-YYYY-NNNNNN via INV-SALE prefix rows."""
+
+    def test_sale_invoice_format_and_sequence(self):
+        from django.utils import timezone
+
+        year = timezone.now().year
+        n1 = InvoiceSequence.get_next_sale_invoice_number()
+        n2 = InvoiceSequence.get_next_sale_invoice_number()
+        self.assertTrue(n1.startswith("INV-"))
+        self.assertIn(f"INV-{year}-", n1)
+        a1 = int(n1.split("-")[-1])
+        a2 = int(n2.split("-")[-1])
+        self.assertEqual(a2, a1 + 1)
+
+
+class InvoiceSummaryEndpointTest(APITestCase):
+    """GET /api/v1/invoices/summary/ — used by web invoicesService.getInvoiceSummary."""
+
+    def setUp(self):
+        from users.models import User
+
+        self.user = User.objects.create_user(
+            username=unique_username("inv_summary"),
+            password="pass12345",
+            role="ADMIN",
+        )
+
+    def test_summary_requires_auth(self):
+        client = APIClient()
+        resp = client.get("/api/v1/invoices/summary/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_summary_empty_returns_zeros(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        resp = client.get("/api/v1/invoices/summary/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["totalInvoices"], 0)
+        self.assertEqual(data["paidCount"], 0)
+        self.assertEqual(data["cancelledCount"], 0)
+        self.assertEqual(data["totalRevenue"], 0)
+        self.assertEqual(data["avgValue"], 0)

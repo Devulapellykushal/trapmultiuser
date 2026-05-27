@@ -3,9 +3,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { adminHref } from "@/lib/admin-routes";
 import {
   CheckCircle,
   FileText,
+  Printer,
   RotateCcw,
   AlertCircle,
   Loader2,
@@ -28,8 +30,13 @@ import {
   Calculator,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { inventoryKeys } from "@/hooks/use-inventory";
 import { useCart } from "./cart-context";
-import { api } from "@/lib/api";
+import {
+  computeTotalGstInclusiveExtract,
+  roundMoney2,
+} from "@/features/pos/cart-utils";
+import { api, apiClient } from "@/lib/api";
 import { v4 as uuidv4 } from "uuid";
 
 // =============================================================================
@@ -70,6 +77,8 @@ interface CheckoutRequest {
   customer_mobile?: string;
   customer_email?: string;
   customer_address?: string;
+  /** When true, server extracts CGST/SGST from GST-inclusive prices. Default false at checkout. */
+  apply_automatic_gst?: boolean;
 }
 
 interface CheckoutResponse {
@@ -96,6 +105,11 @@ interface CheckoutModalProps {
   onClose: () => void;
   warehouseId?: string;
   storeId?: string;
+  /** When set, "View Invoice" opens this instead of navigating away (e.g. POS inline preview). */
+  onViewInvoice?: (payload: {
+    saleId?: string;
+    invoiceId?: string;
+  }) => void | Promise<void>;
 }
 
 // =============================================================================
@@ -150,6 +164,48 @@ const PAYMENT_METHODS: {
 
 const QUICK_AMOUNTS = [100, 500, 1000, 2000, 5000];
 
+/** Ensure payment rows sum to ≤ cart total (server uses 2dp; trims float/rounding drift). */
+function normalizeCheckoutPayments(
+  payments: PaymentEntry[],
+  cartTotal: number,
+): { method: string; amount: string }[] {
+  const target = roundMoney2(cartTotal);
+  const rows = payments.map((p) => ({
+    method: p.method,
+    amount: roundMoney2(parseFloat(p.amount) || 0),
+  }));
+  let paid = roundMoney2(rows.reduce((s, r) => s + r.amount, 0));
+  if (paid <= target + 0.005) {
+    return rows.map((r) => ({ method: r.method, amount: r.amount.toFixed(2) }));
+  }
+  let over = roundMoney2(paid - target);
+  for (let i = rows.length - 1; i >= 0 && over > 0.005; i--) {
+    if (rows[i].method === "CREDIT") continue;
+    const red = Math.min(rows[i].amount, over);
+    rows[i].amount = roundMoney2(rows[i].amount - red);
+    over = roundMoney2(over - red);
+  }
+  paid = roundMoney2(rows.reduce((s, r) => s + r.amount, 0));
+  if (paid > target + 0.005 && rows.length > 0) {
+    const last = rows.length - 1;
+    if (rows[last].method !== "CREDIT") {
+      rows[last].amount = roundMoney2(
+        Math.max(0, rows[last].amount - roundMoney2(paid - target)),
+      );
+    }
+  }
+  return rows.map((r) => ({ method: r.method, amount: r.amount.toFixed(2) }));
+}
+
+function resolvePdfOpenUrl(pdfUrl: string): string {
+  if (pdfUrl.startsWith("http")) return pdfUrl;
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://localhost:8000/api/v1";
+  const root = apiBase.replace(/\/api\/v1\/?$/, "");
+  return `${root}${pdfUrl.startsWith("/") ? pdfUrl : `/${pdfUrl}`}`;
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -159,6 +215,7 @@ export function CheckoutModal({
   onClose,
   warehouseId,
   storeId,
+  onViewInvoice,
 }: CheckoutModalProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -172,8 +229,14 @@ export function CheckoutModal({
     clearCart,
   } = useCart();
 
+  const estimatedGstInclusive = React.useMemo(
+    () => computeTotalGstInclusiveExtract(items, subtotal, discount),
+    [items, subtotal, discount],
+  );
+
   // State
   const [step, setStep] = React.useState<Step>("review");
+  const [applyAutomaticGst, setApplyAutomaticGst] = React.useState(false);
   const [skipCustomer, setSkipCustomer] = React.useState(false);
   const [customerDetails, setCustomerDetails] = React.useState<CustomerDetails>(
     {
@@ -189,11 +252,10 @@ export function CheckoutModal({
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
 
   // Calculate totals
-  const paidAmount = payments.reduce(
-    (sum, p) => sum + (parseFloat(p.amount) || 0),
-    0,
+  const paidAmount = roundMoney2(
+    payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0),
   );
-  const remainingAmount = total - paidAmount;
+  const remainingAmount = roundMoney2(total - paidAmount);
   const hasCredit = payments.some((p) => p.method === "CREDIT");
   const isFullyPaid = Math.abs(remainingAmount) < 0.01 || hasCredit;
 
@@ -206,15 +268,24 @@ export function CheckoutModal({
       setCheckoutResult(result);
       setCheckoutError(null);
       setStep("success");
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["pos-products"] });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
-    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
-      const message =
-        error.response?.data?.error || error.message || "Checkout failed";
+    onError: (error: Error & { response?: { data?: { error?: unknown } } }) => {
+      const raw = error.response?.data?.error;
+      let message = error.message || "Checkout failed";
+      if (typeof raw === "string" && raw.trim()) {
+        message = raw.trim();
+      } else if (raw && typeof raw === "object" && "message" in raw) {
+        const m = (raw as { message?: unknown }).message;
+        if (typeof m === "string" && m.trim()) {
+          message = m.trim();
+        } else {
+          message = "Checkout failed";
+        }
+      }
       setCheckoutError(message);
       setStep("error");
     },
@@ -229,6 +300,7 @@ export function CheckoutModal({
       setPayments([]);
       setCheckoutResult(null);
       setCheckoutError(null);
+      setApplyAutomaticGst(false);
     }
   }, [isOpen]);
 
@@ -244,8 +316,8 @@ export function CheckoutModal({
     // For single payment, set full amount
     const amount =
       payments.length === 0
-        ? total.toFixed(2)
-        : Math.max(0, remainingAmount).toFixed(2);
+        ? roundMoney2(total).toFixed(2)
+        : Math.max(0, roundMoney2(remainingAmount)).toFixed(2);
     if (parseFloat(amount) > 0 || method === "CREDIT") {
       setPayments((prev) => [...prev, { id: uuidv4(), method, amount }]);
     }
@@ -271,7 +343,7 @@ export function CheckoutModal({
   };
 
   const handleSetFullAmount = (id: string) => {
-    handlePaymentAmountChange(id, total.toFixed(2));
+    handlePaymentAmountChange(id, roundMoney2(total).toFixed(2));
   };
 
   const handleProceedFromReview = () => {
@@ -308,10 +380,7 @@ export function CheckoutModal({
         barcode: item.product.barcode,
         quantity: item.quantity,
       })),
-      payments: payments.map((p) => ({
-        method: p.method,
-        amount: p.amount,
-      })),
+      payments: normalizeCheckoutPayments(payments, total),
       customer_name: customerDetails.name,
       customer_mobile: customerDetails.mobile,
       customer_email: customerDetails.email,
@@ -323,6 +392,8 @@ export function CheckoutModal({
       request.discount_value = appliedDiscount.value.toString();
     }
 
+    request.apply_automatic_gst = applyAutomaticGst;
+
     checkoutMutation.mutate(request);
   };
 
@@ -332,10 +403,30 @@ export function CheckoutModal({
   };
 
   const handleViewInvoice = () => {
+    const saleId = checkoutResult?.sale_id?.trim();
+    const rawInv = checkoutResult
+      ? (checkoutResult as unknown as Record<string, unknown>).invoice_id ??
+        (checkoutResult as unknown as Record<string, unknown>).invoiceId
+      : undefined;
+    const invoiceId =
+      rawInv !== undefined && rawInv !== null
+        ? String(rawInv).trim()
+        : undefined;
+
+    if (onViewInvoice) {
+      void onViewInvoice({
+        saleId: saleId || undefined,
+        invoiceId: invoiceId || undefined,
+      });
+      clearCart();
+      onClose();
+      return;
+    }
+
     if (checkoutResult?.sale_id) {
-      router.push(`/invoices?sale_id=${checkoutResult.sale_id}`);
+      router.push(`${adminHref("/invoices")}?sale_id=${checkoutResult.sale_id}`);
     } else {
-      router.push("/invoices");
+      router.push(adminHref("/invoices"));
     }
     clearCart();
     onClose();
@@ -522,6 +613,9 @@ export function CheckoutModal({
                       onProceed={handleProceedToCheckout}
                       hasCredit={hasCredit}
                       isFullyPaid={isFullyPaid}
+                      applyAutomaticGst={applyAutomaticGst}
+                      onApplyAutomaticGstChange={setApplyAutomaticGst}
+                      estimatedGstInclusive={estimatedGstInclusive}
                     />
                   </motion.div>
                 )}
@@ -855,6 +949,9 @@ function PaymentStep({
   onProceed,
   hasCredit,
   isFullyPaid,
+  applyAutomaticGst,
+  onApplyAutomaticGstChange,
+  estimatedGstInclusive,
 }: {
   total: number;
   payments: PaymentEntry[];
@@ -868,9 +965,45 @@ function PaymentStep({
   onProceed: () => void;
   hasCredit: boolean;
   isFullyPaid: boolean;
+  applyAutomaticGst: boolean;
+  onApplyAutomaticGstChange: (value: boolean) => void;
+  estimatedGstInclusive: number;
 }) {
   return (
     <div className="p-6">
+      <div className="mb-6 p-4 rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={applyAutomaticGst}
+            onChange={(e) => onApplyAutomaticGstChange(e.target.checked)}
+            className="mt-1 rounded border-white/20 bg-white/10 text-[#C6A15B] focus:ring-[#C6A15B]"
+          />
+          <div>
+            <span className="text-sm font-medium text-[#F5F6FA]">
+              Calculate GST on invoice (CGST / SGST)
+            </span>
+            <p className="text-xs text-[#6F7285] mt-1 leading-relaxed">
+              {applyAutomaticGst ? (
+                <>
+                  GST is extracted from selling prices (GST-inclusive model).
+                  Estimated total GST on this sale:{" "}
+                  <span className="text-[#C6A15B] font-medium">
+                    {formatCurrency(estimatedGstInclusive)}
+                  </span>
+                  . Amount due is unchanged.
+                </>
+              ) : (
+                <>
+                  Off by default: invoice lines show 0% GST and no CGST/SGST
+                  split; amount due stays the same as the cart total.
+                </>
+              )}
+            </p>
+          </div>
+        </label>
+      </div>
+
       {/* Payment Methods - Pill Style */}
       <div className="mb-6">
         <h3 className="text-sm font-medium text-[#A1A4B3] mb-3 flex items-center gap-2">
@@ -1119,9 +1252,35 @@ function SuccessView({
   onNewSale: () => void;
   onViewInvoice: () => void;
 }) {
-  const handlePrintInvoice = () => {
-    if (result?.pdf_url) {
-      window.open(result.pdf_url, "_blank");
+  const [isPrinting, setIsPrinting] = React.useState(false);
+
+  const handlePrintInvoice = async () => {
+    if (!result) return;
+    if (result.pdf_url) {
+      window.open(resolvePdfOpenUrl(result.pdf_url), "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (!result.invoice_id) return;
+    setIsPrinting(true);
+    try {
+      const response = await apiClient.get(
+        `/invoices/${result.invoice_id}/pdf/`,
+        {
+          responseType: "blob",
+          headers: { Accept: "application/pdf,*/*" },
+        },
+      );
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+    } catch {
+      // PDF may still be generating; user can open from Invoices.
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -1204,32 +1363,32 @@ function SuccessView({
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-3">
-        {result?.pdf_url && (
-          <button
-            onClick={handlePrintInvoice}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
-          >
-            <FileText className="w-5 h-5" />
-            Print Invoice
-          </button>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={onViewInvoice}
-            className="flex items-center justify-center gap-2 py-4 rounded-xl bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
-          >
-            <FileText className="w-5 h-5" />
-            View Invoice
-          </button>
-          <button
-            onClick={onNewSale}
-            className="flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-[#C6A15B] to-[#D4B06A] text-[#0E0F13] font-semibold hover:from-[#D4B06A] hover:to-[#E0C080] transition-all shadow-lg shadow-[#C6A15B]/20"
-          >
-            <RotateCcw className="w-5 h-5" />
-            New Sale
-          </button>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => void handlePrintInvoice()}
+          disabled={isPrinting || (!result?.pdf_url && !result?.invoice_id)}
+          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <Printer className="w-5 h-5" />
+          {isPrinting ? "Opening…" : "Print"}
+        </button>
+        <button
+          type="button"
+          onClick={onViewInvoice}
+          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
+        >
+          <FileText className="w-5 h-5" />
+          View Invoice
+        </button>
+        <button
+          type="button"
+          onClick={onNewSale}
+          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-[#C6A15B] to-[#D4B06A] text-[#0E0F13] font-semibold hover:from-[#D4B06A] hover:to-[#E0C080] transition-all shadow-lg shadow-[#C6A15B]/20"
+        >
+          <RotateCcw className="w-5 h-5" />
+          New Sale
+        </button>
       </div>
     </div>
   );

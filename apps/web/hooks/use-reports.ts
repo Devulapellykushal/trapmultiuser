@@ -14,7 +14,50 @@ import {
   ReportParams,
   MovementParams,
   TrendsParams,
+  type SalesSummaryReport,
+  type SalesTrendsReport,
+  type SalesTrendItem,
 } from "@/services";
+
+/** Normalize DRF responses that may be snake_case (e.g. plain JSONRenderer). */
+export function normalizeSalesSummary(raw: SalesSummaryReport): SalesSummaryReport {
+  const d = raw as unknown as Record<string, unknown>;
+  const period = (d.period ?? {}) as Record<string, unknown>;
+  const num = (camel: string, snake: string) =>
+    Number(d[camel] ?? d[snake] ?? 0);
+  const str = (camel: string, snake: string) =>
+    String(d[camel] ?? d[snake] ?? "0");
+  return {
+    period: {
+      from: (period.from as string | null) ?? null,
+      to: (period.to as string | null) ?? null,
+    },
+    totalSales: str("totalSales", "total_sales"),
+    totalSubtotal: str("totalSubtotal", "total_subtotal"),
+    totalDiscount: str("totalDiscount", "total_discount"),
+    totalGst: str("totalGst", "total_gst"),
+    invoiceCount: num("invoiceCount", "invoice_count"),
+    totalItemsSold: num("totalItemsSold", "total_items_sold"),
+  };
+}
+
+/** Normalize sales trends rows that may use snake_case from the API. */
+export function normalizeSalesTrends(raw: SalesTrendsReport): SalesTrendsReport {
+  const d = raw as unknown as Record<string, unknown>;
+  const gb = d.groupBy ?? d.group_by;
+  const groupBy = gb === "month" ? "month" : "day";
+  const rows = (Array.isArray(d.results) ? d.results : []) as Record<
+    string,
+    unknown
+  >[];
+  const results: SalesTrendItem[] = rows.map((r) => ({
+    period: String(r.period ?? ""),
+    totalSales: String(r.totalSales ?? r.total_sales ?? "0"),
+    invoiceCount: Number(r.invoiceCount ?? r.invoice_count ?? 0),
+    totalItems: Number(r.totalItems ?? r.total_items ?? 0),
+  }));
+  return { groupBy, results };
+}
 
 // =============================================================================
 // QUERY KEYS
@@ -119,7 +162,10 @@ export function useStockMovements(params?: MovementParams) {
 export function useSalesSummaryReport(params?: ReportParams) {
   return useQuery({
     queryKey: reportKeys.salesSummary(params),
-    queryFn: () => reportsService.getSalesSummary(params),
+    queryFn: async () => {
+      const data = await reportsService.getSalesSummary(params);
+      return normalizeSalesSummary(data);
+    },
     staleTime: 30000,
   });
 }
@@ -235,7 +281,7 @@ export function useBrandSales(params?: ReportParams) {
 }
 
 /**
- * Size-wise Sales Report
+ * Variant-option sales rollup (each row’s `size` field from API)
  * Source: /reports/by-size/
  */
 export function useSizeSales(params?: ReportParams) {

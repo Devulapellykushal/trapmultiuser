@@ -1,5 +1,5 @@
 """
-Barcode Utilities for TRAP Inventory System.
+Barcode Utilities for Quake Inventory System.
 
 Provides Code128 barcode generation for products.
 Barcodes are:
@@ -36,7 +36,7 @@ def get_supplier_prefix(supplier_name: str) -> str:
     return clean_name[:2]
 
 
-def generate_barcode_value(prefix: str = "TRAP", supplier_name: str = None) -> str:
+def generate_barcode_value(prefix: str = "Quake", supplier_name: str = None) -> str:
     """
     Generate a unique Code128-compatible barcode value.
     
@@ -44,7 +44,7 @@ def generate_barcode_value(prefix: str = "TRAP", supplier_name: str = None) -> s
     Example: NO168432A7X9K (for supplier "Noor")
     
     Args:
-        prefix: Fallback barcode prefix (default: "TRAP", ignored if supplier provided)
+        prefix: Fallback barcode prefix (default: "Quake", ignored if supplier provided)
         supplier_name: Supplier name to derive 2-letter prefix from
     
     Returns:
@@ -91,7 +91,7 @@ def generate_retail_sku(brand: str, category: str) -> str:
     
     Phase 10.1: Format: {BRAND}-{CATEGORY}-{SEQUENCE:06d}
     Examples:
-        TRAP-POLO-000001
+        Quake-POLO-000001
         NIKE-JACKET-000042
         ZARA-TEE-000123
     
@@ -112,7 +112,7 @@ def generate_retail_sku(brand: str, category: str) -> str:
     from .models import SKUSequence
     
     # Normalize to uppercase, alphanumeric only
-    brand_code = ''.join(c for c in brand.upper() if c.isalnum())[:10] or "TRAP"
+    brand_code = ''.join(c for c in brand.upper() if c.isalnum())[:10] or "Quake"
     category_code = ''.join(c for c in category.upper() if c.isalnum())[:10] or "ITEM"
     
     # Get next sequence atomically

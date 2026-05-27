@@ -11,6 +11,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BarcodeScanView,
     CheckoutView,
+    PosSearchView,
     SaleViewSet,
     CreditSalesListView,
     RecordCreditPaymentView,
@@ -33,6 +34,7 @@ returns_router.register(r'', ReturnViewSet, basename='return')
 urlpatterns = [
     # POS operations
     path('scan/', BarcodeScanView.as_view(), name='barcode-scan'),
+    path('pos/search/', PosSearchView.as_view(), name='pos-search'),
     path('checkout/', CheckoutView.as_view(), name='checkout'),
     
     # Phase 15: Returns

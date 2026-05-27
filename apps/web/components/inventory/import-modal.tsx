@@ -1,37 +1,59 @@
 "use client";
 
 import * as React from "react";
-import { X, Upload, FileText, AlertCircle } from "lucide-react";
+import { X, Upload, FileText, AlertCircle, Download, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { inventoryService, type BulkImportResult, type Warehouse } from "@/services";
 
-interface ImportModalProps {
+export interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When rows omit warehouse_code but have initial_stock, this warehouse is used. */
+  warehouses?: Warehouse[];
+  onImported?: (result: BulkImportResult) => void;
 }
 
-export function ImportModal({ isOpen, onClose }: ImportModalProps) {
+export function ImportModal({
+  isOpen,
+  onClose,
+  warehouses = [],
+  onImported,
+}: ImportModalProps) {
   const [isDragging, setIsDragging] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [defaultWarehouseId, setDefaultWarehouseId] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<BulkImportResult | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Handle escape key
+  const resetState = React.useCallback(() => {
+    setSelectedFile(null);
+    setDefaultWarehouseId("");
+    setBusy(false);
+    setError(null);
+    setResult(null);
+  }, []);
+
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) onClose();
+      if (e.key === "Escape" && isOpen && !busy) onClose();
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, busy]);
 
-  // Prevent body scroll when open
   React.useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
+      resetState();
     }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, resetState]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -43,32 +65,72 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
     setIsDragging(false);
   };
 
+  const acceptFile = (file: File | undefined) => {
+    if (!file) return;
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith(".csv") || lower.endsWith(".xlsx")) {
+      setSelectedFile(file);
+      setError(null);
+      setResult(null);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx'))) {
-      setSelectedFile(file);
-    }
+    acceptFile(e.dataTransfer.files[0]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
+    acceptFile(e.target.files?.[0]);
   };
 
   const handleClose = () => {
-    setSelectedFile(null);
+    if (busy) return;
+    resetState();
     onClose();
+  };
+
+  const downloadTemplate = async (format: "csv" | "xlsx") => {
+    try {
+      setError(null);
+      await inventoryService.downloadProductImportTemplate(format);
+    } catch {
+      setError("Could not download template. Check you are signed in.");
+    }
+  };
+
+  const runImport = async () => {
+    if (!selectedFile) return;
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await inventoryService.bulkImportProducts(
+        selectedFile,
+        defaultWarehouseId || undefined,
+      );
+      setResult(res);
+      if (res.created > 0) {
+        onImported?.(res);
+      }
+    } catch (e: unknown) {
+      const ax = e as { response?: { data?: { detail?: unknown } } };
+      const detail = ax.response?.data?.detail;
+      setError(
+        typeof detail === "string"
+          ? detail
+          : "Import failed. Check the file format and try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -79,7 +141,6 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
             aria-hidden="true"
           />
 
-          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -87,36 +148,82 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="w-full max-w-md bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden">
-              {/* Header */}
+            <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-[#C6A15B]/10">
                     <Upload className="w-5 h-5 text-[#C6A15B]" />
                   </div>
-                  <h2 className="text-lg font-semibold text-[#F5F6FA]">Import Inventory</h2>
+                  <h2 className="text-lg font-semibold text-[#F5F6FA]">Import products</h2>
                 </div>
                 <button
+                  type="button"
                   onClick={handleClose}
-                  className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
+                  disabled={busy}
+                  className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors disabled:opacity-50"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5 text-[#A1A4B3]" />
                 </button>
               </div>
 
-              {/* Content */}
               <div className="p-5 space-y-5">
-                {/* Drop Zone */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadTemplate("csv")}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-[#F5F6FA] hover:bg-white/[0.1]"
+                  >
+                    <Download className="w-4 h-4 text-[#C6A15B]" />
+                    CSV template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadTemplate("xlsx")}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-[#F5F6FA] hover:bg-white/[0.1]"
+                  >
+                    <Download className="w-4 h-4 text-[#C6A15B]" />
+                    XLSX template
+                  </button>
+                </div>
+                <p className="text-xs text-[#6F7285]">
+                  Templates include every column with example rows (up to 200 products per upload).
+                  Example rows leave warehouse_code blank so your default warehouse applies to opening
+                  stock; or set warehouse_code per row to a real active code.
+                </p>
+
+                {warehouses.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-[#A1A4B3] mb-1.5">
+                      Default warehouse (optional)
+                    </label>
+                    <select
+                      value={defaultWarehouseId}
+                      onChange={(e) => setDefaultWarehouseId(e.target.value)}
+                      disabled={busy}
+                      className="w-full rounded-lg bg-[#0E0F13] border border-white/[0.1] px-3 py-2 text-sm text-[#F5F6FA] focus:outline-none focus:ring-1 focus:ring-[#C6A15B]"
+                    >
+                      <option value="">— None —</option>
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name}
+                          {w.code ? ` (${w.code})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => !busy && fileInputRef.current?.click()}
                   className={`
-                    relative p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all
-                    ${isDragging 
-                      ? "border-[#C6A15B] bg-[#C6A15B]/5" 
+                    relative p-8 rounded-xl border-2 border-dashed transition-all
+                    ${busy ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
+                    ${isDragging
+                      ? "border-[#C6A15B] bg-[#C6A15B]/5"
                       : "border-white/[0.15] hover:border-white/[0.25] hover:bg-white/[0.02]"
                     }
                     ${selectedFile ? "border-[#2ECC71] bg-[#2ECC71]/5" : ""}
@@ -127,9 +234,10 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
                     type="file"
                     accept=".csv,.xlsx"
                     onChange={handleFileSelect}
+                    disabled={busy}
                     className="hidden"
                   />
-                  
+
                   <div className="flex flex-col items-center text-center">
                     {selectedFile ? (
                       <>
@@ -147,40 +255,77 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
                           <Upload className="w-6 h-6 text-[#A1A4B3]" />
                         </div>
                         <p className="text-sm text-[#F5F6FA]">
-                          Drag & drop your file here, or <span className="text-[#C6A15B]">browse</span>
+                          Drag & drop here, or <span className="text-[#C6A15B]">browse</span>
                         </p>
-                        <p className="text-xs text-[#6F7285] mt-1">
-                          Supports CSV and XLSX files
-                        </p>
+                        <p className="text-xs text-[#6F7285] mt-1">CSV or XLSX</p>
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* Info */}
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-[#F5A623]/10 border border-[#F5A623]/20">
-                  <AlertCircle className="w-5 h-5 text-[#F5A623] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-[#F5A623] font-medium">CSV parsing coming soon</p>
-                    <p className="text-xs text-[#F5A623]/70 mt-0.5">
-                      This feature is under development. File upload UI is ready.
-                    </p>
+                {error && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/25">
+                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-300">{error}</p>
                   </div>
-                </div>
+                )}
 
-                {/* Actions */}
+                {result && (
+                  <div
+                    className={`flex items-start gap-3 p-3 rounded-lg border ${
+                      result.created > 0
+                        ? "bg-[#2ECC71]/10 border-[#2ECC71]/25"
+                        : "bg-[#F5A623]/10 border-[#F5A623]/20"
+                    }`}
+                  >
+                    <AlertCircle
+                      className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                        result.created > 0 ? "text-[#2ECC71]" : "text-[#F5A623]"
+                      }`}
+                    />
+                    <div className="text-sm space-y-1">
+                      <p className={result.created > 0 ? "text-[#2ECC71]" : "text-[#F5A623]"}>
+                        Created {result.created}, failed {result.failed}
+                      </p>
+                      {result.errors?.length > 0 && (
+                        <ul className="text-xs text-[#A1A4B3] max-h-32 overflow-y-auto list-disc pl-4 space-y-0.5">
+                          {result.errors.slice(0, 12).map((err, i) => (
+                            <li key={`${err.row}-${i}`}>
+                              Row {err.row}: {err.message}
+                            </li>
+                          ))}
+                          {result.errors.length > 12 && (
+                            <li>…and {result.errors.length - 12} more</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={handleClose}
-                    className="flex-1 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
+                    disabled={busy}
+                    className="flex-1 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors disabled:opacity-50"
                   >
-                    Cancel
+                    {result?.created ? "Done" : "Cancel"}
                   </button>
                   <button
-                    disabled={!selectedFile}
-                    className="flex-1 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={runImport}
+                    disabled={!selectedFile || busy}
+                    className="flex-1 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                   >
-                    Import
+                    {busy ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Importing…
+                      </>
+                    ) : (
+                      "Import"
+                    )}
                   </button>
                 </div>
               </div>

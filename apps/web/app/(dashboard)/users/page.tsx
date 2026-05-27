@@ -8,6 +8,7 @@ import {
   UserPlus,
   Shield,
   User as UserIcon,
+  UserCircle2,
   Copy,
   Check,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
 import { useAuthStore } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import { ADMIN_BASE } from "@/lib/admin-routes";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -42,7 +44,7 @@ export default function UsersPage() {
 
   // Redirect non-admins
   if (currentUser?.role !== "ADMIN") {
-    router.push("/");
+    router.push(ADMIN_BASE);
     return null;
   }
 
@@ -62,7 +64,8 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-[#F5F6FA]">
+            <h1 className="text-2xl font-semibold text-[#F5F6FA] flex items-center gap-2">
+              <UserIcon className="w-6 h-6 text-[#6366F1]" />
               User Management
             </h1>
             <p className="text-sm text-[#6F7285] mt-1">
@@ -201,10 +204,8 @@ function UserRow({
     <tr className="hover:bg-white/[0.02] transition-colors">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#C6A15B]/20 flex items-center justify-center">
-            <span className="text-sm font-medium text-[#C6A15B]">
-              {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-            </span>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366F1]/20 via-[#A855F7]/20 to-[#EC4899]/20 ring-1 ring-[#6366F1]/30 flex items-center justify-center">
+            <UserCircle2 className="w-5 h-5 text-[#6366F1]" />
           </div>
           <div>
             <p className="text-sm font-medium text-[#F5F6FA]">
@@ -219,10 +220,10 @@ function UserRow({
       </td>
       <td className="px-6 py-4">
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${
             user.role === "ADMIN"
-              ? "bg-[#C6A15B]/20 text-[#C6A15B]"
-              : "bg-blue-500/20 text-blue-400"
+              ? "bg-amber-100 text-amber-900 ring-amber-300/90"
+              : "bg-sky-100 text-sky-900 ring-sky-300/90"
           }`}
         >
           {user.role === "ADMIN" ? (

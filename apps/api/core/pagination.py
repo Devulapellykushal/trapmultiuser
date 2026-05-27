@@ -1,5 +1,5 @@
 """
-Standard Pagination for TRAP Inventory System.
+Standard Pagination for Quake Inventory System.
 
 Provides a consistent pagination response format across all list endpoints.
 

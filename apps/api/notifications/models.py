@@ -1,5 +1,5 @@
 """
-Notifications Models for TRAP Inventory System.
+Notifications Models for Quake Inventory System.
 
 Handles:
 - Low stock alerts

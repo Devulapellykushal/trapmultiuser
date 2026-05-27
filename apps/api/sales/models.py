@@ -1,5 +1,5 @@
 """
-Sales Models for TRAP Inventory System.
+Sales Models for Quake Inventory System.
 Implements POS-grade sales with immutable financial events.
 
 PHASE 13: POS ENGINE (LEDGER-BACKED)
@@ -31,7 +31,7 @@ MODELS:
 - Sale (Invoice Header): Customer, warehouse, discount, GST, totals
 - SaleItem (Line Items): Product, quantity, price, GST per line
 - Payment: Multi-payment support (CASH, CARD, UPI)
-- InvoiceSequence: Concurrency-safe sequential invoice numbers
+- InvoiceSequence (legacy): superseded by invoices.InvoiceSequence.get_next_sale_invoice_number()
 """
 
 import uuid
@@ -49,11 +49,10 @@ from inventory.models import Warehouse, Product
 
 class InvoiceSequence(models.Model):
     """
-    Concurrency-safe sequential invoice number generator.
-    
-    Format: INV-YYYY-NNNNNN (e.g., INV-2026-000123)
-    
-    Uses database-level locking to ensure uniqueness.
+    Legacy POS sale invoice counter (pre-unification).
+
+    Deprecated: new sales use ``invoices.models.InvoiceSequence.get_next_sale_invoice_number()``.
+    Table retained for migrations and historical rows; do not register new writers here.
     """
     year = models.PositiveIntegerField(unique=True, primary_key=True)
     last_number = models.PositiveIntegerField(default=0)
@@ -181,6 +180,15 @@ class Sale(models.Model):
         default='',
         help_text="Customer address for delivery/billing"
     )
+
+    customer = models.ForeignKey(
+        'customers.Customer',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sales',
+        help_text="Optional linked customer record (POS / CRM)",
+    )
     
     # Financials
     subtotal = models.DecimalField(
@@ -282,6 +290,32 @@ class Sale(models.Model):
         help_text="Current status of credit payment"
     )
 
+    class PaymentStatus(models.TextChoices):
+        UNPAID = 'UNPAID', 'Unpaid'
+        PARTIAL = 'PARTIAL', 'Partially paid'
+        PAID = 'PAID', 'Paid'
+
+    payment_status = models.CharField(
+        max_length=12,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.PAID,
+        help_text="Cash vs credit settlement snapshot at checkout (updated on collections)",
+    )
+    paid_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Non-CREDIT payments received at checkout (counter money)",
+    )
+    due_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Opening balance owed after checkout (mirrors initial credit_balance when on account)",
+    )
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Sale'
@@ -319,7 +353,10 @@ class Sale(models.Model):
                 # Check if update_fields is specified and only includes credit fields
                 update_fields = kwargs.get('update_fields')
                 if update_fields and existing.status == self.Status.COMPLETED:
-                    allowed_credit_fields = {'credit_balance', 'credit_status'}
+                    allowed_credit_fields = {
+                        'credit_balance', 'credit_status',
+                        'paid_amount', 'due_amount', 'payment_status',
+                    }
                     if set(update_fields).issubset(allowed_credit_fields):
                         # Allow this credit payment update
                         super().save(*args, **kwargs)
@@ -328,9 +365,12 @@ class Sale(models.Model):
                 # Allow credit field updates without update_fields if only credit fields changed
                 if existing.status == self.Status.COMPLETED and self.status == self.Status.COMPLETED:
                     # Check if only credit-related fields are being updated
-                    credit_fields_changed = (
+                    post_completion_changed = (
                         existing.credit_balance != self.credit_balance or
-                        existing.credit_status != self.credit_status
+                        existing.credit_status != self.credit_status or
+                        existing.paid_amount != self.paid_amount or
+                        existing.due_amount != self.due_amount or
+                        existing.payment_status != self.payment_status
                     )
                     # Ensure no other fields are being modified
                     other_fields_same = (
@@ -338,9 +378,11 @@ class Sale(models.Model):
                         existing.total == self.total and
                         existing.subtotal == self.subtotal and
                         existing.discount_amount == self.discount_amount and
-                        existing.invoice_number == self.invoice_number
+                        existing.invoice_number == self.invoice_number and
+                        existing.is_credit_sale == self.is_credit_sale and
+                        existing.credit_amount == self.credit_amount
                     )
-                    if credit_fields_changed and other_fields_same:
+                    if post_completion_changed and other_fields_same:
                         # Allow this credit payment update
                         super().save(*args, **kwargs)
                         return
@@ -484,6 +526,28 @@ class SaleItem(models.Model):
         default=Decimal('0.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text="GST amount: calculated on discounted line amount"
+    )
+
+    purchase_price_snapshot = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Unit cost (from pricing) at sale time for margin reporting",
+    )
+    cgst_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="CGST component (intra-state split of gst_amount)",
+    )
+    sgst_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="SGST component (intra-state; sgst = gst_amount - cgst_amount)",
     )
     
     line_total_with_gst = models.DecimalField(
@@ -688,15 +752,28 @@ class CreditPayment(models.Model):
             
             # Update sale credit balance
             new_balance = self.sale.credit_balance - self.amount
+            new_paid = self.sale.paid_amount + self.amount
             self.sale.credit_balance = new_balance
+            self.sale.paid_amount = new_paid
+            self.sale.due_amount = new_balance
             
             # Update credit status
             if new_balance <= Decimal('0.00'):
                 self.sale.credit_status = Sale.CreditStatus.PAID
+                self.sale.payment_status = Sale.PaymentStatus.PAID
             else:
                 self.sale.credit_status = Sale.CreditStatus.PARTIAL
+                if new_paid > Decimal('0.00'):
+                    self.sale.payment_status = Sale.PaymentStatus.PARTIAL
+                else:
+                    self.sale.payment_status = Sale.PaymentStatus.UNPAID
             
-            self.sale.save(update_fields=['credit_balance', 'credit_status'])
+            self.sale.save(
+                update_fields=[
+                    'credit_balance', 'credit_status',
+                    'paid_amount', 'due_amount', 'payment_status',
+                ]
+            )
     
     def delete(self, *args, **kwargs):
         """Prevent deletion of credit payments."""

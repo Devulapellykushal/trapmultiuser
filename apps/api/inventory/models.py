@@ -1,22 +1,20 @@
 """
-Inventory Models for TRAP Inventory System.
+Inventory Models for Quake Inventory System.
 Implements ledger-based stock management with immutable audit trail.
 """
 
 import uuid
 from django.db import models
 from django.core.validators import MinValueValidator
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 
 class Category(models.Model):
     """
-    Represents a product category that can be managed by admin.
-    
-    Categories can be for different product types:
-    - Apparels: T-Shirts, Jeans, Shirts, etc.
-    - Footwear: Sneakers, Formal Shoes, etc.
-    - Accessories: Handbags, Belts, etc.
+    Product category managed by admins (taxonomy is vertical-agnostic).
+
+    Examples: groceries, OTC pharmacy, cosmetics, fasteners, beverages,
+    apparel, footwear, electronics, etc.—whatever fits the business.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, unique=True)
@@ -33,6 +31,40 @@ class Category(models.Model):
         return self.name
 
 
+class ServiceItem(models.Model):
+    """
+    Billable service catalog (alignment, balancing, wash, nitrogen, etc.).
+    Sold at POS via product linkage or future SaleItem.service_item FK.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    service_name = models.CharField(max_length=200)
+    default_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    gst_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('18.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    hsn_code = models.CharField(max_length=20, blank=True, default='')
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['service_name']
+        verbose_name = 'Service item'
+        verbose_name_plural = 'Service items'
+
+    def __str__(self):
+        return self.service_name
+
+
 class Warehouse(models.Model):
     """
     Represents a physical warehouse or storage location.
@@ -46,6 +78,17 @@ class Warehouse(models.Model):
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=20, unique=True)
     address = models.TextField(blank=True)
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=32, blank=True, default="")
+    seller_image = models.ImageField(
+        upload_to="warehouse_seller/",
+        blank=True,
+        null=True,
+        help_text="16:9 horizontal banner for printed invoice seller block.",
+    )
+    bank_name = models.CharField(max_length=200, blank=True, default="")
+    bank_account_number = models.CharField(max_length=64, blank=True, default="")
+    bank_ifsc = models.CharField(max_length=20, blank=True, default="")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -681,24 +724,38 @@ class ProductPricing(models.Model):
         READ-ONLY: Cannot be set directly.
         Formula: ((selling_price - cost_price) / cost_price) * 100
         """
-        if self.cost_price and self.cost_price > 0:
-            margin = ((self.selling_price - self.cost_price) / self.cost_price) * 100
-            return round(margin, 2)
-        return Decimal('0.00')
+        q = Decimal('0.01')
+        try:
+            if not self.cost_price or self.cost_price <= 0:
+                return Decimal('0.00')
+            margin = ((self.selling_price - self.cost_price) / self.cost_price) * Decimal(100)
+            return margin.quantize(q, rounding=ROUND_HALF_UP)
+        except InvalidOperation:
+            return Decimal('0.00')
     
     @property
     def profit_amount(self) -> Decimal:
         """Computed profit per unit."""
-        return self.selling_price - self.cost_price
+        q = Decimal('0.01')
+        try:
+            return (self.selling_price - self.cost_price).quantize(q, rounding=ROUND_HALF_UP)
+        except InvalidOperation:
+            return Decimal('0.00')
     
     @property
     def gst_amount(self) -> Decimal:
         """Computed GST amount based on selling price."""
-        if self.gst_percentage and self.gst_percentage > 0:
-            # GST inclusive calculation
-            gst = (self.selling_price * self.gst_percentage) / (100 + self.gst_percentage)
-            return round(gst, 2)
-        return Decimal('0.00')
+        q = Decimal('0.01')
+        try:
+            if not self.gst_percentage or self.gst_percentage <= 0:
+                return Decimal('0.00')
+            denom = Decimal(100) + self.gst_percentage
+            if denom <= 0:
+                return Decimal('0.00')
+            gst = (self.selling_price * self.gst_percentage) / denom
+            return gst.quantize(q, rounding=ROUND_HALF_UP)
+        except InvalidOperation:
+            return Decimal('0.00')
 
 
 class ProductImage(models.Model):

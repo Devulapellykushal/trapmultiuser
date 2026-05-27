@@ -18,18 +18,20 @@ import {
   LayoutDashboard,
   Package,
   TrendingUp,
-  RotateCcw,
+  // <> Phase 1 reports basic only (prompt.md) — subsections below commented in nav array
+  // RotateCcw,
   DollarSign,
   ChevronRight,
-  Tags,
-  Bookmark,
-  Ruler,
-  Truck,
-  Warehouse,
-  ShoppingBag,
+  // Tags,
+  // Bookmark,
+  // Layers,
+  // Truck,
+  // Warehouse,
+  // ShoppingBag,
 } from "lucide-react";
 import { DashboardFilterProvider } from "@/hooks";
 import { useAuth } from "@/lib/auth";
+import { adminHref } from "@/lib/admin-routes";
 
 interface NavItem {
   label: string;
@@ -42,72 +44,73 @@ interface NavItem {
 const reportNavItems: NavItem[] = [
   {
     label: "Overview",
-    href: "/reports",
+    href: adminHref("/reports"),
     icon: LayoutDashboard,
     description: "Executive summary & KPIs",
   },
   {
     label: "Inventory",
-    href: "/reports/inventory",
+    href: adminHref("/reports/inventory"),
     icon: Package,
     description: "Stock levels & aging",
   },
   {
     label: "Sales",
-    href: "/reports/sales",
+    href: adminHref("/reports/sales"),
     icon: TrendingUp,
     description: "Revenue & product performance",
   },
-  {
-    label: "Returns",
-    href: "/reports/returns",
-    icon: RotateCcw,
-    description: "Refunds & adjustments",
-    adminOnly: true,
-  },
+  // <>
+  // {
+  //   label: "Returns",
+  //   href: "/reports/returns",
+  //   icon: RotateCcw,
+  //   description: "Refunds & adjustments",
+  //   adminOnly: true,
+  // },
   {
     label: "Profit & Tax",
-    href: "/reports/profit",
+    href: adminHref("/reports/profit"),
     icon: DollarSign,
     description: "Margins & GST",
     adminOnly: true,
   },
-  {
-    label: "Category",
-    href: "/reports/category",
-    icon: Tags,
-    description: "Sales by product category",
-  },
-  {
-    label: "Brand",
-    href: "/reports/brand",
-    icon: Bookmark,
-    description: "Sales by product brand",
-  },
-  {
-    label: "Size",
-    href: "/reports/size",
-    icon: Ruler,
-    description: "Sales by product size",
-  },
-  {
-    label: "Supplier",
-    href: "/reports/supplier",
-    icon: Truck,
-    description: "Purchases by supplier",
-  },
-  {
-    label: "Supplier Sales",
-    href: "/reports/supplier-sales",
-    icon: ShoppingBag,
-    description: "Products sold by supplier",
-  },
-  {
-    label: "Warehouse",
-    href: "/reports/warehouse",
-    icon: Warehouse,
-    description: "Sales by store location",
-  },
+  // {
+  //   label: "Category",
+  //   href: "/reports/category",
+  //   icon: Tags,
+  //   description: "Sales by product category",
+  // },
+  // {
+  //   label: "Brand",
+  //   href: "/reports/brand",
+  //   icon: Bookmark,
+  //   description: "Sales by product brand",
+  // },
+  // {
+  //   label: "Variants",
+  //   href: "/reports/size",
+  //   icon: Layers,
+  //   description: "Sales by variant option (API size field)",
+  // },
+  // {
+  //   label: "Supplier",
+  //   href: "/reports/supplier",
+  //   icon: Truck,
+  //   description: "Purchases by supplier",
+  // },
+  // {
+  //   label: "Supplier Sales",
+  //   href: "/reports/supplier-sales",
+  //   icon: ShoppingBag,
+  //   description: "Products sold by supplier",
+  // },
+  // {
+  //   label: "Warehouse",
+  //   href: "/reports/warehouse",
+  //   icon: Warehouse,
+  //   description: "Sales by store location",
+  // },
 ];
 
 export default function ReportsLayout({
@@ -124,8 +127,9 @@ export default function ReportsLayout({
     return reportNavItems.filter((item) => !item.adminOnly);
   }, [isAdmin]);
 
+  const reportsRoot = adminHref("/reports");
   const isActive = (href: string) => {
-    if (href === "/reports") return pathname === "/reports";
+    if (href === reportsRoot) return pathname === reportsRoot;
     return pathname.startsWith(href);
   };
 
@@ -151,7 +155,7 @@ export default function ReportsLayout({
                     flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group
                     ${
                       active
-                        ? "bg-[#C6A15B]/10 text-[#C6A15B]"
+                        ? "bg-[#6366F1]/10 text-[#6366F1]"
                         : "text-white/60 hover:bg-white/5 hover:text-white"
                     }
                   `}
@@ -159,7 +163,7 @@ export default function ReportsLayout({
                   <div
                     className={`p-1.5 rounded-md transition-colors ${
                       active
-                        ? "bg-[#C6A15B]/20"
+                        ? "bg-[#6366F1]/20"
                         : "bg-white/5 group-hover:bg-white/10"
                     }`}
                   >
@@ -168,7 +172,7 @@ export default function ReportsLayout({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{item.label}</p>
                     <p
-                      className={`text-xs truncate ${active ? "text-[#C6A15B]/60" : "text-white/30"}`}
+                      className={`text-xs truncate ${active ? "text-[#6366F1]/60" : "text-white/30"}`}
                     >
                       {item.description}
                     </p>

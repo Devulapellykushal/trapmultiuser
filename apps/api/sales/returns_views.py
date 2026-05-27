@@ -1,5 +1,5 @@
 """
-Returns Views for TRAP Inventory System.
+Returns Views for Quake Inventory System.
 
 PHASE 15: RETURNS, REFUNDS & ADJUSTMENTS (LEDGER-SAFE)
 =======================================================

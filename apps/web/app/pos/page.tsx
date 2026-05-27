@@ -1,22 +1,33 @@
 "use client";
 
-import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { StoreSelector, WarehouseSelector } from "@/components/dashboard";
 import {
-  CartProvider,
   BarcodeInput,
-  ProductGrid,
   CartPanel,
+  CartProvider,
   CheckoutModal,
+  PosSearchBar,
+  ProductGrid,
 } from "@/components/pos";
-import { WarehouseSelector, StoreSelector } from "@/components/dashboard";
-import { inventoryService, Warehouse } from "@/services";
-import { storesService, StoreListItem } from "@/services";
+import { InvoicePreview } from "@/components/invoices";
+import { inventoryService, StoreListItem, storesService, Warehouse } from "@/services";
+import { inventoryKeys } from "@/hooks";
+import { usePosStore } from "@/features/pos/store/usePosStore";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type { ApiInvoice, Invoice } from "@/lib/invoices/transform-api-invoice";
+import { transformInvoiceDetail } from "@/lib/invoices/transform-api-invoice";
+import * as React from "react";
 
 type InventoryMode = "warehouse" | "store";
 
 export default function POSPage() {
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
+  const [posInvoicePreview, setPosInvoicePreview] = React.useState<Invoice | null>(
+    null,
+  );
+  const [posInvoicePreviewOpen, setPosInvoicePreviewOpen] =
+    React.useState(false);
   const [inventoryMode, setInventoryMode] =
     React.useState<InventoryMode>("warehouse");
   const [warehouseId, setWarehouseId] = React.useState<string | null>(null);
@@ -24,7 +35,7 @@ export default function POSPage() {
 
   // Fetch warehouses to auto-select the first one
   const { data: warehouses } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
     staleTime: 300000, // 5 minutes
   });
@@ -50,8 +61,52 @@ export default function POSPage() {
     }
   }, [stores, storeId]);
 
+  React.useEffect(() => {
+    usePosStore.getState().setWarehouseId(warehouseId);
+  }, [warehouseId]);
+
+  React.useEffect(() => {
+    if (inventoryMode !== "warehouse") {
+      usePosStore.getState().setSearchQuery("");
+      usePosStore.getState().resetResults();
+    }
+  }, [inventoryMode]);
+
   const handleCheckout = () => {
     setCheckoutOpen(true);
+  };
+
+  const handleViewInvoiceFromCheckout = async ({
+    saleId,
+    invoiceId,
+  }: {
+    saleId?: string;
+    invoiceId?: string;
+  }) => {
+    try {
+      let id = invoiceId;
+      if (!id && saleId) {
+        const data = await api.get<{ results: ApiInvoice[] }>("/invoices/", {
+          sale_id: saleId,
+          page_size: 5,
+        });
+        const first = data.results?.[0];
+        id = first?.id ? String(first.id) : undefined;
+      }
+      if (!id) {
+        return;
+      }
+      const full = await api.get<ApiInvoice>(`/invoices/${id}/`);
+      setPosInvoicePreview(transformInvoiceDetail(full));
+      setPosInvoicePreviewOpen(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const closePosInvoicePreview = () => {
+    setPosInvoicePreviewOpen(false);
+    setTimeout(() => setPosInvoicePreview(null), 300);
   };
 
   // Get selected warehouse/store name for display
@@ -72,7 +127,11 @@ export default function POSPage() {
           {/* Header with Mode Toggle and Selectors */}
           <div className="flex flex-col gap-3 mb-6">
             <div className="flex items-center justify-between gap-4">
-              <BarcodeInput />
+              <BarcodeInput
+                warehouseId={
+                  inventoryMode === "warehouse" ? warehouseId : undefined
+                }
+              />
 
               <div className="flex items-center gap-3">
                 {/* Inventory Mode Toggle */}
@@ -81,7 +140,7 @@ export default function POSPage() {
                     onClick={() => setInventoryMode("warehouse")}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                       inventoryMode === "warehouse"
-                        ? "bg-[#C6A15B] text-[#0E0F13]"
+                        ? "bg-[#6366F1] text-white"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
@@ -91,7 +150,7 @@ export default function POSPage() {
                     onClick={() => setInventoryMode("store")}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                       inventoryMode === "store"
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-[#A855F7] text-white"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
@@ -125,8 +184,8 @@ export default function POSPage() {
                 <span
                   className={`font-medium px-2 py-0.5 rounded ${
                     inventoryMode === "warehouse"
-                      ? "bg-[#C6A15B]/20 text-[#C6A15B]"
-                      : "bg-emerald-500/20 text-emerald-400"
+                      ? "bg-[#6366F1]/20 text-[#6366F1]"
+                      : "bg-[#A855F7]/20 text-[#A855F7]"
                   }`}
                 >
                   {currentLocationName}
@@ -134,6 +193,10 @@ export default function POSPage() {
               </div>
             )}
           </div>
+
+          <PosSearchBar
+            enabled={inventoryMode === "warehouse" && !!warehouseId}
+          />
 
           {/* Product Grid */}
           <div className="flex-1 overflow-auto -mx-1 px-1">
@@ -170,6 +233,12 @@ export default function POSPage() {
             inventoryMode === "warehouse" ? warehouseId || undefined : undefined
           }
           storeId={inventoryMode === "store" ? storeId || undefined : undefined}
+          onViewInvoice={handleViewInvoiceFromCheckout}
+        />
+        <InvoicePreview
+          invoice={posInvoicePreview}
+          isOpen={posInvoicePreviewOpen}
+          onClose={closePosInvoicePreview}
         />
       </div>
     </CartProvider>
@@ -181,7 +250,7 @@ function CheckoutButton({ onCheckout }: { onCheckout: () => void }) {
   return (
     <button
       onClick={onCheckout}
-      className="w-full py-4 rounded-xl bg-gradient-to-r from-[#C6A15B] to-[#D4B06A] text-[#0E0F13] font-bold text-lg hover:from-[#D4B06A] hover:to-[#E0C080] transition-all shadow-lg shadow-[#C6A15B]/20"
+    className="w-full py-4 rounded-xl [background:var(--grad-brand-diagonal)] text-white font-bold text-lg hover:opacity-95 transition-all shadow-lg shadow-[#6366F1]/20"
     >
       Proceed to Checkout
     </button>

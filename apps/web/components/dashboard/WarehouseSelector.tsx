@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Building2, ChevronDown, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { inventoryService, Warehouse } from "@/services";
+import { inventoryKeys } from "@/hooks";
 
 interface WarehouseSelectorProps {
   value: string | null;
@@ -31,7 +32,7 @@ export function WarehouseSelector({
 
   // Fetch warehouses
   const { data: warehouses, isLoading } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
     staleTime: 300000, // 5 minutes
   });

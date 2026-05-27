@@ -48,7 +48,8 @@ function DebitCreditNotesPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <Receipt className="w-6 h-6 text-[#6366F1]" />
               Debit/Credit Notes
             </h1>
             <p className="text-sm text-[#6F7285] mt-1">Loading...</p>
@@ -201,7 +202,8 @@ function DebitCreditNotesPageContent() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">
+          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+            <Receipt className="w-6 h-6 text-[#6366F1]" />
             Debit/Credit Notes
           </h1>
           <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
@@ -221,7 +223,8 @@ function DebitCreditNotesPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <Receipt className="w-6 h-6 text-[#6366F1]" />
               Debit/Credit Notes
             </h1>
             <p className="text-sm text-[#6F7285] mt-1">

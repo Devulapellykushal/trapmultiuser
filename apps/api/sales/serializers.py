@@ -1,5 +1,5 @@
 """
-Sales Serializers for TRAP Inventory System.
+Sales Serializers for Quake Inventory System.
 
 PHASE 13: POS ENGINE (LEDGER-BACKED)
 =====================================
@@ -62,7 +62,8 @@ class SaleItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'product_sku', 'product_barcode', 'product_name',
             'quantity', 'selling_price', 'line_total',
             # Phase 17.1: GST breakdown fields
-            'gst_percentage', 'gst_amount', 'line_total_with_gst'
+            'gst_percentage', 'gst_amount', 'line_total_with_gst',
+            'purchase_price_snapshot', 'cgst_amount', 'sgst_amount',
         ]
         read_only_fields = fields
 
@@ -84,6 +85,7 @@ class SaleSerializer(serializers.ModelSerializer):
     items = SaleItemSerializer(many=True, read_only=True)
     payments = PaymentSerializer(many=True, read_only=True)
     credit_payments = serializers.SerializerMethodField()
+    customer_id = serializers.SerializerMethodField()
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
     warehouse_code = serializers.CharField(source='warehouse.code', read_only=True)
     discount_amount = serializers.DecimalField(
@@ -99,15 +101,20 @@ class SaleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'idempotency_key', 'invoice_number',
             'warehouse', 'warehouse_name', 'warehouse_code',
+            'customer_id',
             'customer_name', 'customer_mobile', 'customer_email', 'customer_address',
             'subtotal', 'discount_type', 'discount_value',
             'discount_amount', 'total', 'total_gst', 'total_items',
             'status', 'failure_reason', 'is_fully_paid',
+            'payment_status', 'paid_amount', 'due_amount',
             'is_credit_sale', 'credit_amount', 'credit_balance', 'credit_status',
             'created_by', 'created_by_username', 'created_at',
             'items', 'payments', 'credit_payments'
         ]
         read_only_fields = fields
+    
+    def get_customer_id(self, obj):
+        return str(obj.customer_id) if obj.customer_id else None
     
     def get_credit_payments(self, obj):
         """Return credit payments for this sale."""
@@ -126,7 +133,9 @@ class SaleListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'invoice_number', 'warehouse_code', 'customer_name', 'customer_mobile',
             'subtotal', 'discount_type', 'discount_value', 'total',
-            'total_items', 'status', 'is_credit_sale', 'credit_balance', 'credit_status', 'created_at'
+            'total_items', 'status',
+            'payment_status', 'paid_amount', 'due_amount',
+            'is_credit_sale', 'credit_balance', 'credit_status', 'created_at'
         ]
         read_only_fields = fields
 
@@ -262,6 +271,13 @@ class CheckoutSerializer(serializers.Serializer):
         default='',
         allow_blank=True
     )
+
+    customer_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="Optional linked Customer record (UUID)",
+    )
     
     discount_type = serializers.ChoiceField(
         choices=Sale.DiscountType.choices,
@@ -279,6 +295,15 @@ class CheckoutSerializer(serializers.Serializer):
     )
     
     payments = PaymentInputSerializer(many=True)
+
+    apply_automatic_gst = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=(
+            "If true, GST is extracted from GST-inclusive line amounts (CGST/SGST). "
+            "If false (default), sale lines store 0% GST; amount due is unchanged."
+        ),
+    )
     
     def validate_items(self, value):
         if not value:

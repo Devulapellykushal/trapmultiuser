@@ -1,1 +1,1 @@
-# Notifications app for TRAP Inventory System
+# Notifications app for Quake Inventory System

@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   Barcode,
   Printer,
-  Ruler,
+  Layers,
 } from "lucide-react";
 import { motion } from "framer-motion";
 // Re-export Product type from cart-context for consistency
@@ -17,6 +17,7 @@ import { usePOSProducts } from "@/hooks";
 import { EmptyState, emptyStates } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POSProduct } from "@/services/inventory.service";
+import { adminHref } from "@/lib/admin-routes";
 
 // Get API base URL for barcode images
 const API_BASE_URL =
@@ -32,6 +33,17 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** MRP range from variants (ignores zeros) — for when selling price is unset */
+function getVariantMrpBounds(
+  variants: ProductVariant[],
+): { min: number; max: number } {
+  const positive = variants
+    .map((v) => v.mrp ?? 0)
+    .filter((m) => m > 0);
+  if (!positive.length) return { min: 0, max: 0 };
+  return { min: Math.min(...positive), max: Math.max(...positive) };
+}
+
 // Grouped product for display
 interface GroupedProduct {
   productName: string;
@@ -42,6 +54,7 @@ interface GroupedProduct {
   totalStock: number;
   minPrice: number;
   maxPrice: number;
+  /** Min MRP among variants — used when all selling prices are 0 */
   mrp: number;
   hasMultipleVariants: boolean;
   // Use first variant's data for display
@@ -61,7 +74,7 @@ export function ProductGrid({
   warehouseId,
   storeId,
 }: ProductGridProps) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const [lastAdded, setLastAdded] = React.useState<string | null>(null);
   const [showBarcodeFor, setShowBarcodeFor] = React.useState<string | null>(
     null,
@@ -92,6 +105,7 @@ export function ProductGrid({
       const baseName = p.productName || p.name.split(" (")[0].trim();
       const groupKey = `${p.brand}::${baseName}`;
 
+      const mrpVal = parseFloat(p.mrp) || 0;
       const variant: ProductVariant = {
         id: p.id,
         name: p.name,
@@ -101,6 +115,7 @@ export function ProductGrid({
         size: p.size,
         color: p.color,
         sellingPrice: parseFloat(p.sellingPrice) || 0,
+        mrp: mrpVal,
         costPrice: parseFloat(p.costPrice) || 0,
         gstPercentage: parseFloat(p.gstPercentage) || 0,
         stock: p.stock,
@@ -118,7 +133,7 @@ export function ProductGrid({
           totalStock: p.stock,
           minPrice: variant.sellingPrice,
           maxPrice: variant.sellingPrice,
-          mrp: parseFloat(p.mrp) || variant.sellingPrice,
+          mrp: mrpVal || variant.sellingPrice,
           hasMultipleVariants: false,
           displayBarcode: p.barcode || "",
           displaySku: p.sku,
@@ -130,12 +145,33 @@ export function ProductGrid({
         existing.totalStock += p.stock;
         existing.minPrice = Math.min(existing.minPrice, variant.sellingPrice);
         existing.maxPrice = Math.max(existing.maxPrice, variant.sellingPrice);
+        existing.mrp = Math.max(existing.mrp, mrpVal);
         existing.hasMultipleVariants = true;
       }
     });
 
     return Array.from(productMap.values());
   }, [productsResponse]);
+
+  const qtyByVariantId = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of items) {
+      const id = it.product.id;
+      m.set(id, (m.get(id) || 0) + it.quantity);
+    }
+    return m;
+  }, [items]);
+
+  const remainingForVariant = React.useCallback(
+    (v: ProductVariant) => Math.max(0, v.stock - (qtyByVariantId.get(v.id) || 0)),
+    [qtyByVariantId],
+  );
+
+  const remainingForGroup = React.useCallback(
+    (product: GroupedProduct) =>
+      product.variants.reduce((s, v) => s + remainingForVariant(v), 0),
+    [remainingForVariant],
+  );
 
   // Filter by search (additional client-side filtering if needed)
   const filteredProducts = React.useMemo(() => {
@@ -163,7 +199,7 @@ export function ProductGrid({
     } else {
       // Single variant - add directly to cart
       const variant = product.variants[0];
-      if (variant.stock === 0) return;
+      if (remainingForVariant(variant) <= 0) return;
 
       const cartProduct: Product = {
         id: variant.id,
@@ -221,25 +257,8 @@ export function ProductGrid({
 
     const barcodeUrl = `${API_BASE_URL}/inventory/barcodes/${product.displayBarcode}/image/`;
 
-    // Determine if this is apparel/shoes to show size
-    const apparelCategories = [
-      "shirts",
-      "pants",
-      "jeans",
-      "dresses",
-      "tops",
-      "t-shirts",
-      "jackets",
-      "coats",
-      "sweaters",
-      "hoodies",
-      "kurta",
-      "saree",
-      "lehenga",
-      "clothing",
-      "apparel",
-    ];
-    const shoeCategories = [
+    // Footwear-style categories: prepend EU prefix for numeric EU sizing heuristics
+    const footwearHints = [
       "shoes",
       "footwear",
       "sneakers",
@@ -250,23 +269,17 @@ export function ProductGrid({
       "loafers",
       "slippers",
     ];
-
     const categoryLower = product.category.toLowerCase();
-    const isApparel = apparelCategories.some((cat) =>
+    const hintsFootwear = footwearHints.some((cat) =>
       categoryLower.includes(cat),
     );
-    const isShoes = shoeCategories.some((cat) => categoryLower.includes(cat));
 
-    // Format size display
-    let sizeDisplay = "";
+    let variantDisplay = "";
     if (product.displaySize) {
-      if (isShoes) {
-        // For shoes, show with EU format
-        sizeDisplay = `EU ${product.displaySize}`;
-      } else if (isApparel) {
-        // For apparel, show size directly (S, M, L, XL, etc.)
-        sizeDisplay = product.displaySize;
-      }
+      const raw = String(product.displaySize).trim();
+      const looksEuNumeric =
+        hintsFootwear && /^\d+(\.\d+)?$/.test(raw) && !/^eu\s/i.test(raw);
+      variantDisplay = looksEuNumeric ? `EU ${raw}` : raw;
     }
 
     printWindow.document.write(`
@@ -347,7 +360,7 @@ export function ProductGrid({
           <div class="label">
             <div class="brand-name">${product.brand}</div>
             <div class="product-name">${product.productName}</div>
-            ${sizeDisplay ? `<div class="size-display">${sizeDisplay}</div>` : ""}
+            ${variantDisplay ? `<div class="size-display">${variantDisplay}</div>` : ""}
             <div class="mrp">MRP ₹${product.mrp.toLocaleString("en-IN")}</div>
             <img src="${barcodeUrl}" alt="Barcode" class="barcode-image" />
             <div class="barcode-value">${product.displayBarcode}</div>
@@ -374,7 +387,7 @@ export function ProductGrid({
         {[...Array(10)].map((_, i) => (
           <div
             key={i}
-            className="p-4 rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]"
+            className="p-4 rounded-xl bg-[var(--bg-surface)] border border-white/[0.08]"
           >
             <Skeleton className="aspect-square rounded-lg mb-3" />
             <Skeleton className="h-4 w-3/4 mb-2" />
@@ -390,8 +403,8 @@ export function ProductGrid({
   if (isError) {
     return (
       <div className="py-16 text-center">
-        <Package className="w-12 h-12 text-[#E74C3C] mx-auto mb-4" />
-        <p className="text-[#E74C3C]">Could not load products</p>
+        <Package className="w-12 h-12 text-[#EC4899] mx-auto mb-4" />
+        <p className="text-[#EC4899]">Could not load products</p>
         <p className="text-xs text-[#6F7285] mt-1">
           Check if backend is running
         </p>
@@ -410,7 +423,7 @@ export function ProductGrid({
           actions={[
             {
               label: "Go to Inventory",
-              href: "/inventory",
+              href: adminHref("/inventory"),
               variant: "primary",
             },
           ]}
@@ -423,14 +436,16 @@ export function ProductGrid({
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {filteredProducts.map((product) => {
-          const isOutOfStock = product.totalStock === 0;
-          const isLowStock = product.totalStock > 0 && product.totalStock <= 5;
+          const remaining = remainingForGroup(product);
+          const isOutOfStock = remaining <= 0;
+          const isLowStock = remaining > 0 && remaining <= 5;
           const isJustAdded = lastAdded === product.productName;
           const showingBarcode = showBarcodeFor === product.productName;
+          const mrpBounds = getVariantMrpBounds(product.variants);
 
           // Get available sizes for display
           const availableSizes = product.variants
-            .filter((v) => v.stock > 0)
+            .filter((v) => remainingForVariant(v) > 0)
             .map((v) => v.size)
             .filter((s): s is string => s !== null && s !== undefined);
           const uniqueSizes = Array.from(new Set(availableSizes));
@@ -445,7 +460,7 @@ export function ProductGrid({
                 ${
                   isOutOfStock
                     ? "bg-[#1A1B23]/40 border border-white/[0.04] opacity-60"
-                    : "bg-[#1A1B23]/60 border border-white/[0.08] hover:border-[#C6A15B]/40 hover:bg-[#1A1B23]/80"
+                    : "bg-[var(--bg-surface)] border border-white/[0.08] hover:border-[#6366F1]/40 hover:bg-[var(--bg-elevated)]"
                 }
               `}
               onMouseEnter={() => setShowBarcodeFor(product.productName)}
@@ -474,7 +489,7 @@ export function ProductGrid({
                 {/* Product Info */}
                 <p
                   className={`text-sm font-medium truncate ${
-                    isOutOfStock ? "text-[#6F7285]" : "text-[#F5F6FA]"
+                    isOutOfStock ? "text-[#6F7285]" : "text-[var(--text-primary)]"
                   }`}
                 >
                   {product.productName}
@@ -484,7 +499,7 @@ export function ProductGrid({
                 {/* Available Sizes Preview (if multiple variants) */}
                 {product.hasMultipleVariants && uniqueSizes.length > 0 && (
                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    <Ruler className="w-3 h-3 text-[#6F7285]" />
+                    <Layers className="w-3 h-3 text-[#6F7285]" />
                     <span className="text-[10px] text-[#A1A4B3]">
                       {uniqueSizes.slice(0, 5).join(", ")}
                       {uniqueSizes.length > 5 && ` +${uniqueSizes.length - 5}`}
@@ -494,62 +509,114 @@ export function ProductGrid({
 
                 {/* Barcode on hover */}
                 {product.displayBarcode && showingBarcode && (
-                  <p className="flex items-center gap-1 text-xs text-[#C6A15B] mt-0.5">
+                  <p className="flex items-center gap-1 text-xs text-[#6366F1] mt-0.5">
                     <Barcode className="w-3 h-3" />
                     {product.displayBarcode}
                   </p>
                 )}
 
-                <p
-                  className={`text-base font-semibold mt-2 tabular-nums ${
-                    isOutOfStock ? "text-[#6F7285]" : "text-[#C6A15B]"
-                  }`}
-                >
-                  {formatCurrency(product.minPrice)}
-                  {product.maxPrice > product.minPrice && (
-                    <span className="text-xs text-[#6F7285] font-normal ml-1">
-                      - {formatCurrency(product.maxPrice)}
-                    </span>
+                <div className="mt-2 space-y-0.5">
+                  {product.minPrice > 0 ? (
+                    <p
+                      className={`text-base font-semibold tabular-nums ${
+                        isOutOfStock ? "text-[#6F7285]" : "text-[#6366F1]"
+                      }`}
+                    >
+                      <span className="text-[11px] font-medium text-[#6F7285] block leading-tight">
+                        Selling
+                      </span>
+                      <span className="inline-flex items-baseline gap-1 flex-wrap">
+                        {formatCurrency(product.minPrice)}
+                        {product.maxPrice > product.minPrice && (
+                          <span className="text-xs text-[#6F7285] font-normal">
+                            – {formatCurrency(product.maxPrice)}
+                          </span>
+                        )}
+                      </span>
+                    </p>
+                  ) : mrpBounds.min > 0 ? (
+                    <p
+                      className={`text-base font-semibold tabular-nums ${
+                        isOutOfStock ? "text-[#6F7285]" : "text-[#C6A15B]"
+                      }`}
+                    >
+                      <span className="text-[11px] font-medium text-[#6F7285] block leading-tight">
+                        MRP (set selling price in inventory)
+                      </span>
+                      <span className="inline-flex items-baseline gap-1 flex-wrap">
+                        {formatCurrency(mrpBounds.min)}
+                        {mrpBounds.max > mrpBounds.min && (
+                          <span className="text-xs text-[#6F7285] font-normal">
+                            – {formatCurrency(mrpBounds.max)}
+                          </span>
+                        )}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-xs font-medium text-[#F5A623]/90 leading-snug">
+                      No selling price or MRP on file — edit product in Inventory
+                      to set prices.
+                    </p>
                   )}
-                </p>
+                </div>
               </button>
 
               {/* Stock Badge */}
               {isOutOfStock && (
-                <div className="absolute top-3 right-3 px-2 py-1 rounded bg-[#E74C3C]/20 text-[#E74C3C] text-[10px] font-medium uppercase">
+                <div className="absolute top-3 right-3 z-[1] px-2 py-1 rounded-md border border-rose-400/55 bg-neutral-950/90 text-rose-200 text-[10px] font-semibold uppercase tracking-wide shadow-sm ring-1 ring-rose-500/35">
                   Out of Stock
                 </div>
               )}
-              {isLowStock && (
-                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded bg-[#F5A623]/20 text-[#F5A623] text-[10px] font-medium">
-                  <AlertTriangle className="w-3 h-3" />
-                  {product.totalStock} left
+              {!isOutOfStock && isLowStock && (
+                <div
+                  className="absolute top-3 right-3 z-[1] flex items-center gap-1 max-w-[min(140px,calc(100%-1rem))] px-2 py-1 rounded-md border border-amber-400/70 bg-amber-500 text-neutral-950 text-[10px] font-semibold shadow-sm ring-1 ring-amber-200/90"
+                  title={`Low stock: ${remaining} available (after cart)`}
+                >
+                  <AlertTriangle
+                    className="w-3 h-3 shrink-0 text-neutral-900"
+                    aria-hidden
+                  />
+                  <span className="truncate">{remaining} left</span>
+                </div>
+              )}
+              {!isOutOfStock && !isLowStock && (
+                <div
+                  className="absolute top-3 right-3 z-[1] px-2 py-1 rounded-md border border-white/[0.12] bg-slate-950/90 text-[#A1A4B3] text-[10px] font-semibold tabular-nums shadow-sm"
+                  title="Units available at this location (minus cart)"
+                >
+                  {remaining} left
                 </div>
               )}
 
               {/* Multiple Sizes Indicator */}
               {product.hasMultipleVariants && !isOutOfStock && (
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-[#C6A15B]/20 text-[#C6A15B] text-[10px] font-medium flex items-center gap-1">
-                  <Ruler className="w-3 h-3" />
-                  {product.variants.length} sizes
+                <div className="absolute top-3 left-3 z-[1] flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-400/40 bg-slate-900/95 text-indigo-100 text-[10px] font-semibold shadow-sm">
+                  <Layers className="w-3 h-3 shrink-0 text-indigo-200" aria-hidden />
+                  <span>{product.variants.length} sizes</span>
                 </div>
               )}
 
               {/* Print Barcode Button - on hover */}
               {product.displayBarcode && showingBarcode && !isOutOfStock && (
                 <button
+                  type="button"
                   onClick={(e) => handlePrintBarcode(e, product)}
-                  className="absolute bottom-3 right-3 p-1.5 rounded-md bg-[#C6A15B]/10 hover:bg-[#C6A15B]/20 transition-colors"
-                  title="Print Barcode"
+                  className="absolute bottom-3 right-3 z-[1] p-1.5 rounded-md border border-indigo-400/45 bg-slate-950/95 text-indigo-200 hover:bg-indigo-500/20 hover:text-white transition-colors shadow-sm"
+                  title="Print barcode label"
+                  aria-label="Print barcode for this product"
                 >
-                  <Printer className="w-4 h-4 text-[#C6A15B]" />
+                  <Printer className="w-4 h-4" strokeWidth={2} aria-hidden />
                 </button>
               )}
 
               {/* Add indicator when not showing barcode */}
               {!isOutOfStock && !showingBarcode && (
-                <div className="absolute bottom-3 right-3 p-1.5 rounded-md bg-[#C6A15B]/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ShoppingCart className="w-4 h-4 text-[#C6A15B]" />
+                <div
+                  className="absolute bottom-3 right-3 z-[1] p-1.5 rounded-md border border-indigo-400/40 bg-slate-950/95 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none"
+                  title="Click card to add"
+                  aria-hidden
+                >
+                  <ShoppingCart className="w-4 h-4" strokeWidth={2} />
                 </div>
               )}
             </motion.div>

@@ -5,14 +5,27 @@
 import { api } from "@/lib/api";
 
 // Types
-export interface ScannedProduct {
-  id: number;
-  sku: string;
+/** POST /sales/scan/ — ledger-backed product row */
+export interface BarcodeScanResponse {
+  item_type: string;
+  product_id: string;
   barcode: string;
-  name: string;
+  sku: string;
+  product_name: string;
   selling_price: string;
-  stock: number;
-  is_available: boolean;
+  gst_percentage?: string;
+  available_stock: number;
+  requested_quantity: number;
+  can_fulfill: boolean;
+  warehouse_id: string;
+  warehouse_name: string;
+  pricing?: {
+    selling_price: string;
+    cost_price: string;
+    gst_percentage: string;
+  };
+  size?: string;
+  color?: string;
 }
 
 export interface CartItem {
@@ -77,11 +90,73 @@ export interface PaginatedResponse<T> {
   };
 }
 
+/** Row from GET /sales/pos/search/ (product bucket) */
+export interface PosSearchProductRow {
+  item_type: "PRODUCT";
+  product_id: string;
+  barcode: string;
+  sku: string;
+  product_name: string;
+  selling_price: string;
+  gst_percentage: string;
+  available_stock: number;
+  requested_quantity: number;
+  can_fulfill: boolean;
+  warehouse_id: string;
+  warehouse_name: string;
+  pricing: {
+    selling_price: string;
+    cost_price: string;
+    gst_percentage: string;
+  };
+  pricing_source: string;
+  variant_sku?: string;
+  variant_barcode?: string;
+  size?: string;
+  color?: string;
+}
+
+/** Row from GET /sales/pos/search/ (service bucket) */
+export interface PosSearchServiceRow {
+  item_type: "SERVICE";
+  service_item_id: string;
+  service_name: string;
+  default_price: string;
+  gst_percent: string;
+  hsn_code: string;
+}
+
+export interface PosSearchResponse {
+  query: string;
+  warehouse_id: string;
+  limit: number;
+  products: PosSearchProductRow[];
+  services: PosSearchServiceRow[];
+}
+
 // API Endpoints
 export const salesService = {
-  // Barcode scan
-  scanBarcode: (barcode: string) =>
-    api.get<ScannedProduct>("/sales/scan/", { barcode }),
+  scanBarcode: (params: {
+    barcode: string;
+    warehouse_id: string;
+    quantity?: number;
+  }) =>
+    api.post<BarcodeScanResponse>("/sales/scan/", {
+      barcode: params.barcode,
+      warehouse_id: params.warehouse_id,
+      ...(params.quantity != null ? { quantity: params.quantity } : {}),
+    }),
+
+  /**
+   * POS text search (products + services), warehouse-scoped.
+   * @param params.q optional; empty/whitespace returns empty lists from API
+   */
+  posSearch: (params: { warehouse_id: string; q?: string; limit?: number }) =>
+    api.get<PosSearchResponse>("/sales/pos/search/", {
+      warehouse_id: params.warehouse_id,
+      q: params.q ?? "",
+      ...(params.limit != null ? { limit: params.limit } : {}),
+    }),
   
   // Checkout
   checkout: (data: CheckoutRequest) =>

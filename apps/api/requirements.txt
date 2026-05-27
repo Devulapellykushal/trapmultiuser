@@ -1,4 +1,4 @@
-# TRAP Inventory API - Requirements
+# Quake Inventory API - Requirements
 # Install with: pip install -r requirements.txt
 
 # Django Framework
@@ -31,4 +31,11 @@ python-barcode>=0.15
 
 # HTTP requests for WhatsApp Business API
 requests>=2.31
+
+# Invoice PDF (ReportLab fallback + WeasyPrint retail layout)
+reportlab>=4.0
+weasyprint>=61.0
+
+# ImageField (warehouse seller banner, etc.)
+pillow>=10.0
 

@@ -5,4 +5,5 @@ export { CartPanel } from "./cart-panel";
 export { PaymentButtons } from "./payment-buttons";
 export { CheckoutModal } from "./checkout-modal";
 export { SizeSelectionModal } from "./size-selection-modal";
+export { PosSearchBar } from "./pos-search-bar";
 export type { ProductVariant } from "./size-selection-modal";

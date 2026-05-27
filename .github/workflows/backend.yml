@@ -20,7 +20,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: asia-south1 # Mumbai region (closest to India)
-  SERVICE_NAME: trap-api
+  SERVICE_NAME: Quake-api
   ARTIFACT_REGISTRY: asia-south1-docker.pkg.dev
 
 jobs:
@@ -95,15 +95,15 @@ jobs:
         run: |
           docker build \
             --platform linux/amd64 \
-            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
-            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:latest" \
+            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
+            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:latest" \
             --build-arg BUILDKIT_INLINE_CACHE=1 \
             .
 
       - name: Push Docker image
         run: |
-          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:latest"
+          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:latest"
 
   # ================================================
   # DEPLOY TO CLOUD RUN
@@ -125,7 +125,7 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}
           flags: |
             --allow-unauthenticated
             --port=8080
@@ -151,8 +151,8 @@ jobs:
       - name: Run migrations
         run: |
           # Update the migration job with the new image and Supabase credentials
-          gcloud run jobs update trap-migrate \
-            --image="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
+          gcloud run jobs update Quake-migrate \
+            --image="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
             --region=${{ env.REGION }} \
             --memory=512Mi \
             --cpu=1 \
@@ -163,8 +163,8 @@ jobs:
             --set-env-vars="DJANGO_ENV=production" \
             --set-secrets="POSTGRES_HOST=POSTGRES_HOST:latest,POSTGRES_PORT=POSTGRES_PORT:latest,POSTGRES_DB=POSTGRES_DB:latest,POSTGRES_USER=POSTGRES_USER:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest" \
             --quiet || \
-          gcloud run jobs create trap-migrate \
-            --image="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
+          gcloud run jobs create Quake-migrate \
+            --image="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}" \
             --region=${{ env.REGION }} \
             --memory=512Mi \
             --cpu=1 \
@@ -177,7 +177,7 @@ jobs:
             --quiet
 
           # Execute the migration job
-          gcloud run jobs execute trap-migrate --region=${{ env.REGION }} --wait
+          gcloud run jobs execute Quake-migrate --region=${{ env.REGION }} --wait
 
       - name: Health check
         run: |
@@ -191,4 +191,4 @@ jobs:
           echo "## Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Service URL:** ${SERVICE_URL}" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/trap/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/Quake/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

@@ -1,5 +1,5 @@
 """
-Invoice Models for TRAP Inventory System.
+Invoice Models for Quake Inventory System.
 Implements immutable invoices with optional discounts.
 
 INVOICE RULES:
@@ -25,21 +25,24 @@ class InvoiceSequence(models.Model):
     Manages sequential invoice numbering.
     Uses select_for_update() for concurrency safety.
     """
-    prefix = models.CharField(max_length=20, default='TRAP/INV')
+    prefix = models.CharField(max_length=20, default='Quake/INV')
     current_number = models.PositiveIntegerField(default=0)
     year = models.PositiveIntegerField()
     
     class Meta:
         unique_together = ['prefix', 'year']
-    
+
+    # Prefix for POS Sale.invoice_number (INV-YYYY-NNNNNN); separate from PDF Quake/INV/…
+    SALE_INVOICE_PREFIX = "INV-SALE"
+
     def __str__(self):
         return f"{self.prefix}/{self.year} - Current: {self.current_number}"
     
     @classmethod
-    def get_next_invoice_number(cls, prefix='TRAP/INV'):
+    def get_next_invoice_number(cls, prefix='Quake/INV'):
         """
         Get next sequential invoice number (concurrency-safe).
-        Format: PREFIX/YYYY/NNNN (e.g., TRAP/INV/2026/0001)
+        Format: PREFIX/YYYY/NNNN (e.g., Quake/INV/2026/0001)
         """
         from django.utils import timezone
         from django.db import transaction
@@ -57,6 +60,31 @@ class InvoiceSequence(models.Model):
             
             return f"{prefix}/{current_year}/{sequence.current_number:04d}"
 
+    @classmethod
+    def get_next_sale_invoice_number(cls):
+        """
+        Next immutable sale invoice number (POS checkout).
+
+        Format: INV-YYYY-NNNNNN (e.g. INV-2026-000001).
+        Uses its own prefix row so PDF invoice numbering (Quake/INV/...) stays independent.
+        Concurrency-safe via select_for_update.
+        """
+        from django.utils import timezone
+        from django.db import transaction
+
+        current_year = timezone.now().year
+        prefix = cls.SALE_INVOICE_PREFIX
+
+        with transaction.atomic():
+            sequence, _ = cls.objects.select_for_update().get_or_create(
+                prefix=prefix,
+                year=current_year,
+                defaults={"current_number": 0},
+            )
+            sequence.current_number += 1
+            sequence.save()
+            return f"INV-{current_year}-{sequence.current_number:06d}"
+
 
 class BusinessSettings(models.Model):
     """
@@ -64,8 +92,8 @@ class BusinessSettings(models.Model):
     Also includes discount configuration for POS operations.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    business_name = models.CharField(max_length=200, default="TRAP INVENTORY")
-    tagline = models.CharField(max_length=200, blank=True, default="Premium Apparel")
+    business_name = models.CharField(max_length=200, default="Quake")
+    tagline = models.CharField(max_length=200, blank=True, default="")
     address_line1 = models.CharField(max_length=200, blank=True)
     address_line2 = models.CharField(max_length=200, blank=True)
     city = models.CharField(max_length=100, blank=True)
@@ -152,7 +180,7 @@ class Invoice(models.Model):
         max_length=50,
         unique=True,
         db_index=True,
-        help_text="Sequential invoice number (e.g., TRAP/INV/2026/0001)"
+        help_text="Sequential invoice number (e.g., Quake/INV/2026/0001)"
     )
     sale = models.OneToOneField(
         Sale,

@@ -1,5 +1,5 @@
 """
-Custom Exception Handler for TRAP Inventory API.
+Custom Exception Handler for Quake Inventory API.
 
 Provides standardized error response format for all API errors.
 All errors return a consistent structure for frontend consumption.

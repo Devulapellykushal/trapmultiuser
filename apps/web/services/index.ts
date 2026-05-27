@@ -7,10 +7,14 @@ export type {
   ProductCreateData,
   ProductUpdateData,
   Warehouse,
+  WarehouseWritePayload,
+  WarehouseCreatePayload,
+  WarehouseUpdatePayload,
   Category,
   StockSummary,
   ProductListParams,
   POSProduct,
+  BulkImportResult,
 } from "./inventory.service";
 
 export { analyticsService } from "./analytics.service";
@@ -34,7 +38,7 @@ export type {
 
 export { salesService } from "./sales.service";
 export type {
-  ScannedProduct,
+  BarcodeScanResponse,
   CartItem,
   CheckoutRequest,
   CheckoutResponse,

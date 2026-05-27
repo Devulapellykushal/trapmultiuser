@@ -5,49 +5,60 @@
 @tailwind utilities;
 
 /* ============================================
-   TRAP Inventory System - Design Tokens
+   Quake Inventory System - Design Tokens
    Dark Luxury Theme
    ============================================ */
 
 :root {
   /* ========== Background Colors ========== */
-  --bg-primary: #0e0f13;
-  --bg-surface: rgba(26, 27, 35, 0.6);
-  --bg-elevated: rgba(32, 34, 45, 0.8);
+  --bg-post: #060608;
+  --bg-website: #0a0a0a;
+  --bg-page: #111111;
+  --bg-primary: var(--bg-page);
+  --bg-surface: rgba(255, 255, 255, 0.015);
+  --bg-elevated: rgba(255, 255, 255, 0.04);
   --bg-overlay: rgba(0, 0, 0, 0.7);
 
   /* ========== Text Colors ========== */
-  --text-primary: #f5f6fa;
-  --text-secondary: #a1a4b3;
-  --text-muted: #6f7285;
+  --text-primary: #f5f0e8;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-card-title: rgba(255, 255, 255, 0.85);
+  --text-subtitle: rgba(255, 255, 255, 0.4);
+  --text-card-desc: rgba(255, 255, 255, 0.3);
+  --text-stat-label: rgba(255, 255, 255, 0.25);
+  --text-handle: rgba(255, 255, 255, 0.2);
 
   /* ========== Accent Colors ========== */
-  --accent-primary: #c6a15b; /* Champagne Gold */
-  --accent-primary-hover: #d4b06a;
-  --accent-secondary: #4f7dff; /* Tech Blue */
-  --accent-secondary-hover: #6b91ff;
+  --accent-primary: #6366f1; /* Indigo */
+  --accent-primary-hover: #7376ff;
+  --accent-violet: #a855f7; /* Violet */
+  --accent-secondary: #ec4899; /* Pink */
+  --accent-secondary-hover: #ff5dab;
 
   /* ========== Semantic Colors ========== */
-  --success: #2ecc71;
-  --success-muted: rgba(46, 204, 113, 0.15);
-  --warning: #f5a623;
-  --warning-muted: rgba(245, 166, 35, 0.15);
-  --danger: #e74c3c;
-  --danger-muted: rgba(231, 76, 60, 0.15);
+  --success: #6366f1;
+  --success-muted: rgba(99, 102, 241, 0.15);
+  --warning: #a855f7;
+  --warning-muted: rgba(168, 85, 247, 0.15);
+  --danger: #ec4899;
+  --danger-muted: rgba(236, 72, 153, 0.15);
 
   /* ========== Border Colors ========== */
   --border-default: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.15);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-soft: rgba(255, 255, 255, 0.06);
   --border-focus: var(--accent-primary);
 
   /* ========== Shadows ========== */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(198, 161, 91, 0.2);
+  --shadow-glow: 0 0 14px rgba(168, 85, 247, 0.8);
+  --shadow-glow-rest: 0 0 4px rgba(99, 102, 241, 0.5);
 
   /* ========== Glassmorphism ========== */
-  --glass-bg: rgba(26, 27, 35, 0.6);
+  --glass-bg: rgba(255, 255, 255, 0.015);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-blur: 12px;
 
@@ -66,6 +77,133 @@
   --motion-medium: 250ms;
   --motion-slow: 400ms;
   --motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ========== Brand Gradients ========== */
+  --grad-brand-main: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+  --grad-brand-diagonal: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+  --grad-brand-indigo-violet: linear-gradient(135deg, #6366f1, #a855f7);
+  --grad-brand-violet-pink: linear-gradient(90deg, #a855f7, #ec4899);
+  --grad-brand-pink-indigo: linear-gradient(90deg, #ec4899, #6366f1);
+
+  /* ========== Radial Glow Systems ========== */
+  --glow-post1:
+    radial-gradient(
+      ellipse at 10% 15%,
+      rgba(99, 102, 241, 0.25),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 85% 85%,
+      rgba(236, 72, 153, 0.18),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(168, 85, 247, 0.06),
+      transparent 50%
+    );
+  --glow-post2:
+    radial-gradient(
+      ellipse at 90% 10%,
+      rgba(99, 102, 241, 0.2),
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 10% 90%,
+      rgba(236, 72, 153, 0.14),
+      transparent 40%
+    );
+  --glow-post3:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(99, 102, 241, 0.2),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 50% 100%,
+      rgba(236, 72, 153, 0.12),
+      transparent 40%
+    );
+}
+
+/* ============================================
+   Login route — Indigo Bloom (exact hex / rgba spec)
+   Website #0A0A0A, page body #111111, glow Post 1, grid overlay.
+   Overrides persist only under .quake-login-inner.
+   ============================================ */
+.quake-login-outer {
+  min-height: 100dvh;
+  background-color: #0a0a0a;
+}
+
+.quake-login-inner {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background-color: #111111;
+  /* Scoped tokens — match :root dark spec */
+  --bg-primary: #111111;
+  --bg-post: #060608;
+  --bg-website: #0a0a0a;
+  --bg-surface: rgba(255, 255, 255, 0.015);
+  --bg-elevated: rgba(255, 255, 255, 0.04);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --text-primary: #f5f0e8;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-card-title: rgba(255, 255, 255, 0.85);
+  --text-subtitle: rgba(255, 255, 255, 0.4);
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #7376ff;
+  --accent-violet: #a855f7;
+  --accent-secondary: #ec4899;
+  --accent-secondary-hover: #ff5dab;
+  --success: #6366f1;
+  --success-muted: rgba(99, 102, 241, 0.15);
+  --warning: #a855f7;
+  --warning-muted: rgba(168, 85, 247, 0.15);
+  --danger: #ec4899;
+  --danger-muted: rgba(236, 72, 153, 0.15);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-focus: var(--accent-primary);
+  --grad-brand-main: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+  --grad-brand-diagonal: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+}
+
+.quake-login-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 10% 15%,
+      rgba(99, 102, 241, 0.25),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 85% 85%,
+      rgba(236, 72, 153, 0.18),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(168, 85, 247, 0.06),
+      transparent 50%
+    );
+}
+
+.quake-login-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
 
 /* ============================================
@@ -73,45 +211,68 @@
    ============================================ */
 html[data-theme="light"] {
   /* ========== Background Colors ========== */
-  --bg-primary: #f8f9fc;
-  --bg-surface: rgba(255, 255, 255, 0.9);
-  --bg-elevated: rgba(255, 255, 255, 0.95);
+  --bg-primary: #f1ece5;
+  --bg-surface: rgba(252, 250, 247, 0.88);
+  --bg-elevated: rgba(252, 250, 247, 0.96);
   --bg-overlay: rgba(0, 0, 0, 0.4);
 
   /* ========== Text Colors ========== */
-  --text-primary: #1a1b23;
-  --text-secondary: #4a4d5c;
-  --text-muted: #6f7285;
+  --text-primary: #1a1523;
+  --text-secondary: rgba(15, 23, 42, 0.72);
+  --text-muted: rgba(15, 23, 42, 0.4);
 
   /* ========== Accent Colors ========== */
-  --accent-primary: #b8923e; /* Darker gold for light mode */
-  --accent-primary-hover: #a07d2e;
-  --accent-secondary: #3b5fd9; /* Darker blue for light mode */
-  --accent-secondary-hover: #2d4bc4;
+  --accent-primary: #6366f1; /* Indigo */
+  --accent-primary-hover: #5659dc;
+  --accent-secondary: #ec4899; /* Pink */
+  --accent-secondary-hover: #d83f8c;
 
   /* ========== Semantic Colors ========== */
-  --success: #22a55b;
-  --success-muted: rgba(34, 165, 91, 0.12);
-  --warning: #d4940f;
-  --warning-muted: rgba(212, 148, 15, 0.12);
-  --danger: #d43d2f;
-  --danger-muted: rgba(212, 61, 47, 0.12);
+  --success: #6366f1;
+  --success-muted: rgba(99, 102, 241, 0.12);
+  --warning: #a855f7;
+  --warning-muted: rgba(168, 85, 247, 0.12);
+  --danger: #ec4899;
+  --danger-muted: rgba(236, 72, 153, 0.12);
 
   /* ========== Border Colors ========== */
-  --border-default: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
+  --border-default: rgba(15, 23, 42, 0.1);
+  --border-hover: rgba(15, 23, 42, 0.16);
   --border-focus: var(--accent-primary);
 
   /* ========== Shadows ========== */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-glow: 0 0 20px rgba(184, 146, 62, 0.15);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.16);
 
   /* ========== Glassmorphism ========== */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-bg: rgba(252, 250, 247, 0.72);
+  --glass-border: rgba(15, 23, 42, 0.08);
   --glass-blur: 12px;
+
+  /* ========== Off-white Theme Helpers ========== */
+  --bg-post: #fcfaf7;
+  --bg-website: #f7f4ef;
+  --bg-page: #f1ece5;
+  --bg-card-fill: rgba(255, 255, 255, 0.62);
+
+  --glow-post1:
+    radial-gradient(
+      ellipse at 10% 15%,
+      rgba(99, 102, 241, 0.14),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 85% 85%,
+      rgba(236, 72, 153, 0.1),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(168, 85, 247, 0.05),
+      transparent 50%
+    );
 }
 
 /* ========== Base Styles ========== */
@@ -239,11 +400,7 @@ html[data-theme="light"] {
 
   /* Gradient accent text */
   .text-gradient {
-    background: linear-gradient(
-      135deg,
-      var(--accent-primary),
-      var(--accent-secondary)
-    );
+    background: var(--grad-brand-main);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -253,7 +410,352 @@ html[data-theme="light"] {
   .glow {
     box-shadow: var(--shadow-glow);
   }
+
+  .surface-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+
+  .surface-muted {
+    background: var(--bg-card-fill);
+    border: 1px solid var(--border-default);
+  }
 }
+
+/* ========== Compatibility overrides for legacy dark utility classes in light mode ========== */
+html[data-theme="light"] .bg-\[\#0E0F13\],
+html[data-theme="light"] .bg-\[\#1A1B23\],
+html[data-theme="light"] .bg-\[\#1A1B23\]\/80,
+html[data-theme="light"] .bg-\[\#1A1B23\]\/95,
+html[data-theme="light"] .bg-\[\#1A1B23\]\/60,
+html[data-theme="light"] .bg-\[\#1A1B23\]\/40,
+html[data-theme="light"] .bg-\[\#1E1F28\],
+html[data-theme="light"] .bg-\[\#15161D\] {
+  background: var(--bg-surface) !important;
+}
+
+html[data-theme="light"] .text-\[\#F5F6FA\],
+html[data-theme="light"] .text-white {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="light"] .text-\[\#A1A4B3\],
+html[data-theme="light"] .text-white\/60 {
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme="light"] .text-\[\#6F7285\],
+html[data-theme="light"] .text-white\/40,
+html[data-theme="light"] .text-white\/30 {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="light"] .border-white\/\[0\.08\],
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-white\/\[0\.05\] {
+  border-color: var(--border-default) !important;
+}
+
+html[data-theme="light"] .bg-white\/5,
+html[data-theme="light"] .bg-white\/\[0\.05\],
+html[data-theme="light"] .bg-white\/\[0\.02\] {
+  background-color: rgba(255, 255, 255, 0.62) !important;
+}
+
+/* Global light-theme correction for arbitrary class fragments */
+html[data-theme="light"] [class*="bg-[#0E0F13"],
+html[data-theme="light"] [class*="bg-[#1A1B23"],
+html[data-theme="light"] [class*="bg-[#1E1F28"],
+html[data-theme="light"] [class*="bg-[#15161D"] {
+  background-color: var(--bg-surface) !important;
+}
+
+html[data-theme="light"] [class*="text-[#F5F6FA"],
+html[data-theme="light"] [class*="text-white"] {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="light"] [class*="text-[#A1A4B3"],
+html[data-theme="light"] [class*="text-white/60"],
+html[data-theme="light"] [class*="text-white/[0.6"] {
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme="light"] [class*="text-[#6F7285"],
+html[data-theme="light"] [class*="text-white/40"],
+html[data-theme="light"] [class*="text-white/[0.4"],
+html[data-theme="light"] [class*="text-white/30"],
+html[data-theme="light"] [class*="text-white/[0.3"] {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="light"] [class*="border-white/"],
+html[data-theme="light"] [class*="border-white/["] {
+  border-color: var(--border-default) !important;
+}
+
+html[data-theme="light"] .recharts-default-tooltip,
+html[data-theme="light"] .recharts-tooltip-wrapper > div[style*="rgba(26, 27, 35"],
+html[data-theme="light"] .recharts-tooltip-wrapper > div[style*="#1A1B23"] {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="light"] [style*="#1A1B23"],
+html[data-theme="light"] [style*="#0E0F13"],
+html[data-theme="light"] [style*="rgba(26, 27, 35"] {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-default) !important;
+}
+
+/* ========== Strict Brand + Semantic Palette Enforcement ========== */
+/* Remap legacy class-based colors to approved palette */
+.text-\[\#C6A15B\],
+.text-\[\#3B82F6\],
+.text-\[\#8B5CF6\],
+.text-\[\#3498DB\] {
+  color: #6366f1 !important;
+}
+
+.text-\[\#F59E0B\],
+.text-\[\#EF4444\],
+.text-\[\#E74C3C\],
+.text-\[\#E67E22\],
+.text-\[\#F97316\] {
+  color: #ec4899 !important;
+}
+
+.text-\[\#9B59B6\],
+.text-\[\#A855F7\],
+.text-\[\#EC4899\] {
+  color: #a855f7 !important;
+}
+
+.text-\[\#F5F6FA\] {
+  color: #f5f0e8 !important;
+}
+
+.text-\[\#6F7285\] {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.text-\[\#A1A4B3\] {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.bg-\[\#0E0F13\],
+.bg-\[\#1A1B23\],
+.bg-\[\#1E1F28\],
+.bg-\[\#15161D\] {
+  background-color: #111111 !important;
+}
+
+.bg-\[\#C6A15B\],
+.bg-\[\#3B82F6\] {
+  background-color: #6366f1 !important;
+}
+
+.bg-\[\#10B981\],
+.bg-\[\#2ECC71\],
+.bg-\[\#27AE60\],
+.bg-\[\#219A52\] {
+  background-color: #6366f1 !important;
+}
+
+.bg-\[\#F59E0B\],
+.bg-\[\#EF4444\],
+.bg-\[\#E74C3C\],
+.bg-\[\#E67E22\],
+.bg-\[\#F97316\] {
+  background-color: #ec4899 !important;
+}
+
+.bg-\[\#8B5CF6\],
+.bg-\[\#9B59B6\],
+.bg-\[\#EC4899\] {
+  background-color: #a855f7 !important;
+}
+
+.from-\[\#C6A15B\],
+.from-\[\#3B82F6\] {
+  --tw-gradient-from: #6366f1 var(--tw-gradient-from-position) !important;
+}
+
+.from-\[\#10B981\],
+.from-\[\#2ECC71\],
+.from-\[\#27AE60\],
+.from-\[\#219A52\] {
+  --tw-gradient-from: #6366f1 var(--tw-gradient-from-position) !important;
+}
+
+.via-\[\#D4B06A\],
+.via-\[\#A855F7\] {
+  --tw-gradient-via: #a855f7 var(--tw-gradient-via-position) !important;
+}
+
+.to-\[\#D4B06A\],
+.to-\[\#E0C080\],
+.to-\[\#27AE60\],
+.to-\[\#219A52\],
+.to-\[\#EC4899\] {
+  --tw-gradient-to: #a855f7 var(--tw-gradient-to-position) !important;
+}
+
+.ring-\[\#C6A15B\],
+.focus\:ring-\[\#C6A15B\]:focus,
+.focus\:ring-\[\#3B82F6\]:focus {
+  --tw-ring-color: #6366f1 !important;
+}
+
+.focus\:ring-\[\#10B981\]:focus,
+.focus\:ring-\[\#2ECC71\]:focus {
+  --tw-ring-color: #6366f1 !important;
+}
+
+.focus\:ring-\[\#C6A15B\]\/50:focus {
+  --tw-ring-color: rgb(99 102 241 / 0.5) !important;
+}
+
+.focus\:ring-\[\#10B981\]\/50:focus,
+.focus\:ring-\[\#2ECC71\]\/50:focus {
+  --tw-ring-color: rgb(99 102 241 / 0.5) !important;
+}
+
+.border-\[\#C6A15B\],
+.border-\[\#3B82F6\],
+.border-\[\#EC4899\] {
+  border-color: #6366f1 !important;
+}
+
+.border-\[\#10B981\],
+.border-\[\#2ECC71\],
+.border-\[\#27AE60\],
+.border-\[\#219A52\] {
+  border-color: #6366f1 !important;
+}
+
+.border-\[\#F59E0B\],
+.border-\[\#EF4444\],
+.border-\[\#E74C3C\],
+.border-\[\#E67E22\],
+.border-\[\#F97316\] {
+  border-color: #6366f1 !important;
+}
+
+.shadow-\[\#C6A15B\]\/20,
+.shadow-\[\#10B981\]\/20,
+.shadow-\[\#2ECC71\]\/20 {
+  --tw-shadow-color: rgb(99 102 241 / 0.2) !important;
+}
+
+html[data-theme="dark"] .text-\[\#0E0F13\],
+html[data-theme="dark"] .text-black {
+  color: #ffffff !important;
+}
+
+/* Recharts + SVG runtime color remapping */
+svg [fill="#C6A15B"],
+svg [fill="#3B82F6"],
+svg [fill="#3498DB"] {
+  fill: #6366f1 !important;
+}
+
+svg [fill="#10B981"],
+svg [fill="#2ECC71"],
+svg [fill="#27AE60"],
+svg [fill="#219A52"] {
+  fill: #6366f1 !important;
+}
+
+svg [fill="#8B5CF6"],
+svg [fill="#9B59B6"],
+svg [fill="#8884d8"] {
+  fill: #a855f7 !important;
+}
+
+svg [fill="#F59E0B"],
+svg [fill="#EF4444"],
+svg [fill="#E74C3C"],
+svg [fill="#E67E22"],
+svg [fill="#F97316"] {
+  fill: #ec4899 !important;
+}
+
+svg [stroke="#C6A15B"],
+svg [stroke="#3B82F6"],
+svg [stroke="#3498DB"] {
+  stroke: #6366f1 !important;
+}
+
+svg [stroke="#10B981"],
+svg [stroke="#2ECC71"],
+svg [stroke="#27AE60"],
+svg [stroke="#219A52"] {
+  stroke: #6366f1 !important;
+}
+
+svg [stroke="#8B5CF6"],
+svg [stroke="#9B59B6"],
+svg [stroke="#8884d8"] {
+  stroke: #a855f7 !important;
+}
+
+svg [stroke="#F59E0B"],
+svg [stroke="#EF4444"],
+svg [stroke="#E74C3C"],
+svg [stroke="#E67E22"],
+svg [stroke="#F97316"] {
+  stroke: #ec4899 !important;
+}
+
+svg stop[stop-color="#C6A15B"],
+svg stop[stop-color="#3B82F6"],
+svg stop[stop-color="#3498DB"] {
+  stop-color: #6366f1 !important;
+}
+
+svg stop[stop-color="#10B981"],
+svg stop[stop-color="#2ECC71"],
+svg stop[stop-color="#27AE60"],
+svg stop[stop-color="#219A52"] {
+  stop-color: #6366f1 !important;
+}
+
+svg stop[stop-color="#D4B06A"],
+svg stop[stop-color="#8B5CF6"],
+svg stop[stop-color="#9B59B6"] {
+  stop-color: #a855f7 !important;
+}
+
+svg stop[stop-color="#E0C080"],
+svg stop[stop-color="#F59E0B"],
+svg stop[stop-color="#E67E22"],
+svg stop[stop-color="#F97316"] {
+  stop-color: #ec4899 !important;
+}
+
+svg stop[stop-color="#EF4444"],
+svg stop[stop-color="#E74C3C"] {
+  stop-color: #ec4899 !important;
+}
+
+/* Tooltip and dark panel remap */
+.recharts-default-tooltip,
+.recharts-tooltip-wrapper > div[style*="rgba(26, 27, 35"],
+.recharts-tooltip-wrapper > div[style*="#1A1B23"] {
+  background: #111111 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f0e8 !important;
+}
+
+/* NOTE: Do not use [class*="bg-[#…"] / [class*="text-[#…"] substring remaps.
+   They match Tailwind opacity utilities (e.g. bg-[#2ECC71]/15) and collapse
+   background + text to the same solid brand hex, hiding labels and icons.
+   Recharts is covered by the .recharts-* rules and svg [fill/stroke] blocks above. */
 
 /* ========== Scrollbar Styling ========== */
 ::-webkit-scrollbar {
@@ -272,6 +774,66 @@ html[data-theme="light"] {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* ========== Invoice print (modal only) ==========
+   Clone the sheet onto document.body and hide other body children during print.
+   Do not use visibility:hidden on body * — ancestors of #invoice-print-root
+   (e.g. Framer motion wrappers) stay hidden in PDF engines and yield blank pages.
+*/
+.invoice-print-clone {
+  position: fixed !important;
+  left: -9999px !important;
+  top: 0 !important;
+  width: 210mm !important;
+  max-width: 100vw !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
+}
+
+@media print {
+  html.invoice-print-active {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html.invoice-print-active body {
+    background: #fff !important;
+  }
+
+  html.invoice-print-active body > *:not(.invoice-print-clone) {
+    display: none !important;
+  }
+
+  html.invoice-print-active .invoice-print-clone {
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 186mm !important;
+    max-width: 186mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    z-index: auto !important;
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  html.invoice-print-active .invoice-print-clone * {
+    color: #111 !important;
+    border-color: #000 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
 }
 
 /* Selection */

@@ -16,9 +16,19 @@ import {
   Trash2,
   MoreVertical,
   Building2,
+  ImagePlus,
 } from "lucide-react";
-import { inventoryService, Warehouse as WarehouseType } from "@/services";
+import {
+  inventoryService,
+  Warehouse as WarehouseType,
+  WarehouseWritePayload,
+  WarehouseCreatePayload,
+  WarehouseUpdatePayload,
+} from "@/services";
+import { inventoryKeys } from "@/hooks";
 import { toast } from "sonner";
+import { WarehouseSellerImageAdjustModal } from "@/components/warehouses/warehouse-seller-image-adjust-modal";
+import { API_BASE_URL } from "@/lib/api";
 
 // =============================================================================
 // CREATE WAREHOUSE MODAL
@@ -30,10 +40,88 @@ interface CreateWarehouseModalProps {
   onSuccess: () => void;
 }
 
+const WAREHOUSE_ADDRESS_MIN = 10;
+
+const SELLER_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+function getApiOrigin(): string {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "";
+  }
+}
+
+/** Browser-loadable URL for API media paths (e.g. /media/… from Django). */
+function resolveWarehouseMediaUrl(url: string | undefined | null): string {
+  const t = (url ?? "").trim();
+  if (!t) return "";
+  if (/^(https?:|blob:|data:)/i.test(t)) return t;
+  const origin = getApiOrigin();
+  if (!origin) return t;
+  return t.startsWith("/") ? `${origin}${t}` : `${origin}/${t}`;
+}
+
+function validateSellerImageFile(f: File): string | null {
+  if (!f.type.startsWith("image/")) return "Please choose an image file";
+  if (f.size > SELLER_IMAGE_MAX_BYTES) return "Image must be 8MB or smaller";
+  return null;
+}
+
 interface WarehouseFormData {
   name: string;
   code: string;
   address: string;
+  email: string;
+  phone: string;
+  bankName: string;
+  bankAccount: string;
+  bankIfsc: string;
+}
+
+function warehousePayloadFromForm(
+  data: WarehouseFormData,
+  mode: "create" | "patch",
+): WarehouseWritePayload | Partial<WarehouseWritePayload> {
+  const address = data.address.trim();
+  const bank_name = data.bankName.trim();
+  const bank_account_number = data.bankAccount.trim();
+  const bank_ifsc = data.bankIfsc.trim();
+  const email = data.email.trim();
+  const phone = data.phone.trim();
+  const code = data.code.trim().toUpperCase();
+
+  const base: Partial<WarehouseWritePayload> = {
+    name: data.name.trim(),
+    address,
+    email,
+    phone,
+  };
+  if (bank_name || bank_account_number || bank_ifsc) {
+    base.bank_name = bank_name;
+    base.bank_account_number = bank_account_number;
+    base.bank_ifsc = bank_ifsc;
+  }
+  if (mode === "create") {
+    const out: WarehouseWritePayload = {
+      ...base,
+      name: data.name.trim(),
+      address,
+      email,
+      phone,
+      is_active: true,
+      ...(bank_name || bank_account_number || bank_ifsc
+        ? {
+            bank_name,
+            bank_account_number,
+            bank_ifsc,
+          }
+        : {}),
+    } as WarehouseWritePayload;
+    if (code) out.code = code;
+    return out;
+  }
+  return base;
 }
 
 function CreateWarehouseModal({
@@ -45,7 +133,27 @@ function CreateWarehouseModal({
     name: "",
     code: "",
     address: "",
+    email: "",
+    phone: "",
+    bankName: "",
+    bankAccount: "",
+    bankIfsc: "",
   });
+  const [sellerImageBlob, setSellerImageBlob] = React.useState<Blob | null>(null);
+  const [adjustOpen, setAdjustOpen] = React.useState(false);
+  const [pendingFile, setPendingFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const sellerPreviewUrl = React.useMemo(() => {
+    if (!sellerImageBlob) return null;
+    return URL.createObjectURL(sellerImageBlob);
+  }, [sellerImageBlob]);
+
+  React.useEffect(() => {
+    return () => {
+      if (sellerPreviewUrl) URL.revokeObjectURL(sellerPreviewUrl);
+    };
+  }, [sellerPreviewUrl]);
 
   const createMutation = useMutation({
     mutationFn: inventoryService.createWarehouse,
@@ -57,7 +165,15 @@ function CreateWarehouseModal({
         name: "",
         code: "",
         address: "",
+        email: "",
+        phone: "",
+        bankName: "",
+        bankAccount: "",
+        bankIfsc: "",
       });
+      setSellerImageBlob(null);
+      setAdjustOpen(false);
+      setPendingFile(null);
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to create warehouse");
@@ -70,27 +186,29 @@ function CreateWarehouseModal({
       toast.error("Warehouse name is required");
       return;
     }
-    if (!formData.code.trim()) {
-      toast.error("Warehouse code is required");
+    const addr = formData.address.trim();
+    if (addr.length < WAREHOUSE_ADDRESS_MIN) {
+      toast.error(
+        `Address is required and must be at least ${WAREHOUSE_ADDRESS_MIN} characters.`,
+      );
       return;
     }
-    createMutation.mutate(formData);
-  };
-
-  // Auto-generate code from name
-  const handleNameChange = (name: string) => {
-    setFormData({
-      ...formData,
-      name,
-      code:
-        formData.code || name.toUpperCase().replace(/\s+/g, "-").slice(0, 20),
-    });
+    const base = warehousePayloadFromForm(
+      formData,
+      "create",
+    ) as WarehouseWritePayload;
+    const payload: WarehouseCreatePayload = {
+      ...base,
+      ...(sellerImageBlob ? { sellerImage: sellerImageBlob } : {}),
+    };
+    createMutation.mutate(payload);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain p-4 sm:p-6">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -102,10 +220,11 @@ function CreateWarehouseModal({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative z-10 w-full max-w-lg mx-4 bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden"
+        className="relative z-10 my-auto flex w-full max-w-lg flex-col max-h-[min(92dvh,56rem)] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1A1B23] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/[0.08]">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.08] p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C6A15B]/20 flex items-center justify-center">
               <Building2 className="w-5 h-5 text-[#C6A15B]" />
@@ -127,8 +246,12 @@ function CreateWarehouseModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form
+          noValidate
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
@@ -137,17 +260,19 @@ function CreateWarehouseModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="e.g., Bangalore Main Warehouse"
               className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
-              required
             />
           </div>
 
-          {/* Code */}
+          {/* Code (optional — server generates if empty) */}
           <div>
             <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
-              Warehouse Code <span className="text-red-400">*</span>
+              Warehouse code{" "}
+              <span className="text-[#6F7285] font-normal">(optional)</span>
             </label>
             <input
               type="text"
@@ -155,20 +280,110 @@ function CreateWarehouseModal({
               onChange={(e) =>
                 setFormData({ ...formData, code: e.target.value.toUpperCase() })
               }
-              placeholder="e.g., BLR-MAIN"
+              placeholder="Leave blank to auto-generate"
               className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors uppercase"
               maxLength={20}
-              required
             />
-            <p className="text-xs text-[#6F7285] mt-1">
-              Short unique identifier (auto-converted to uppercase)
-            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                placeholder="billing@company.com"
+                className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                Mobile number
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="+91 …"
+                className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Seller banner — 16:9 (crop in editor) */}
+          <div>
+            <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+              Company / seller image{" "}
+              <span className="text-[#6F7285] font-normal">(optional, 16:9)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                const err = validateSellerImageFile(f);
+                if (err) {
+                  toast.error(err);
+                  return;
+                }
+                setPendingFile(f);
+                setAdjustOpen(true);
+              }}
+            />
+            {sellerPreviewUrl ? (
+              <div className="space-y-2">
+                <div className="relative w-full max-w-md rounded-xl overflow-hidden border border-white/[0.08] bg-black aspect-video">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sellerPreviewUrl}
+                    alt="Seller preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSellerImageBlob(null)}
+                  className="text-xs text-[#C6A15B] hover:underline"
+                >
+                  Remove image
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-white/[0.15] text-[#A1A4B3] hover:border-[#C6A15B]/50 hover:text-[#F5F6FA] transition-colors w-full max-w-md justify-center"
+              >
+                <ImagePlus className="w-5 h-5 text-[#C6A15B]" />
+                Upload &amp; adjust 16:9 banner
+              </button>
+            )}
+            {sellerPreviewUrl ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-2 text-xs text-[#6F7285] hover:text-[#A1A4B3]"
+              >
+                Replace image…
+              </button>
+            ) : null}
           </div>
 
           {/* Address */}
           <div>
             <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
-              Address
+              Address <span className="text-red-400">*</span>
             </label>
             <textarea
               value={formData.address}
@@ -179,10 +394,75 @@ function CreateWarehouseModal({
               rows={3}
               className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors resize-none"
             />
+            <p className="text-xs text-[#6F7285] mt-1">
+              Minimum {WAREHOUSE_ADDRESS_MIN} characters (required for invoices)
+              {formData.address.trim().length > 0 &&
+                formData.address.trim().length < WAREHOUSE_ADDRESS_MIN && (
+                  <span className="text-amber-400/90">
+                    {" "}
+                    · {WAREHOUSE_ADDRESS_MIN - formData.address.trim().length}{" "}
+                    more needed
+                  </span>
+                )}
+            </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4">
+          <div className="pt-1 border-t border-white/[0.06]">
+            <p className="text-sm font-medium text-[#A1A4B3] mb-3">
+              Bank details{" "}
+              <span className="text-[#6F7285] font-normal">(optional)</span>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  Bank name
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bankName: e.target.value })
+                  }
+                  placeholder="e.g. ICICI Bank"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  Account number
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankAccount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bankAccount: e.target.value })
+                  }
+                  placeholder="Account number"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  IFSC
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankIfsc}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      bankIfsc: e.target.value.toUpperCase(),
+                    })
+                  }
+                  placeholder="e.g. ICIC0000410"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm uppercase"
+                />
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/[0.08] bg-[#1A1B23] px-6 py-4">
             <button
               type="button"
               onClick={onClose}
@@ -211,6 +491,20 @@ function CreateWarehouseModal({
         </form>
       </motion.div>
     </div>
+    <WarehouseSellerImageAdjustModal
+      open={adjustOpen}
+      file={pendingFile}
+      onClose={() => {
+        setAdjustOpen(false);
+        setPendingFile(null);
+      }}
+      onApply={(blob) => {
+        setSellerImageBlob(blob);
+        setAdjustOpen(false);
+        setPendingFile(null);
+      }}
+    />
+    </>
   );
 }
 
@@ -235,7 +529,30 @@ function EditWarehouseModal({
     name: "",
     code: "",
     address: "",
+    email: "",
+    phone: "",
+    bankName: "",
+    bankAccount: "",
+    bankIfsc: "",
   });
+
+  const [sellerImageBlob, setSellerImageBlob] = React.useState<Blob | null>(null);
+  const [removeSellerImageAtSave, setRemoveSellerImageAtSave] =
+    React.useState(false);
+  const [adjustOpen, setAdjustOpen] = React.useState(false);
+  const [pendingFile, setPendingFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const sellerBlobPreviewUrl = React.useMemo(() => {
+    if (!sellerImageBlob) return null;
+    return URL.createObjectURL(sellerImageBlob);
+  }, [sellerImageBlob]);
+
+  React.useEffect(() => {
+    return () => {
+      if (sellerBlobPreviewUrl) URL.revokeObjectURL(sellerBlobPreviewUrl);
+    };
+  }, [sellerBlobPreviewUrl]);
 
   React.useEffect(() => {
     if (warehouse) {
@@ -243,17 +560,58 @@ function EditWarehouseModal({
         name: warehouse.name,
         code: warehouse.code || "",
         address: warehouse.address || "",
+        email: warehouse.email || "",
+        phone: warehouse.phone || "",
+        bankName: warehouse.bankName || "",
+        bankAccount: warehouse.bankAccountNumber || "",
+        bankIfsc: warehouse.bankIfsc || "",
       });
+      setSellerImageBlob(null);
+      setRemoveSellerImageAtSave(false);
+      setAdjustOpen(false);
+      setPendingFile(null);
     }
   }, [warehouse]);
 
+  const resolvedExistingSellerUrl = React.useMemo(
+    () => resolveWarehouseMediaUrl(warehouse?.sellerImageUrl),
+    [warehouse?.sellerImageUrl],
+  );
+
+  const [sellerImgLoadFailed, setSellerImgLoadFailed] = React.useState(false);
+  React.useEffect(() => {
+    setSellerImgLoadFailed(false);
+  }, [warehouse?.id, sellerBlobPreviewUrl, removeSellerImageAtSave]);
+
   const updateMutation = useMutation({
-    mutationFn: (data: WarehouseFormData) =>
-      inventoryService.updateWarehouse(warehouse!.id, data),
+    mutationFn: ({
+      form,
+      sellerImage,
+      clearSellerImage,
+    }: {
+      form: WarehouseFormData;
+      sellerImage: Blob | null;
+      clearSellerImage: boolean;
+    }) => {
+      const patch = warehousePayloadFromForm(
+        form,
+        "patch",
+      ) as Partial<WarehouseWritePayload>;
+      const payload: WarehouseUpdatePayload = {
+        ...patch,
+        ...(sellerImage ? { sellerImage } : {}),
+        ...(clearSellerImage && !sellerImage ? { clearSellerImage: true } : {}),
+      };
+      return inventoryService.updateWarehouse(warehouse!.id, payload);
+    },
     onSuccess: () => {
       toast.success("Warehouse updated successfully");
       onSuccess();
       onClose();
+      setSellerImageBlob(null);
+      setRemoveSellerImageAtSave(false);
+      setAdjustOpen(false);
+      setPendingFile(null);
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update warehouse");
@@ -266,49 +624,67 @@ function EditWarehouseModal({
       toast.error("Warehouse name is required");
       return;
     }
-    updateMutation.mutate(formData);
+    const addr = formData.address.trim();
+    if (addr.length < WAREHOUSE_ADDRESS_MIN) {
+      toast.error(
+        `Address is required and must be at least ${WAREHOUSE_ADDRESS_MIN} characters.`,
+      );
+      return;
+    }
+    updateMutation.mutate({
+      form: formData,
+      sellerImage: sellerImageBlob,
+      clearSellerImage: removeSellerImageAtSave && !sellerImageBlob,
+    });
   };
 
   if (!isOpen || !warehouse) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative z-10 w-full max-w-lg mx-4 bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/[0.08]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-              <Edit className="w-5 h-5 text-blue-400" />
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain p-4 sm:p-6">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative z-10 my-auto flex w-full max-w-lg flex-col max-h-[min(92dvh,56rem)] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1A1B23] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.08] p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20">
+                <Edit className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#F5F6FA]">
+                  Edit Warehouse
+                </h2>
+                <p className="text-sm text-[#6F7285]">Update warehouse details</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#F5F6FA]">
-                Edit Warehouse
-              </h2>
-              <p className="text-sm text-[#6F7285]">Update warehouse details</p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-[#6F7285] transition-colors hover:bg-white/[0.05]"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/[0.05] text-[#6F7285] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <form
+            noValidate
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
@@ -322,7 +698,6 @@ function EditWarehouseModal({
               }
               placeholder="e.g., Bangalore Main Warehouse"
               className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
-              required
             />
           </div>
 
@@ -342,10 +717,152 @@ function EditWarehouseModal({
             </p>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                placeholder="billing@company.com"
+                className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                Mobile number
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="+91 …"
+                className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Seller banner — same as create; PATCH multipart when replaced */}
+          <div>
+            <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+              Company / seller image{" "}
+              <span className="text-[#6F7285] font-normal">(optional, 16:9)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                const err = validateSellerImageFile(f);
+                if (err) {
+                  toast.error(err);
+                  return;
+                }
+                setPendingFile(f);
+                setAdjustOpen(true);
+              }}
+            />
+            {sellerBlobPreviewUrl ||
+            (!removeSellerImageAtSave &&
+              resolvedExistingSellerUrl &&
+              !sellerImgLoadFailed) ? (
+              <div className="space-y-2">
+                <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-xl border border-white/[0.08] bg-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      sellerBlobPreviewUrl ?? resolvedExistingSellerUrl
+                    }
+                    alt="Seller banner"
+                    className="h-full w-full object-cover"
+                    onError={() => setSellerImgLoadFailed(true)}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {sellerImageBlob ? (
+                    <button
+                      type="button"
+                      onClick={() => setSellerImageBlob(null)}
+                      className="text-xs text-[#C6A15B] hover:underline"
+                    >
+                      Discard new image
+                    </button>
+                  ) : resolvedExistingSellerUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveSellerImageAtSave(true)}
+                      className="text-xs text-[#C6A15B] hover:underline"
+                    >
+                      Remove image
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sellerImgLoadFailed &&
+                !removeSellerImageAtSave &&
+                resolvedExistingSellerUrl ? (
+                  <p className="text-xs text-amber-400/90">
+                    Could not load the saved banner. Upload a replacement if
+                    needed.
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex w-full max-w-md items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.15] px-4 py-3 text-[#A1A4B3] transition-colors hover:border-[#C6A15B]/50 hover:text-[#F5F6FA]"
+                >
+                  <ImagePlus className="h-5 w-5 text-[#C6A15B]" />
+                  Upload &amp; adjust 16:9 banner
+                </button>
+                {removeSellerImageAtSave ? (
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-400/90">
+                      Current banner will be removed when you save.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveSellerImageAtSave(false)}
+                      className="text-xs text-[#6F7285] hover:text-[#A1A4B3]"
+                    >
+                      Keep existing image
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {sellerBlobPreviewUrl ||
+            (!removeSellerImageAtSave && resolvedExistingSellerUrl) ||
+            sellerImgLoadFailed ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setRemoveSellerImageAtSave(false);
+                  setSellerImgLoadFailed(false);
+                  fileInputRef.current?.click();
+                }}
+                className="mt-2 text-xs text-[#6F7285] hover:text-[#A1A4B3]"
+              >
+                Replace image…
+              </button>
+            ) : null}
+          </div>
+
           {/* Address */}
           <div>
             <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
-              Address
+              Address <span className="text-red-400">*</span>
             </label>
             <textarea
               value={formData.address}
@@ -356,38 +873,118 @@ function EditWarehouseModal({
               rows={3}
               className="w-full px-4 py-3 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors resize-none"
             />
+            <p className="text-xs text-[#6F7285] mt-1">
+              Minimum {WAREHOUSE_ADDRESS_MIN} characters (required for invoices)
+              {formData.address.trim().length > 0 &&
+                formData.address.trim().length < WAREHOUSE_ADDRESS_MIN && (
+                  <span className="text-amber-400/90">
+                    {" "}
+                    · {WAREHOUSE_ADDRESS_MIN - formData.address.trim().length}{" "}
+                    more needed
+                  </span>
+                )}
+            </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-[#A1A4B3] hover:bg-white/[0.05] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
-            >
-              {updateMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Save Changes
-                </>
-              )}
-            </button>
+          <div className="pt-1 border-t border-white/[0.06]">
+            <p className="text-sm font-medium text-[#A1A4B3] mb-3">
+              Bank details{" "}
+              <span className="text-[#6F7285] font-normal">(optional)</span>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  Bank name
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bankName: e.target.value })
+                  }
+                  placeholder="e.g. ICICI Bank"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  Account number
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankAccount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bankAccount: e.target.value })
+                  }
+                  placeholder="Account number"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6F7285] mb-1.5">
+                  IFSC
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankIfsc}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      bankIfsc: e.target.value.toUpperCase(),
+                    })
+                  }
+                  placeholder="e.g. ICIC0000410"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#0E0F13] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors text-sm uppercase"
+                />
+              </div>
+            </div>
           </div>
-        </form>
-      </motion.div>
-    </div>
+            </div>
+
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/[0.08] bg-[#1A1B23] px-6 py-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl px-5 py-2.5 text-[#A1A4B3] transition-colors hover:bg-white/[0.05]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
+              >
+                {updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    <WarehouseSellerImageAdjustModal
+      open={adjustOpen}
+      file={pendingFile}
+      onClose={() => {
+        setAdjustOpen(false);
+        setPendingFile(null);
+      }}
+      onApply={(blob) => {
+        setSellerImageBlob(blob);
+        setRemoveSellerImageAtSave(false);
+        setAdjustOpen(false);
+        setPendingFile(null);
+      }}
+    />
+    </>
   );
 }
 
@@ -399,10 +996,27 @@ interface WarehouseCardProps {
   warehouse: WarehouseType;
   onEdit: () => void;
   onDelete: () => void;
+  onReactivate: () => void;
+  reactivatePending?: boolean;
 }
 
-function WarehouseCard({ warehouse, onEdit, onDelete }: WarehouseCardProps) {
+function WarehouseCard({
+  warehouse,
+  onEdit,
+  onDelete,
+  onReactivate,
+  reactivatePending,
+}: WarehouseCardProps) {
   const [showMenu, setShowMenu] = React.useState(false);
+  const [sellerThumbFailed, setSellerThumbFailed] = React.useState(false);
+  const rawSeller = warehouse.sellerImageUrl?.trim();
+  const sellerUrl = rawSeller
+    ? resolveWarehouseMediaUrl(rawSeller) ?? rawSeller
+    : "";
+
+  React.useEffect(() => {
+    setSellerThumbFailed(false);
+  }, [warehouse.id, sellerUrl]);
 
   return (
     <motion.div
@@ -414,14 +1028,38 @@ function WarehouseCard({ warehouse, onEdit, onDelete }: WarehouseCardProps) {
       <div className="p-5 border-b border-white/[0.08]">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#C6A15B]/20 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-[#C6A15B]" />
+            <div
+              title={sellerUrl && !sellerThumbFailed ? "Invoice seller banner" : "Warehouse"}
+              className="relative w-12 h-12 shrink-0 overflow-hidden rounded-xl border border-[#C6A15B]/55 bg-black/40 ring-1 ring-white/[0.08] shadow-inner flex items-center justify-center"
+            >
+              {sellerUrl && !sellerThumbFailed ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={sellerUrl}
+                  alt={`${warehouse.name} — seller banner`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={() => setSellerThumbFailed(true)}
+                />
+              ) : (
+                <Building2
+                  className="relative z-[1] w-6 h-6 text-[#F4E8C8]"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              )}
             </div>
             <div>
               <h3 className="font-semibold text-[#F5F6FA]">{warehouse.name}</h3>
-              {warehouse.code && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#C6A15B]/10 text-[#C6A15B] text-xs font-medium mt-1">
-                  {warehouse.code}
+              {warehouse.code?.trim() ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md mt-1 border border-[#C6A15B]/50 bg-black/35 text-[#FFF5E6] text-xs font-semibold tracking-wide">
+                  Code:{" "}
+                  <span className="ml-1 font-mono text-[#F4E8C8]">
+                    {warehouse.code.trim()}
+                  </span>
+                </span>
+              ) : (
+                <span className="mt-1 inline-block text-[11px] text-[#6F7285]">
+                  Code not set · edit warehouse to add
                 </span>
               )}
             </div>
@@ -459,16 +1097,35 @@ function WarehouseCard({ warehouse, onEdit, onDelete }: WarehouseCardProps) {
                       <Edit className="w-4 h-4" />
                       Edit
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        onDelete();
-                      }}
-                      className="flex items-center gap-2 w-full px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Deactivate
-                    </button>
+                    {warehouse.isActive ? (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          onDelete();
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={reactivatePending}
+                        onClick={() => {
+                          setShowMenu(false);
+                          onReactivate();
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-3 text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+                      >
+                        {reactivatePending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        Reactivate
+                      </button>
+                    )}
                   </motion.div>
                 </>
               )}
@@ -527,8 +1184,10 @@ export default function WarehousesPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["warehouses"],
-    queryFn: inventoryService.getWarehouses,
+    // Admin list: include inactive so DB rows match the UI (API defaults to active-only).
+    queryKey: [...inventoryKeys.warehouses("with-inactive"), "admin-list"] as const,
+    queryFn: () =>
+      inventoryService.getWarehouses({ includeInactive: true }),
   });
 
   // Delete mutation
@@ -536,10 +1195,26 @@ export default function WarehousesPage() {
     mutationFn: (id: string) => inventoryService.deleteWarehouse(id),
     onSuccess: () => {
       toast.success("Warehouse deactivated successfully");
-      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({
+        queryKey: [...inventoryKeys.all, "warehouses"],
+      });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to deactivate warehouse");
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) =>
+      inventoryService.updateWarehouse(id, { is_active: true }),
+    onSuccess: () => {
+      toast.success("Warehouse reactivated");
+      queryClient.invalidateQueries({
+        queryKey: [...inventoryKeys.all, "warehouses"],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to reactivate warehouse");
     },
   });
 
@@ -566,7 +1241,9 @@ export default function WarehousesPage() {
   };
 
   const handleSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+    queryClient.invalidateQueries({
+      queryKey: [...inventoryKeys.all, "warehouses"],
+    });
   };
 
   return (
@@ -574,7 +1251,10 @@ export default function WarehousesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Warehouses</h1>
+          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+            <Building2 className="w-6 h-6 text-[#6366F1]" />
+            Warehouses
+          </h1>
           <p className="text-[#6F7285] mt-1">
             Manage your warehouse locations. Create warehouses before adding
             inventory.
@@ -671,6 +1351,11 @@ export default function WarehousesPage() {
               warehouse={warehouse}
               onEdit={() => setEditingWarehouse(warehouse)}
               onDelete={() => handleDelete(warehouse)}
+              onReactivate={() => reactivateMutation.mutate(warehouse.id)}
+              reactivatePending={
+                reactivateMutation.isPending &&
+                reactivateMutation.variables === warehouse.id
+              }
             />
           ))}
         </div>

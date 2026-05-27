@@ -1,11 +1,11 @@
-# TRAP Inventory System
+# Quake Inventory System
 
 Enterprise-grade inventory management system for luxury apparel brands.
 
 ## 🏗 Project Structure
 
 ```
-trap-inventory/
+Quake-inventory/
 ├── apps/
 │   ├── api/                    # Django backend (API-only)
 │   │   ├── core/
@@ -63,7 +63,7 @@ brew install postgresql@15
 brew services start postgresql@15
 
 # Create database
-createdb trap_inventory
+createdb Quake_inventory
 ```
 
 ### 3. Environment Configuration
@@ -123,7 +123,7 @@ cd apps/web && pnpm dev
 ```json
 {
   "status": "ok",
-  "service": "TRAP Inventory API",
+  "service": "Quake Inventory API",
   "version": "v1",
   "environment": "development",
   "database": "connected",
@@ -207,7 +207,7 @@ pnpm lint
 |----------|-------------|---------|
 | `DJANGO_SECRET_KEY` | Django secret key | Required |
 | `DJANGO_ENV` | Environment (development/production) | development |
-| `POSTGRES_DB` | Database name | trap_inventory |
+| `POSTGRES_DB` | Database name | Quake_inventory |
 | `POSTGRES_USER` | Database user | postgres |
 | `POSTGRES_PASSWORD` | Database password | Required |
 | `POSTGRES_HOST` | Database host | localhost |

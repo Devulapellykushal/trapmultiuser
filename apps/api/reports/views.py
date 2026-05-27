@@ -1,5 +1,5 @@
 """
-Reports Views for TRAP Inventory System.
+Reports Views for Quake Inventory System.
 
 PHASE 16: REPORTS & ANALYTICS (DECISION-GRADE)
 ===============================================
@@ -17,7 +17,8 @@ API Endpoints:
 - GET /api/v1/reports/tax/gst/
 
 RBAC:
-- Inventory/Sales: Admin or Manager
+- Inventory/Sales (most): Admin or Manager (legacy)
+- Sales summary & trends: Staff may read (dashboard / POS context)
 - Profit/Audit: Admin only
 """
 
@@ -47,12 +48,25 @@ def parse_date(date_str):
 
 
 class IsManagerOrAdmin(IsAuthenticated):
-    """Permission for manager or admin users."""
+    """Permission for manager or admin users (not STAFF)."""
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
         user = request.user
         return user.is_superuser or getattr(user, 'role', None) in ['ADMIN', 'MANAGER']
+
+
+class IsStaffManagerOrAdmin(IsAuthenticated):
+    """STAFF, MANAGER (legacy), ADMIN, or superuser — for read-only sales aggregates used on dashboard."""
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        user = request.user
+        return user.is_superuser or getattr(user, 'role', None) in (
+            'ADMIN',
+            'MANAGER',
+            'STAFF',
+        )
 
 
 # =============================================================================
@@ -160,8 +174,8 @@ class SalesSummaryView(APIView):
     
     Aggregate totals: sales, discount, GST, invoice count.
     """
-    permission_classes = [IsManagerOrAdmin]
-    
+    permission_classes = [IsStaffManagerOrAdmin]
+
     @extend_schema(
         summary="Sales Summary",
         description="Get sales totals for a period.",
@@ -220,8 +234,8 @@ class SalesTrendsView(APIView):
     
     Daily/monthly sales for charts.
     """
-    permission_classes = [IsManagerOrAdmin]
-    
+    permission_classes = [IsStaffManagerOrAdmin]
+
     @extend_schema(
         summary="Sales Trends",
         description="Sales grouped by day or month for charting.",

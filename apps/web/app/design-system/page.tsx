@@ -1,41 +1,41 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  ChevronDown, 
-  Plus, 
-  Settings, 
-  User, 
-  LogOut,
-  Package,
-  ShoppingCart,
-  FileText,
-  BarChart3
+import {
+    BarChart3,
+    ChevronDown,
+    FileText,
+    LogOut,
+    Package,
+    Plus,
+    Settings,
+    ShoppingCart,
+    User
 } from "lucide-react";
+import { useState } from "react";
 
 import {
-  Button,
-  Input,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Badge,
-  Modal,
-  ModalTrigger,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-  ModalDescription,
-  ModalFooter,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
+    Badge,
+    Button,
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    Input,
+    Modal,
+    ModalContent,
+    ModalDescription,
+    ModalFooter,
+    ModalHeader,
+    ModalTitle,
+    ModalTrigger,
 } from "@/components/ui";
 
 export default function DesignSystemPage() {
@@ -47,10 +47,10 @@ export default function DesignSystemPage() {
         {/* Header */}
         <header className="space-y-4">
           <h1 className="text-heading-xl text-gradient">
-            TRAP Design System
+            Quake Design System
           </h1>
           <p className="text-body-lg text-text-secondary max-w-2xl">
-            A dark luxury design system for enterprise inventory management.
+            A dark enterprise design system for multi-vertical inventory & retail.
             All components are token-driven, accessible, and production-ready.
           </p>
         </header>
@@ -438,7 +438,7 @@ export default function DesignSystemPage() {
         {/* Footer */}
         <footer className="pt-8 border-t border-border-default">
           <p className="text-caption text-text-muted text-center">
-            TRAP Design System v1.0 • Dark Luxury Theme • Accessible & Production-Ready
+            Quake Design System v1.0 • Dark enterprise • Accessible & production-ready
           </p>
         </footer>
       </div>

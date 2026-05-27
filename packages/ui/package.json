@@ -1,8 +1,8 @@
 {
-  "name": "@trap/ui",
+  "name": "@Quake/ui",
   "version": "0.0.1",
   "private": true,
-  "description": "Shared UI components for TRAP Inventory System",
+  "description": "Shared UI components for Quake Inventory System",
   "main": "index.ts",
   "types": "index.ts"
 }

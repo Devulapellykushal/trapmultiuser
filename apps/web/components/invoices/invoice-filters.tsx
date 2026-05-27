@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Search, X, Calendar, CreditCard, Banknote, CheckCircle, XCircle, ChevronDown } from "lucide-react";
+import { Search, X, Calendar, CreditCard, Banknote, CheckCircle, XCircle, ChevronDown, Smartphone, Clock } from "lucide-react";
 
-export type PaymentFilter = "all" | "cash" | "card";
-export type StatusFilter = "all" | "paid" | "cancelled";
+export type PaymentFilter = "all" | "cash" | "card" | "upi" | "credit";
+export type StatusFilter = "all" | "paid" | "credit" | "cancelled" | "refunded";
 
 interface InvoiceFiltersProps {
   searchQuery: string;
@@ -91,7 +91,7 @@ export function InvoiceFilters({
                 : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
             }`}
           >
-            <Banknote className="w-3 h-3" />
+            <Banknote className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
             Cash
           </button>
           <button
@@ -102,8 +102,30 @@ export function InvoiceFilters({
                 : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
             }`}
           >
-            <CreditCard className="w-3 h-3" />
+            <CreditCard className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
             Card
+          </button>
+          <button
+            onClick={() => onPaymentChange("upi")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              paymentFilter === "upi"
+                ? "bg-[#C6A15B] text-[#0E0F13]"
+                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
+            UPI
+          </button>
+          <button
+            onClick={() => onPaymentChange("credit")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              paymentFilter === "credit"
+                ? "bg-[#C6A15B] text-[#0E0F13]"
+                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
+            Credit
           </button>
         </div>
 
@@ -127,8 +149,19 @@ export function InvoiceFilters({
                 : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
             }`}
           >
-            <CheckCircle className="w-3 h-3" />
+            <CheckCircle className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
             Paid
+          </button>
+          <button
+            onClick={() => onStatusChange("credit")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              statusFilter === "credit"
+                ? "bg-[#F5A623] text-[#0E0F13]"
+                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
+            Credit
           </button>
           <button
             onClick={() => onStatusChange("cancelled")}
@@ -138,8 +171,19 @@ export function InvoiceFilters({
                 : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
             }`}
           >
-            <XCircle className="w-3 h-3" />
+            <XCircle className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
             Cancelled
+          </button>
+          <button
+            onClick={() => onStatusChange("refunded")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              statusFilter === "refunded"
+                ? "bg-[#9B59B6] text-white"
+                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
+            Refunded
           </button>
         </div>
 

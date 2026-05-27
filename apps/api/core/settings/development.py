@@ -1,10 +1,12 @@
 """
-Django development settings for TRAP Inventory API.
+Django development settings for Quake Inventory API.
 """
 
 import os
 from pathlib import Path
+
 from .base import *
+from .db_utils import get_postgres_database_config
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -24,17 +26,8 @@ if USE_SQLITE:
         }
     }
 else:
-    # PostgreSQL for production-like development
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('POSTGRES_DB', 'trap_inventory'),
-            'USER': os.getenv('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
-            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-            'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        }
-    }
+    # PostgreSQL: DATABASE_URL or legacy POSTGRES_* (see core/settings/db_utils.py)
+    DATABASES = {'default': get_postgres_database_config()}
 
 # CORS settings for local development
 CORS_ALLOWED_ORIGINS = [
@@ -44,9 +37,9 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Add browsable API renderer for development
+# Match production JSON shape (camelCase) for the web app; keep browsable API for debugging
 REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = [
-    'rest_framework.renderers.JSONRenderer',
+    'core.renderers.CamelCaseJSONRenderer',
     'rest_framework.renderers.BrowsableAPIRenderer',
 ]
 

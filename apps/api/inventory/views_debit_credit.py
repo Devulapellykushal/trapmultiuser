@@ -1,5 +1,5 @@
 """
-Debit/Credit Note Views for TRAP Inventory System.
+Debit/Credit Note Views for Quake Inventory System.
 """
 
 from django.db import models

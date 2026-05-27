@@ -1,5 +1,5 @@
 /**
- * Stores Service for TRAP Inventory System.
+ * Stores Service for Quake Inventory System.
  * Handles all API calls related to stores and stock transfers.
  */
 

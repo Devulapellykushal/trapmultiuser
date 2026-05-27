@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # ================================================
-# Manual deployment script for TRAP API to Cloud Run
+# Manual deployment script for Quake API to Cloud Run
 # Uses Supabase for database (PostgreSQL)
 # ================================================
 
 set -e  # Exit on error
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT_ID:-"trap-inventory-prod"}
+PROJECT_ID=${GCP_PROJECT_ID:-"Quake-inventory-prod"}
 REGION="asia-south1"
-SERVICE_NAME="trap-api"
+SERVICE_NAME="Quake-api"
 ARTIFACT_REGISTRY="asia-south1-docker.pkg.dev"
 
 # Supabase Database Configuration
@@ -26,7 +26,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Starting TRAP API deployment to Cloud Run${NC}"
+echo -e "${GREEN}🚀 Starting Quake API deployment to Cloud Run${NC}"
 
 # Check if required environment variables are set
 if [ -z "$PROJECT_ID" ]; then
@@ -64,11 +64,11 @@ gcloud services enable secretmanager.googleapis.com
 
 # Create Artifact Registry repository if it doesn't exist
 echo -e "${YELLOW}📦 Creating Artifact Registry repository...${NC}"
-if ! gcloud artifacts repositories describe trap --location=$REGION --project=$PROJECT_ID &>/dev/null; then
-    gcloud artifacts repositories create trap \
+if ! gcloud artifacts repositories describe Quake --location=$REGION --project=$PROJECT_ID &>/dev/null; then
+    gcloud artifacts repositories create Quake \
         --repository-format=docker \
         --location=$REGION \
-        --description="TRAP Inventory Management System"
+        --description="Quake Inventory Management System"
 fi
 
 # Configure Docker authentication
@@ -78,8 +78,8 @@ gcloud auth configure-docker $ARTIFACT_REGISTRY
 # Build and tag the image
 echo -e "${YELLOW}🔨 Building Docker image...${NC}"
 cd apps/api
-IMAGE_TAG="$ARTIFACT_REGISTRY/$PROJECT_ID/trap/$SERVICE_NAME:$(date +%s)"
-LATEST_TAG="$ARTIFACT_REGISTRY/$PROJECT_ID/trap/$SERVICE_NAME:latest"
+IMAGE_TAG="$ARTIFACT_REGISTRY/$PROJECT_ID/Quake/$SERVICE_NAME:$(date +%s)"
+LATEST_TAG="$ARTIFACT_REGISTRY/$PROJECT_ID/Quake/$SERVICE_NAME:latest"
 
 docker build \
     --platform linux/amd64 \

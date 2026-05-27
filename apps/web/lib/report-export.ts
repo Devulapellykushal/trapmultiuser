@@ -65,7 +65,7 @@ export function exportToPDF(config: ReportExportConfig): void {
     columns,
     data,
     summary,
-    companyName = "TRAP Inventory System",
+    companyName = "Quake Inventory System",
   } = config;
 
   // Create PDF document (A4 size)
@@ -237,7 +237,7 @@ export function exportToExcel(config: ReportExportConfig): void {
     columns,
     data,
     summary,
-    companyName = "TRAP Inventory System",
+    companyName = "Quake Inventory System",
   } = config;
 
   // Create workbook

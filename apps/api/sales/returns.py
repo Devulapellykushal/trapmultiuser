@@ -1,5 +1,5 @@
 """
-Returns Service for TRAP Inventory System.
+Returns Service for Quake Inventory System.
 
 PHASE 15: RETURNS, REFUNDS & ADJUSTMENTS (LEDGER-SAFE)
 =======================================================

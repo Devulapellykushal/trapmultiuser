@@ -1,4 +1,4 @@
-# TRAP Inventory - Operations Runbook
+# Quake Inventory - Operations Runbook
 
 Quick reference for common operational tasks and troubleshooting.
 
@@ -8,11 +8,11 @@ Quick reference for common operational tasks and troubleshooting.
 
 | Resource | URL |
 |----------|-----|
-| Cloud Run Console | `https://console.cloud.google.com/run?project=trap-inventory` |
-| Cloud SQL Console | `https://console.cloud.google.com/sql?project=trap-inventory` |
-| Cloud Logging | `https://console.cloud.google.com/logs?project=trap-inventory` |
+| Cloud Run Console | `https://console.cloud.google.com/run?project=Quake-inventory` |
+| Cloud SQL Console | `https://console.cloud.google.com/sql?project=Quake-inventory` |
+| Cloud Logging | `https://console.cloud.google.com/logs?project=Quake-inventory` |
 | Vercel Dashboard | `https://vercel.com/dashboard` |
-| GitHub Actions | `https://github.com/YOUR_ORG/trap/actions` |
+| GitHub Actions | `https://github.com/YOUR_ORG/Quake/actions` |
 
 ---
 
@@ -22,12 +22,12 @@ Quick reference for common operational tasks and troubleshooting.
 
 ```bash
 # Check if API is responding
-curl https://trap-api-xxxxx.asia-south1.run.app/api/v1/health/
+curl https://Quake-api-xxxxx.asia-south1.run.app/api/v1/health/
 
 # Expected response
 {
   "status": "ok",
-  "service": "TRAP Inventory API",
+  "service": "Quake Inventory API",
   "version": "v1",
   "environment": "production",
   "database": "connected",
@@ -60,13 +60,13 @@ curl -I https://your-app.vercel.app
 **Resolution:**
 ```bash
 # Check logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trap-api" --limit=50
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=Quake-api" --limit=50
 
 # Check if container is starting
-gcloud run revisions list --service=trap-api --region=asia-south1
+gcloud run revisions list --service=Quake-api --region=asia-south1
 
 # Increase memory if needed
-gcloud run services update trap-api --memory=1Gi --region=asia-south1
+gcloud run services update Quake-api --memory=1Gi --region=asia-south1
 ```
 
 ### Issue: Database Connection Refused
@@ -76,10 +76,10 @@ gcloud run services update trap-api --memory=1Gi --region=asia-south1
 **Resolution:**
 ```bash
 # Check Cloud SQL instance status
-gcloud sql instances describe trap-postgres
+gcloud sql instances describe Quake-postgres
 
 # Verify Cloud SQL connection is configured
-gcloud run services describe trap-api --region=asia-south1 | grep cloudsql
+gcloud run services describe Quake-api --region=asia-south1 | grep cloudsql
 
 # Check secret values
 gcloud secrets versions access latest --secret=CLOUD_SQL_CONNECTION_NAME
@@ -98,7 +98,7 @@ gcloud secrets versions access latest --secret=CORS_ALLOWED_ORIGINS
 echo -n "https://correct-frontend-url.vercel.app" | gcloud secrets versions add CORS_ALLOWED_ORIGINS --data-file=-
 
 # Redeploy
-gcloud run services update trap-api --region=asia-south1
+gcloud run services update Quake-api --region=asia-south1
 ```
 
 ### Issue: 401 Unauthorized (Valid Token)
@@ -140,13 +140,13 @@ gcloud run services update trap-api --region=asia-south1
 
 ```bash
 # Scale up (high traffic)
-gcloud run services update trap-api \
+gcloud run services update Quake-api \
   --min-instances=2 \
   --max-instances=20 \
   --region=asia-south1
 
 # Scale down (cost savings)
-gcloud run services update trap-api \
+gcloud run services update Quake-api \
   --min-instances=0 \
   --max-instances=5 \
   --region=asia-south1
@@ -167,12 +167,12 @@ Cloud Run auto-scales based on:
 
 ```bash
 # Recent logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trap-api" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=Quake-api" \
   --limit=100 \
   --format="table(timestamp,jsonPayload.severity,jsonPayload.message)"
 
 # Error logs only
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trap-api AND severity>=ERROR" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=Quake-api AND severity>=ERROR" \
   --limit=50
 
 # Specific request
@@ -183,7 +183,7 @@ gcloud logging read "resource.type=cloud_run_revision AND jsonPayload.requestId=
 ### View in Console
 
 1. Go to Cloud Console → Logging → Logs Explorer
-2. Select resource: Cloud Run Revision → trap-api
+2. Select resource: Cloud Run Revision → Quake-api
 3. Filter by severity as needed
 
 ---
@@ -199,12 +199,12 @@ Deployments are automated via GitHub Actions when pushing to `main`.
 cd apps/api
 
 # Build and push
-docker build -t asia-south1-docker.pkg.dev/trap-inventory/trap/trap-api:manual-$(date +%Y%m%d) .
-docker push asia-south1-docker.pkg.dev/trap-inventory/trap/trap-api:manual-$(date +%Y%m%d)
+docker build -t asia-south1-docker.pkg.dev/Quake-inventory/Quake/Quake-api:manual-$(date +%Y%m%d) .
+docker push asia-south1-docker.pkg.dev/Quake-inventory/Quake/Quake-api:manual-$(date +%Y%m%d)
 
 # Deploy
-gcloud run deploy trap-api \
-  --image asia-south1-docker.pkg.dev/trap-inventory/trap/trap-api:manual-$(date +%Y%m%d) \
+gcloud run deploy Quake-api \
+  --image asia-south1-docker.pkg.dev/Quake-inventory/Quake/Quake-api:manual-$(date +%Y%m%d) \
   --region asia-south1
 ```
 
@@ -212,11 +212,11 @@ gcloud run deploy trap-api \
 
 ```bash
 # List recent revisions
-gcloud run revisions list --service=trap-api --region=asia-south1 --limit=5
+gcloud run revisions list --service=Quake-api --region=asia-south1 --limit=5
 
 # Rollback to specific revision
-gcloud run services update-traffic trap-api \
-  --to-revisions=trap-api-00042-abc=100 \
+gcloud run services update-traffic Quake-api \
+  --to-revisions=Quake-api-00042-abc=100 \
   --region=asia-south1
 ```
 
@@ -228,35 +228,35 @@ gcloud run services update-traffic trap-api \
 
 ```bash
 # Execute migration job
-gcloud run jobs execute trap-migrate --region=asia-south1 --wait
+gcloud run jobs execute Quake-migrate --region=asia-south1 --wait
 
 # Check job status
-gcloud run jobs executions list --job=trap-migrate --region=asia-south1
+gcloud run jobs executions list --job=Quake-migrate --region=asia-south1
 ```
 
 ### Connect to Database
 
 ```bash
 # Via Cloud SQL Proxy (install first)
-cloud_sql_proxy -instances=trap-inventory:asia-south1:trap-postgres=tcp:5432 &
+cloud_sql_proxy -instances=Quake-inventory:asia-south1:Quake-postgres=tcp:5432 &
 
 # Then connect
-psql -h localhost -U trap_user -d trap_inventory
+psql -h localhost -U Quake_user -d Quake_inventory
 ```
 
 ### Create Superuser
 
 ```bash
 # Run one-off command
-gcloud run jobs create trap-createsuperuser \
-  --image asia-south1-docker.pkg.dev/trap-inventory/trap/trap-api:latest \
-  --set-cloudsql-instances trap-inventory:asia-south1:trap-postgres \
+gcloud run jobs create Quake-createsuperuser \
+  --image asia-south1-docker.pkg.dev/Quake-inventory/Quake/Quake-api:latest \
+  --set-cloudsql-instances Quake-inventory:asia-south1:Quake-postgres \
   --set-env-vars "DJANGO_ENV=production" \
   --set-secrets "..." \
   --command "python" \
   --args "manage.py,createsuperuser,--noinput,--username,admin,--email,admin@example.com"
 
-gcloud run jobs execute trap-createsuperuser --region=asia-south1 --wait
+gcloud run jobs execute Quake-createsuperuser --region=asia-south1 --wait
 ```
 
 ---
@@ -273,7 +273,7 @@ NEW_KEY=$(python -c "from django.core.management.utils import get_random_secret_
 echo -n "$NEW_KEY" | gcloud secrets versions add DJANGO_SECRET_KEY --data-file=-
 
 # Redeploy (invalidates all sessions/tokens)
-gcloud run services update trap-api --region=asia-south1
+gcloud run services update Quake-api --region=asia-south1
 ```
 
 ### Disable Compromised User

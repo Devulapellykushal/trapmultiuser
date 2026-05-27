@@ -1,5 +1,5 @@
 """
-Invoice Serializers for TRAP Inventory System.
+Invoice Serializers for Quake Inventory System.
 
 PHASE 14: INVOICE PDFs & COMPLIANCE
 ====================================
@@ -39,7 +39,23 @@ class InvoiceSerializer(serializers.ModelSerializer):
     
     items = InvoiceItemSerializer(many=True, read_only=True)
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
+    warehouse_address = serializers.CharField(source='warehouse.address', read_only=True)
+    warehouse_email = serializers.CharField(source='warehouse.email', read_only=True)
+    warehouse_phone = serializers.CharField(source='warehouse.phone', read_only=True)
+    warehouse_seller_image_url = serializers.SerializerMethodField()
+    warehouse_bank_name = serializers.CharField(source='warehouse.bank_name', read_only=True)
+    warehouse_bank_account_number = serializers.CharField(
+        source='warehouse.bank_account_number', read_only=True
+    )
+    warehouse_bank_ifsc = serializers.CharField(source='warehouse.bank_ifsc', read_only=True)
     sale_invoice_number = serializers.CharField(source='sale.invoice_number', read_only=True)
+    sale_status = serializers.CharField(source='sale.status', read_only=True)
+    sale_payment_status = serializers.CharField(source='sale.payment_status', read_only=True)
+    sale_is_credit_sale = serializers.BooleanField(source='sale.is_credit_sale', read_only=True)
+    sale_due_amount = serializers.DecimalField(
+        source='sale.due_amount', max_digits=12, decimal_places=2, read_only=True, coerce_to_string=True
+    )
+    sale_created_at = serializers.DateTimeField(source='sale.created_at', read_only=True)
     sale_created_by = serializers.SerializerMethodField()
     sale_payments = serializers.SerializerMethodField()
     sale_customer_email = serializers.CharField(source='sale.customer_email', read_only=True)
@@ -49,16 +65,33 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             'id', 'invoice_number', 'sale', 'sale_invoice_number',
-            'warehouse', 'warehouse_name',
+            'warehouse', 'warehouse_name', 'warehouse_address',
+            'warehouse_email', 'warehouse_phone', 'warehouse_seller_image_url',
+            'warehouse_bank_name', 'warehouse_bank_account_number', 'warehouse_bank_ifsc',
             'subtotal_amount', 'discount_type', 'discount_value',
             'discount_amount', 'gst_total', 'total_amount',
             'billing_name', 'billing_phone', 'billing_gstin',
             'sale_customer_email', 'sale_customer_address',
             'invoice_date', 'pdf_url', 'created_at', 'items',
+            'sale_status', 'sale_payment_status', 'sale_is_credit_sale', 'sale_due_amount',
+            'sale_created_at',
             'sale_created_by', 'sale_payments'
         ]
         read_only_fields = fields
     
+    def get_warehouse_seller_image_url(self, obj):
+        wh = obj.warehouse
+        if not wh or not getattr(wh, 'seller_image', None):
+            return None
+        try:
+            url = wh.seller_image.url
+        except ValueError:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
     def get_sale_created_by(self, obj):
         if obj.sale and obj.sale.created_by:
             return {
@@ -79,17 +112,30 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
 class InvoiceListSerializer(serializers.ModelSerializer):
     """Compact serializer for invoice list with payment info."""
-    
+
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
+
     sale_invoice_number = serializers.CharField(source='sale.invoice_number', read_only=True)
+    sale_id = serializers.UUIDField(read_only=True)
+    sale_status = serializers.CharField(source='sale.status', read_only=True)
+    sale_payment_status = serializers.CharField(source='sale.payment_status', read_only=True)
+    sale_is_credit_sale = serializers.BooleanField(source='sale.is_credit_sale', read_only=True)
+    sale_due_amount = serializers.DecimalField(
+        source='sale.due_amount', max_digits=12, decimal_places=2, read_only=True, coerce_to_string=True
+    )
+    sale_created_at = serializers.DateTimeField(source='sale.created_at', read_only=True)
     sale_payments = serializers.SerializerMethodField()
     sale_created_by_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Invoice
         fields = [
-            'id', 'invoice_number', 'sale_invoice_number',
+            'id', 'invoice_number', 'sale_id', 'sale_invoice_number',
+            'warehouse_name',
             'total_amount', 'subtotal_amount', 'gst_total', 'discount_type', 'discount_amount',
             'billing_name', 'billing_phone', 'invoice_date', 'created_at',
+            'sale_status', 'sale_payment_status', 'sale_is_credit_sale', 'sale_due_amount',
+            'sale_created_at',
             'sale_payments', 'sale_created_by_name'
         ]
         read_only_fields = fields

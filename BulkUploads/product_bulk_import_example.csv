@@ -1,0 +1,3 @@
+﻿warehouse_code,name,brand,category,description,product_code,brand_code,alias,country_of_origin,gender,material,season,attributes_json,supplier_code,is_active,product_sku,product_barcode,pricing_cost_price,pricing_mrp,pricing_selling_price,pricing_gst_percentage,variant_sku,variant_size,variant_color,variant_cost_price,variant_selling_price,variant_reorder_threshold,initial_stock
+,Sample Cotton Tee,Quake,TSHIRT,Bulk import example row,PC-TSH-001,BC-STYLE-9,Summer Tee,IN,UNISEX,100% Cotton,SS26,"{""sizes"":[""S"",""M"",""L""],""colors"":[""White"",""Navy""]}",,true,,,250.00,599.00,499.00,5,,M,White,250.00,499.00,10,0
+,Sample Polo,Quake,POLO,,,,,,MENS,Pique,,,,true,,,400.00,1299.00,999.00,12,,L,Black,400.00,999.00,5,24

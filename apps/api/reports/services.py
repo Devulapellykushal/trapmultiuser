@@ -1,5 +1,5 @@
 """
-Reports Services for TRAP Inventory System.
+Reports Services for Quake Inventory System.
 
 PHASE 16: REPORTS & ANALYTICS (DECISION-GRADE)
 ===============================================

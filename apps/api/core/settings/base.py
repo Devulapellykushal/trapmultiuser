@@ -1,5 +1,5 @@
 """
-Django base settings for TRAP Inventory API.
+Django base settings for Quake Inventory API.
 Shared configuration between development and production.
 """
 
@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'inventory',
+    'customers',
     'sales',
     'invoices',
     'analytics',
@@ -90,6 +91,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# User-uploaded files (warehouse seller image, invoice PDFs, barcodes, etc.)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -116,7 +121,7 @@ REST_FRAMEWORK = {
 
 # drf-spectacular settings for API documentation
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'TRAP Inventory API',
+    'TITLE': 'Quake Inventory API',
     'DESCRIPTION': 'Enterprise-grade inventory management system for luxury apparel',
     'VERSION': 'v1',
     'SERVE_INCLUDE_SCHEMA': False,
@@ -152,4 +157,4 @@ EMAIL_HOST_USER = os.getenv('SMTP_USERNAME', '')
 EMAIL_HOST_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('SMTP_USE_TLS', 'True').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('SMTP_USE_SSL', 'False').lower() == 'true'
-DEFAULT_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@trap-inventory.com')
+DEFAULT_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@Quake-inventory.com')

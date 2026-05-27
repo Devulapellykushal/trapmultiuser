@@ -63,6 +63,7 @@ import {
 import type { ReportExportConfig } from "@/components/dashboard";
 import { useDashboardFilters, useGrossProfit, useGstSummary } from "@/hooks";
 import { useAuth } from "@/lib/auth";
+import { adminHref } from "@/lib/admin-routes";
 import { ProfitItem } from "@/services";
 
 // Format currency
@@ -92,7 +93,7 @@ function formatShortCurrency(amount: number | string): string {
 }
 
 // GST rate colors
-const GST_COLORS = ["#C6A15B", "#10B981", "#3B82F6", "#8B5CF6", "#F59E0B"];
+const GST_COLORS = ["#6366F1", "#A855F7", "#EC4899", "#6366F1", "#A855F7"];
 
 export default function ProfitTaxReportsPage() {
   const { filters } = useDashboardFilters();
@@ -103,7 +104,7 @@ export default function ProfitTaxReportsPage() {
   // Redirect non-admins
   React.useEffect(() => {
     if (!authLoading && !isAdmin) {
-      router.push("/reports");
+      router.push(adminHref("/reports"));
     }
   }, [authLoading, isAdmin, router]);
 
@@ -469,7 +470,7 @@ export default function ProfitTaxReportsPage() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(26, 27, 35, 0.95)",
+                    backgroundColor: "rgba(6, 6, 8, 0.95)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "8px",
                     color: "white",
@@ -486,7 +487,7 @@ export default function ProfitTaxReportsPage() {
                     fontWeight: "bold",
                   }}
                 />
-                <Bar dataKey="profit" fill="#10B981" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="profit" fill="#6366F1" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -525,7 +526,7 @@ export default function ProfitTaxReportsPage() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(26, 27, 35, 0.95)",
+                    backgroundColor: "rgba(6, 6, 8, 0.95)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "8px",
                     color: "white",

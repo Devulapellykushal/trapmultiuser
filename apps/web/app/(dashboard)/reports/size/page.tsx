@@ -1,22 +1,12 @@
 /**
- * Size-wise Sales Report Dashboard
- *
- * PHASE 17: DASHBOARDS & VISUAL ANALYTICS
- * ========================================
- *
- * Size Performance:
- * - Bar chart (sizes by revenue/quantity)
- * - Toggle: Revenue / Quantity
- * - Pie chart for distribution
- *
- * Data from:
- * - /reports/by-size/
+ * Variant-option sales report (API field: size — used for any industry:
+ * apparel size, pack, grade, potency, SKU option, etc.)
  */
 "use client";
 
 import * as React from "react";
 import {
-  Ruler,
+  Layers,
   BarChart3,
   DollarSign,
   Package,
@@ -73,15 +63,15 @@ function formatFullCurrency(amount: number | string): string {
 
 // Colors for pie chart
 const COLORS = [
-  "#3B82F6",
-  "#10B981",
-  "#C6A15B",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
+  "#6366F1",
+  "#A855F7",
   "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
   "#6366F1",
 ];
 
@@ -150,18 +140,22 @@ export default function SizeReportsPage() {
   const exportConfig: ReportExportConfig = React.useMemo(() => {
     if (!sizeData?.results) {
       return {
-        title: "Size-wise Sales Report",
-        filename: "size-sales-report",
+        title: "Sales by variant option",
+        filename: "variant-option-sales-report",
         columns: [],
         data: [],
       };
     }
 
     return {
-      title: "Size-wise Sales Report",
-      filename: `size-sales-report-${filters.dateFrom || "all"}-to-${filters.dateTo || "all"}`,
+      title: "Sales by variant option",
+      filename: `variant-option-sales-${filters.dateFrom || "all"}-to-${filters.dateTo || "all"}`,
       columns: [
-        { header: "Size", key: "size", width: 15 },
+        {
+          header: "Variant option (size field)",
+          key: "size",
+          width: 22,
+        },
         {
           header: "Revenue (₹)",
           key: "revenue",
@@ -212,7 +206,7 @@ export default function SizeReportsPage() {
           sizeData.summary.totalQuantity || 0
         ).toLocaleString(),
         "Total Orders": (sizeData.summary.totalOrders || 0).toLocaleString(),
-        Sizes: (sizeData.summary.sizeCount || 0).toString(),
+        "Variant options": (sizeData.summary.sizeCount || 0).toString(),
       },
       dateRange:
         filters.dateFrom && filters.dateTo
@@ -226,9 +220,12 @@ export default function SizeReportsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Size-wise Sales</h1>
+          <h1 className="text-2xl font-bold text-white">
+            Sales by variant option
+          </h1>
           <p className="text-sm text-white/40 mt-1">
-            Sales breakdown by product size
+            Uses each product&apos;s primary variant field (labeled &quot;size&quot;
+            in the API)—works for packs, grades, potency, SKU options, and more.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -247,9 +244,11 @@ export default function SizeReportsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Size-wise Sales</h1>
+          <h1 className="text-2xl font-bold text-white">
+            Sales by variant option
+          </h1>
           <p className="text-sm text-white/40 mt-1">
-            Sales breakdown by product size
+            Variant-level rollups from your sales ledger
           </p>
         </div>
         <ErrorBanner
@@ -265,9 +264,12 @@ export default function SizeReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Size-wise Sales</h1>
+          <h1 className="text-2xl font-bold text-white">
+            Sales by variant option
+          </h1>
           <p className="text-sm text-white/40 mt-1">
-            Sales breakdown by product size • Data from /reports/by-size/
+            Source: /reports/by-size/ (variant dimension stored as{" "}
+            <code className="text-white/60">size</code>)
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -287,7 +289,7 @@ export default function SizeReportsPage() {
         <KPICard
           title="Total Revenue"
           value={formatFullCurrency(sizeData?.summary.totalRevenue || "0")}
-          subtitle="From all sizes"
+          subtitle="All variant options"
           icon={DollarSign}
         />
         <KPICard
@@ -303,16 +305,16 @@ export default function SizeReportsPage() {
           icon={ShoppingCart}
         />
         <KPICard
-          title="Sizes"
+          title="Variant options"
           value={(sizeData?.summary.sizeCount || 0).toLocaleString()}
-          subtitle="Unique sizes"
-          icon={Ruler}
+          subtitle="Distinct option values"
+          icon={Layers}
         />
       </div>
 
-      {/* Size Bar Chart */}
+      {/* Variant option bar chart */}
       <SectionCard
-        title="Sales by Size"
+        title="Sales by variant option"
         description={`By ${metric === "revenue" ? "revenue" : "quantity sold"}`}
         icon={BarChart3}
         action={
@@ -321,7 +323,7 @@ export default function SizeReportsPage() {
               onClick={() => setMetric("revenue")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "revenue"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -331,7 +333,7 @@ export default function SizeReportsPage() {
               onClick={() => setMetric("quantity")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "quantity"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -371,7 +373,7 @@ export default function SizeReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -391,22 +393,22 @@ export default function SizeReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey={metric} fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey={metric} fill="#6366F1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
           <EmptyState
             icon={BarChart3}
-            title="No size sales data"
-            description="Size sales will appear once you have completed sales with size variants."
+            title="No variant-option sales yet"
+            description="Sold lines with a variant option (API size field) will appear here across any vertical."
           />
         )}
       </SectionCard>
 
-      {/* Size Distribution Pie Chart */}
+      {/* Variant option distribution */}
       <SectionCard
-        title="Size Distribution"
-        description={`${metric === "revenue" ? "Revenue" : "Quantity"} share by size`}
+        title="Option mix"
+        description={`${metric === "revenue" ? "Revenue" : "Quantity"} share by variant option`}
         icon={PieChart}
       >
         {pieChartData.length > 0 ? (
@@ -421,7 +423,7 @@ export default function SizeReportsPage() {
                   `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
                 }
                 outerRadius={120}
-                fill="#8884d8"
+                fill="#A855F7"
                 dataKey="value"
               >
                 {pieChartData.map((entry, index) => (
@@ -433,7 +435,7 @@ export default function SizeReportsPage() {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",

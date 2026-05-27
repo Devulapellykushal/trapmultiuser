@@ -1,5 +1,5 @@
 """
-Auth Views for TRAP Inventory System.
+Auth Views for Quake Inventory System.
 
 JWT-based authentication endpoints.
 """

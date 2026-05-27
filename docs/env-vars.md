@@ -1,6 +1,6 @@
-# TRAP Inventory - Environment Variables Reference
+# Quake Inventory - Environment Variables Reference
 
-Complete reference for all environment variables used in the TRAP system.
+Complete reference for all environment variables used in the Quake system.
 
 ---
 
@@ -54,7 +54,7 @@ Complete reference for all environment variables used in the TRAP system.
 
 | Variable                  | Description         | Default          |
 | ------------------------- | ------------------- | ---------------- |
-| `NEXT_PUBLIC_APP_NAME`    | Application name    | `TRAP Inventory` |
+| `NEXT_PUBLIC_APP_NAME`    | Application name    | `Quake Inventory` |
 | `NEXT_PUBLIC_APP_VERSION` | Application version | `1.0.0`          |
 
 ---
@@ -65,7 +65,7 @@ Complete reference for all environment variables used in the TRAP system.
 
 ```bash
 # ============================================
-# TRAP Inventory - Development Environment
+# Quake Inventory - Development Environment
 # ============================================
 
 # Django
@@ -75,7 +75,7 @@ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
 
 # Database (PostgreSQL or SQLite)
 USE_SQLITE=true
-# POSTGRES_DB=trap_inventory
+# POSTGRES_DB=Quake_inventory
 # POSTGRES_USER=postgres
 # POSTGRES_PASSWORD=postgres
 # POSTGRES_HOST=localhost
@@ -105,7 +105,7 @@ POSTGRES_HOST=<project-ref>.pooler.supabase.com
 POSTGRES_PORT=6543
 
 # Hosts & CORS
-DJANGO_ALLOWED_HOSTS=trap-api-xxxxx.asia-south1.run.app
+DJANGO_ALLOWED_HOSTS=Quake-api-xxxxx.asia-south1.run.app
 CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
 CSRF_TRUSTED_ORIGINS=https://your-app.vercel.app
 ```

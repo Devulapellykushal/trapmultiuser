@@ -64,6 +64,6 @@
         <rect x="87.700mm" y="1.000mm" width="1.200mm" height="15.000mm" style="fill:black;"/>
         <rect x="89.300mm" y="1.000mm" width="0.400mm" height="15.000mm" style="fill:black;"/>
         <rect x="90.100mm" y="1.000mm" width="0.800mm" height="15.000mm" style="fill:black;"/>
-        <text x="48.700mm" y="21.000mm" style="fill:black;font-size:10pt;text-anchor:middle;">TRAP-551375-RAPMD</text>
+        <text x="48.700mm" y="21.000mm" style="fill:black;font-size:10pt;text-anchor:middle;">Quake-551375-RAPMD</text>
     </g>
 </svg>

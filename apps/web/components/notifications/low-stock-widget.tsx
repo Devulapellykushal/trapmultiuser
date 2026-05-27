@@ -7,6 +7,8 @@ import {
   getLowStockProducts,
   LowStockResponse,
 } from "@/services/notifications.service";
+import Link from "next/link";
+import { adminHref } from "@/lib/admin-routes";
 
 interface LowStockWidgetProps {
   className?: string;
@@ -77,12 +79,12 @@ export function LowStockWidget({
     return (
       <div
         className={cn(
-          "bg-[#1A1B21] rounded-xl border border-white/[0.08] p-5",
+          "bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5",
           className,
         )}
       >
         <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-2 border-[#C6A15B] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[#6366F1] border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -92,16 +94,16 @@ export function LowStockWidget({
     return (
       <div
         className={cn(
-          "bg-[#1A1B21] rounded-xl border border-white/[0.08] p-5",
+          "bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5",
           className,
         )}
       >
         <div className="flex flex-col items-center justify-center py-8">
-          <AlertTriangle className="w-8 h-8 text-red-500 mb-2" />
-          <p className="text-sm text-[#6F7285]">{error}</p>
+          <AlertTriangle className="w-8 h-8 text-[#EC4899] mb-2" />
+          <p className="text-sm text-[var(--text-muted)]">{error}</p>
           <button
             onClick={fetchData}
-            className="mt-2 text-xs text-[#C6A15B] hover:text-[#D4B06A] flex items-center gap-1"
+            className="mt-2 text-xs text-[#6366F1] hover:text-[#A855F7] flex items-center gap-1"
           >
             <RefreshCw className="w-3 h-3" /> Retry
           </button>
@@ -113,28 +115,28 @@ export function LowStockWidget({
   return (
     <div
       className={cn(
-        "bg-[#1A1B21] rounded-xl border border-white/[0.08]",
+        "bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)]",
         className,
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-default)]">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-amber-500/10">
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
+          <div className="p-2 rounded-lg bg-[#EC4899]/10">
+            <AlertTriangle className="w-4 h-4 text-[#EC4899]" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#F5F6FA]">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
               Low Stock Alert
             </h3>
-            <p className="text-xs text-[#6F7285]">
+            <p className="text-xs text-[var(--text-muted)]">
               {data?.count || 0} products need restocking
             </p>
           </div>
         </div>
         <button
           onClick={fetchData}
-          className="p-2 rounded-lg hover:bg-white/[0.05] text-[#6F7285] hover:text-[#A1A4B3] transition-colors"
+          className="p-2 rounded-lg hover:bg-white/[0.05] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
           title="Refresh"
         >
           <RefreshCw className="w-4 h-4" />
@@ -143,7 +145,7 @@ export function LowStockWidget({
 
       {/* Summary */}
       {data && data.count > 0 && (
-        <div className="grid grid-cols-4 gap-2 px-5 py-3 border-b border-white/[0.08]">
+        <div className="grid grid-cols-4 gap-2 px-5 py-3 border-b border-[var(--border-default)]">
           {[
             {
               label: "Critical",
@@ -164,7 +166,7 @@ export function LowStockWidget({
           ].map(({ label, count, color }) => (
             <div key={label} className="text-center">
               <p className={cn("text-lg font-semibold", color)}>{count}</p>
-              <p className="text-xs text-[#6F7285]">{label}</p>
+              <p className="text-xs text-[var(--text-muted)]">{label}</p>
             </div>
           ))}
         </div>
@@ -175,7 +177,7 @@ export function LowStockWidget({
         {displayItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-5">
             <Package className="w-10 h-10 text-[#3A3D4A] mb-2" />
-            <p className="text-sm text-[#6F7285]">
+            <p className="text-sm text-[var(--text-muted)]">
               All products are well-stocked!
             </p>
           </div>
@@ -205,13 +207,13 @@ export function LowStockWidget({
 
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#F5F6FA] truncate">
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {item.name}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-[#6F7285]">{item.sku}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{item.sku}</span>
                     {item.brand && (
-                      <span className="text-xs text-[#6F7285]">
+                      <span className="text-xs text-[var(--text-muted)]">
                         • {item.brand}
                       </span>
                     )}
@@ -241,14 +243,14 @@ export function LowStockWidget({
 
       {/* Footer */}
       {hasMore && (
-        <div className="px-5 py-3 border-t border-white/[0.08]">
-          <a
-            href="/inventory?filter=low-stock"
-            className="flex items-center justify-center gap-1 text-xs text-[#C6A15B] hover:text-[#D4B06A] transition-colors"
+        <div className="px-5 py-3 border-t border-[var(--border-default)]">
+          <Link
+            href={`${adminHref("/inventory")}?filter=low-stock`}
+            className="flex items-center justify-center gap-1 text-xs text-[#6366F1] hover:text-[#A855F7] transition-colors"
           >
             View all {data?.count} low stock products
             <ArrowRight className="w-3 h-3" />
-          </a>
+          </Link>
         </div>
       )}
     </div>

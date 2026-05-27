@@ -63,7 +63,7 @@ export function PerformanceList({ title, products, type }: PerformanceListProps)
                 <div className={`
                   w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold
                   ${type === "top" 
-                    ? index < 3 ? "bg-[#C6A15B]/20 text-[#C6A15B]" : "bg-white/[0.05] text-[#6F7285]"
+                    ? index < 3 ? "bg-[#6366F1]/20 text-[#6366F1]" : "bg-white/[0.05] text-[#6F7285]"
                     : "bg-white/[0.05] text-[#6F7285]"
                   }
                 `}>

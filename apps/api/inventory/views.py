@@ -1,5 +1,5 @@
 """
-Inventory Views for TRAP Inventory System.
+Inventory Views for Quake Inventory System.
 
 HARDENING RULES:
 - No hard delete for business entities (Product, Warehouse, Variant)
@@ -10,8 +10,10 @@ HARDENING RULES:
 """
 
 from django.db import models
+from django.http import HttpResponse
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -131,10 +133,24 @@ class WarehouseViewSet(IncludeInactiveMixin, SoftDeleteMixin, viewsets.ModelView
     
     HARDENING: Delete operations perform soft-delete (is_active=False).
     """
+
     queryset = Warehouse.objects.filter(is_active=True)
     serializer_class = WarehouseSerializer
     permission_classes = [IsAdminOrReadOnly]  # Read: any auth, Write: admin
     pagination_class = StandardResultsSetPagination
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        """
+        List stays active-only unless ?include_inactive=true (see IncludeInactiveMixin).
+
+        Retrieve/update/destroy must resolve inactive rows by id so admins can PATCH
+        is_active=true to reactivate; otherwise inactive warehouses 404 on edit.
+        """
+        detail_actions = frozenset(("retrieve", "update", "partial_update", "destroy"))
+        if getattr(self, "action", None) in detail_actions:
+            return Warehouse.objects.all()
+        return super().get_queryset()
 
 
 @extend_schema_view(
@@ -246,18 +262,18 @@ class CategoryViewSet(IncludeInactiveMixin, SoftDeleteMixin, viewsets.ModelViewS
 class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing products and variants.
-    
+
     PHASE 10A FEATURES:
     - SKU and barcode at product level (auto-generated, immutable)
     - JSONB attributes for flexible apparel data
     - Separate pricing table with computed margin
     - Product images
     - Soft delete via is_deleted flag (hidden from POS, visible to admin)
-    
+
     HARDENING:
     - Barcode immutable after creation
     - Delete operations perform soft-delete (is_deleted=True)
-    
+
     FILTERING:
     - search: Search by name, brand, SKU, or barcode
     - category: Filter by category (exact match)
@@ -268,43 +284,96 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
     - price_min/price_max: Filter by selling price range
     - is_deleted: Show deleted products (admin only)
     """
+
+    # UUID-only detail routes so paths like /products/import-template/ are not
+    # captured by /<pk>/ (default pk regex matches "import-template" → 404).
+    lookup_value_regex = (
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+    )
+
     queryset = Product.objects.prefetch_related(
         'variants', 'images'
     ).select_related('pricing').filter(is_active=True, is_deleted=False)
     permission_classes = [IsAdminOrReadOnly]  # Read: any auth, Write: admin
     pagination_class = StandardResultsSetPagination
-    
-    def get_queryset(self):
-        from django.db.models import Sum, Value
+
+    def _annotate_ledger_stock(self, queryset):
+        """
+        Annotate product-level ledger quantity (optionally scoped to ?warehouse=)
+        and minimum positive variant reorder_threshold (matches web deriveRawStockStatus).
+        """
+        import uuid
+
+        from django.db.models import OuterRef, Q, Subquery, Sum, Value
         from django.db.models.functions import Coalesce
-        
+
+        params = self.request.query_params
+        warehouse_uuid = None
+        wh = params.get('warehouse')
+        if wh:
+            try:
+                warehouse_uuid = uuid.UUID(str(wh))
+            except (ValueError, TypeError, AttributeError):
+                warehouse_uuid = None
+
+        move_filter = Q()
+        if warehouse_uuid is not None:
+            move_filter = Q(inventory_movements__warehouse_id=warehouse_uuid)
+
+        reorder_subq = Subquery(
+            ProductVariant.objects.filter(
+                product_id=OuterRef('pk'),
+                reorder_threshold__gt=0,
+            )
+            .order_by('reorder_threshold')
+            .values('reorder_threshold')[:1],
+            output_field=models.IntegerField(),
+        )
+
+        return queryset.annotate(
+            available_stock=Coalesce(
+                Sum('inventory_movements__quantity', filter=move_filter),
+                Value(0),
+            ),
+            effective_reorder=Coalesce(reorder_subq, Value(0)),
+        )
+
+    def get_queryset(self):
+        from django.db.models import F
+
         queryset = super().get_queryset()
         params = self.request.query_params
-        
-        # Phase 11.1: Annotate available_stock from InventoryMovement ledger
-        queryset = queryset.annotate(
-            available_stock=Coalesce(
-                Sum("inventory_movements__quantity"),
-                Value(0)
-            )
-        )
-        
-        # Phase 10A: is_deleted filter (admin only)
+
+        # Phase 10A: is_deleted filter (admin only) — pick base queryset first
         is_deleted = params.get('is_deleted')
         if is_deleted is not None:
-            # Only admin can see deleted products
             if hasattr(self.request.user, 'role') and self.request.user.role == 'ADMIN':
                 if is_deleted.lower() == 'true':
                     queryset = Product.objects.prefetch_related(
                         'variants', 'images'
-                    ).select_related('pricing').filter(is_deleted=True).annotate(
-                        available_stock=Coalesce(
-                            Sum("inventory_movements__quantity"),
-                            Value(0)
-                        )
-                    )
+                    ).select_related('pricing').filter(is_deleted=True)
                 elif is_deleted.lower() == 'false':
                     queryset = queryset.filter(is_deleted=False)
+
+        queryset = self._annotate_ledger_stock(queryset)
+
+        # stock_status: IN_STOCK | LOW_STOCK | OUT_OF_STOCK (accept snake_case from web)
+        stock_param = (params.get('stock_status') or '').strip().upper().replace('-', '_')
+        if stock_param not in ('IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'):
+            stock_param = None
+        if stock_param == 'OUT_OF_STOCK':
+            queryset = queryset.filter(available_stock__lte=0)
+        elif stock_param == 'LOW_STOCK':
+            queryset = queryset.filter(
+                available_stock__gt=0,
+                effective_reorder__gt=0,
+                available_stock__lte=F('effective_reorder'),
+            )
+        elif stock_param == 'IN_STOCK':
+            queryset = queryset.filter(available_stock__gt=0).filter(
+                models.Q(effective_reorder=0)
+                | models.Q(available_stock__gt=F('effective_reorder'))
+            )
         
         # Search filter - now includes SKU and barcode
         search = params.get('search')
@@ -356,8 +425,9 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
                 queryset = queryset.filter(pricing__selling_price__lte=float(price_max))
             except (ValueError, TypeError):
                 pass
-        
-        return queryset
+
+        # Stable ordering for pagination (avoids UnorderedObjectListWarning / flaky pages)
+        return queryset.order_by('name', 'id')
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -388,6 +458,123 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+    @extend_schema(
+        summary="Download bulk product import template",
+        description=(
+            "Returns a CSV or XLSX file with all import columns and example rows. "
+            "Use file_format=csv (default) or file_format=xlsx. "
+            "Do not use the query name `format` — it is reserved by DRF for content negotiation."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="file_format",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="csv or xlsx",
+                required=False,
+                enum=["csv", "xlsx"],
+            ),
+        ],
+        responses={200: OpenApiTypes.BINARY},
+        tags=["Products"],
+    )
+    @action(detail=False, methods=["get"], url_path="import-template")
+    def import_template(self, request):
+        from .bulk_import import build_template_csv, build_template_xlsx
+
+        fmt = (request.query_params.get("file_format") or "csv").strip().lower()
+        if fmt == "xlsx":
+            body = build_template_xlsx()
+            resp = HttpResponse(
+                body,
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            resp["Content-Disposition"] = (
+                'attachment; filename="quake_product_import_template.xlsx"'
+            )
+            return resp
+        body = build_template_csv()
+        resp = HttpResponse(body, content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = 'attachment; filename="quake_product_import_template.csv"'
+        return resp
+
+    @extend_schema(
+        summary="Bulk import products from CSV or XLSX",
+        description=(
+            "Admin only. One row = one product with one default variant, optional pricing and opening stock. "
+            "Up to 200 data rows. Use GET import-template for column definitions."
+        ),
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                    "default_warehouse_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Used when rows omit warehouse_code but have initial_stock > 0",
+                    },
+                },
+                "required": ["file"],
+            }
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "created": {"type": "integer"},
+                    "failed": {"type": "integer"},
+                    "errors": {"type": "array", "items": {"type": "object"}},
+                    "created_ids": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            400: {"type": "object", "properties": {"detail": {"type": "string"}}},
+        },
+        tags=["Products"],
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-bulk",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def import_bulk(self, request):
+        from .bulk_import import (
+            import_products_from_rows,
+            parse_csv_bytes,
+            parse_xlsx_bytes,
+        )
+
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response(
+                {"detail": "Missing file"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        name = (upload.name or "").lower()
+        blob = upload.read()
+        try:
+            if name.endswith(".xlsx"):
+                rows = parse_xlsx_bytes(blob)
+            else:
+                rows = parse_csv_bytes(blob)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        default_wh = (
+            request.POST.get("default_warehouse_id")
+            or request.data.get("default_warehouse_id")
+        )
+        if isinstance(default_wh, str):
+            default_wh = default_wh.strip() or None
+        elif default_wh == "":
+            default_wh = None
+
+        result = import_products_from_rows(
+            rows, request, default_warehouse_id=default_wh
+        )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class PurchaseStockView(APIView):
@@ -1419,7 +1606,8 @@ class StoreViewSet(viewsets.ModelViewSet):
     - Get low stock alerts (GET /stores/low-stock-alerts/)
     """
     queryset = Store.objects.all()
-    permission_classes = [IsAdmin]
+    # Staff needs GET for POS store list; mutations remain admin-only
+    permission_classes = [IsAdminOrReadOnly]
     
     def get_serializer_class(self):
         if self.action == 'list':

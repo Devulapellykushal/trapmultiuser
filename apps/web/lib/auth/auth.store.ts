@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { authService, User, LoginRequest } from './auth.service';
+import { authService, LoginRequest, User } from './auth.service';
 
 interface AuthState {
   user: User | null;
@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'trap-auth',
+      name: 'Quake-auth',
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )

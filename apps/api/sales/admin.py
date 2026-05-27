@@ -9,7 +9,7 @@ IMMUTABILITY: Sales, SaleItems, and Payments are read-only in admin.
 
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Sale, SaleItem, Payment, InvoiceSequence
+from .models import Sale, SaleItem, Payment
 
 
 class SaleItemInline(admin.TabularInline):
@@ -145,17 +145,3 @@ class PaymentAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(InvoiceSequence)
-class InvoiceSequenceAdmin(admin.ModelAdmin):
-    """Admin for Invoice Sequences (read-only)."""
-    list_display = ['year', 'last_number']
-    readonly_fields = ['year', 'last_number']
-    
-    def has_add_permission(self, request):
-        return False
-    
-    def has_change_permission(self, request, obj=None):
-        return False
-    
-    def has_delete_permission(self, request, obj=None):
-        return False

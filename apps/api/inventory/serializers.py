@@ -1,5 +1,5 @@
 """
-Inventory Serializers for TRAP Inventory System.
+Inventory Serializers for Quake Inventory System.
 
 HARDENING RULES:
 - Price updates blocked if stock > 0
@@ -132,11 +132,83 @@ def validate_product_attributes(attrs: Any) -> dict:
 
 class WarehouseSerializer(serializers.ModelSerializer):
     """Serializer for Warehouse model."""
-    
+
+    MIN_ADDRESS_LEN = 10
+
+    seller_image = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    seller_image_url = serializers.SerializerMethodField(read_only=True)
+    is_active = serializers.BooleanField(default=True, required=False)
+
     class Meta:
         model = Warehouse
-        fields = ['id', 'name', 'code', 'address', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'name', 'code', 'address', 'email', 'phone',
+            'seller_image', 'seller_image_url',
+            'bank_name', 'bank_account_number', 'bank_ifsc',
+            'is_active', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'seller_image_url']
+        extra_kwargs = {
+            'code': {'required': False, 'allow_blank': True},
+            'email': {'required': False, 'allow_blank': True},
+            'phone': {'required': False, 'allow_blank': True},
+        }
+
+    def get_seller_image_url(self, obj):
+        img = getattr(obj, 'seller_image', None)
+        if not img:
+            return None
+        try:
+            url = img.url
+        except ValueError:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+    def validate_address(self, value):
+        text = (value or '').strip()
+        if len(text) < self.MIN_ADDRESS_LEN:
+            raise serializers.ValidationError(
+                f'Address must be at least {self.MIN_ADDRESS_LEN} characters.'
+            )
+        return text
+
+    def validate(self, attrs):
+        if not self.partial:
+            addr = (attrs.get('address') or '').strip()
+            if len(addr) < self.MIN_ADDRESS_LEN:
+                raise serializers.ValidationError({
+                    'address': (
+                        f'Address is required and must be at least '
+                        f'{self.MIN_ADDRESS_LEN} characters.'
+                    ),
+                })
+        return attrs
+
+    @staticmethod
+    def _generate_unique_code(name: str) -> str:
+        import re
+        from uuid import uuid4
+
+        slug = re.sub(r'[^A-Z0-9]+', '-', (name or 'WH').upper()).strip('-')[:12] or 'WH'
+        for _ in range(50):
+            candidate = f"{slug}-{uuid4().hex[:4]}".upper()[:20]
+            if not Warehouse.objects.filter(code=candidate).exists():
+                return candidate
+        return uuid4().hex[:20].upper()
+
+    def create(self, validated_data):
+        code = (validated_data.get('code') or '').strip()
+        if not code:
+            validated_data['code'] = self._generate_unique_code(validated_data.get('name') or 'WH')
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'code' in validated_data and not (str(validated_data.get('code') or '').strip()):
+            validated_data.pop('code', None)
+        return super().update(instance, validated_data)
 
 
 class WarehouseStockSerializer(serializers.Serializer):
@@ -176,11 +248,10 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     @extend_schema_field(WarehouseStockSerializer(many=True))
     def get_warehouse_stock(self, obj):
         """
-        Get warehouse-wise stock breakdown.
-        Phase 11.2: Returns empty list since ledger is product-level.
+        Warehouse-wise net quantity from the product ledger (same for all variants of a product).
         """
-        # Phase 12 will add warehouse-level breakdown
-        return []
+        from . import services
+        return services.get_product_stock_breakdown_by_warehouse(obj.product_id)
     
     @extend_schema_field(serializers.CharField())
     def get_barcode_image_url(self, obj):
@@ -276,10 +347,10 @@ class ProductPricingSerializer(serializers.ModelSerializer):
     margin_percentage is READ-ONLY and computed from cost_price and selling_price.
     """
     margin_percentage = serializers.DecimalField(
-        max_digits=5,
+        max_digits=12,
         decimal_places=2,
         read_only=True,
-        help_text="Computed: ((selling_price - cost_price) / cost_price) * 100"
+        help_text="Computed: ((selling_price - cost_price) / cost_price) * 100 (wide range for low cost bases)"
     )
     profit_amount = serializers.DecimalField(
         max_digits=10,
@@ -337,6 +408,7 @@ class ProductSerializer(serializers.ModelSerializer):
     barcode_image_url = serializers.SerializerMethodField()
     days_in_inventory = serializers.SerializerMethodField()
     first_purchase_date = serializers.SerializerMethodField()
+    warehouse_stock = serializers.SerializerMethodField()
     supplier_name = serializers.CharField(source='supplier.name', read_only=True, allow_null=True)
     supplier_code = serializers.CharField(source='supplier.code', read_only=True, allow_null=True)
     
@@ -350,14 +422,14 @@ class ProductSerializer(serializers.ModelSerializer):
             'gender', 'material', 'season',
             'supplier', 'supplier_name', 'supplier_code',
             'is_active', 'is_deleted',
-            'pricing', 'images', 'variants', 'total_stock',
+            'pricing', 'images', 'variants', 'total_stock', 'warehouse_stock',
             'days_in_inventory', 'first_purchase_date',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'sku', 'barcode_value', 'barcode_image_url',
             'supplier', 'supplier_name', 'supplier_code',
-            'created_at', 'updated_at', 'total_stock',
+            'created_at', 'updated_at', 'total_stock', 'warehouse_stock',
             'days_in_inventory', 'first_purchase_date'
         ]
     
@@ -377,6 +449,12 @@ class ProductSerializer(serializers.ModelSerializer):
         # Fall back to service function
         from . import services
         return services.get_product_stock(obj.id)
+
+    @extend_schema_field(WarehouseStockSerializer(many=True))
+    def get_warehouse_stock(self, obj):
+        """Per-warehouse net quantity from InventoryMovement (product-level ledger)."""
+        from . import services
+        return services.get_product_stock_breakdown_by_warehouse(obj.id)
     
     @extend_schema_field(serializers.IntegerField(allow_null=True))
     def get_days_in_inventory(self, obj):
@@ -466,8 +544,13 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'product_code', 'brand_code', 'alias',
             'country_of_origin', 'attributes',
             'gender', 'material', 'season',
+            'sku', 'barcode_value',
             'is_active', 'variants', 'warehouse_id', 'pricing'
         ]
+        extra_kwargs = {
+            'sku': {'required': False, 'allow_null': True},
+            'barcode_value': {'required': False, 'allow_null': True},
+        }
     
     def validate_attributes(self, value):
         """Phase 10.1: Validate attributes JSON structure."""
@@ -477,6 +560,11 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         """Validate that warehouse_id is provided if initial_stock is specified."""
+        for key in ('sku', 'barcode_value'):
+            v = attrs.get(key)
+            if v is not None and str(v).strip() == '':
+                attrs[key] = None
+
         variants_data = attrs.get('variants', [])
         warehouse_id = attrs.get('warehouse_id')
         

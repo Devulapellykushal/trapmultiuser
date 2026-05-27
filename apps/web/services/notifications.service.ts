@@ -47,6 +47,8 @@ export interface LowStockItem {
   sku: string;
   brand: string | null;
   category: string | null;
+  /** Variant line from API (e.g. size · color) */
+  variant_details?: string | null;
   warehouse_id: string;
   warehouse_name: string;
   current_stock: number;

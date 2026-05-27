@@ -1,5 +1,5 @@
 """
-WSGI config for TRAP Inventory API.
+WSGI config for Quake Inventory API.
 """
 
 import os

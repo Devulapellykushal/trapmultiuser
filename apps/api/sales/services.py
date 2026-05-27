@@ -1,5 +1,5 @@
 """
-Sales Services for TRAP Inventory System.
+Sales Services for Quake Inventory System.
 
 PHASE 13: POS ENGINE (LEDGER-BACKED)
 =====================================
@@ -50,11 +50,12 @@ from typing import List, Optional, Union
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q
 
-from inventory.models import Warehouse, Product, ProductVariant
+from inventory.models import Warehouse, Product, ProductVariant, ServiceItem
 from inventory.services import get_product_stock, create_inventory_movement, InvalidMovementError
-from .models import Sale, SaleItem, Payment, InvoiceSequence
+from invoices.models import InvoiceSequence
+from .models import Sale, SaleItem, Payment
 
 
 # =============================================================================
@@ -169,6 +170,80 @@ def check_stock_availability(
     return available
 
 
+def _resolve_product_pricing(product: Product) -> tuple[Decimal, Decimal, Decimal, str]:
+    """
+    Resolve MRP/GST/cost for POS display (ProductPricing first, then variant).
+    Returns (selling_price, gst_percentage, cost_price, pricing_source).
+    """
+    selling_price = Decimal('0.00')
+    gst_percentage = Decimal('0.00')
+    cost_price = Decimal('0.00')
+    pricing_source = 'none'
+
+    if hasattr(product, 'pricing') and product.pricing:
+        selling_price = product.pricing.selling_price or Decimal('0.00')
+        gst_percentage = product.pricing.gst_percentage or Decimal('0.00')
+        cost_price = product.pricing.cost_price or Decimal('0.00')
+        pricing_source = 'product_pricing'
+    else:
+        matched_variant = getattr(product, '_matched_variant', None)
+        if matched_variant and matched_variant.selling_price:
+            selling_price = matched_variant.selling_price
+            cost_price = matched_variant.cost_price or Decimal('0.00')
+            pricing_source = 'variant'
+        elif hasattr(product, 'variants') and product.variants.exists():
+            variant = product.variants.first()
+            if variant.selling_price:
+                selling_price = variant.selling_price
+                cost_price = variant.cost_price or Decimal('0.00')
+                pricing_source = 'variant'
+
+    return selling_price, gst_percentage, cost_price, pricing_source
+
+
+def _pos_product_payload(
+    product: Product,
+    warehouse: Warehouse,
+    *,
+    requested_quantity: int = 1,
+) -> dict:
+    """Single product row for POS scan/search (ledger stock + pricing snapshot)."""
+    available = get_product_stock(product.id, warehouse_id=warehouse.id)
+    selling_price, gst_percentage, cost_price, pricing_source = _resolve_product_pricing(product)
+
+    matched_variant = getattr(product, '_matched_variant', None)
+    variant_info: dict = {}
+    if matched_variant:
+        variant_info = {
+            'variant_sku': matched_variant.sku,
+            'variant_barcode': matched_variant.barcode,
+            'size': matched_variant.size or '',
+            'color': matched_variant.color or '',
+        }
+
+    return {
+        'item_type': 'PRODUCT',
+        'product_id': str(product.id),
+        'barcode': product.barcode_value or '',
+        'sku': product.sku or '',
+        'product_name': product.name,
+        'selling_price': str(selling_price),
+        'gst_percentage': str(gst_percentage),
+        'available_stock': available,
+        'requested_quantity': requested_quantity,
+        'can_fulfill': available >= requested_quantity,
+        'warehouse_id': str(warehouse.id),
+        'warehouse_name': warehouse.name,
+        'pricing': {
+            'selling_price': str(selling_price),
+            'cost_price': str(cost_price),
+            'gst_percentage': str(gst_percentage),
+        },
+        'pricing_source': pricing_source,
+        **variant_info,
+    }
+
+
 def scan_barcode(
     barcode: str,
     warehouse_id: Union[str, UUID],
@@ -186,72 +261,92 @@ def scan_barcode(
         Dict with product info and availability
     """
     product = lookup_product_by_barcode(barcode)
-    
+
     try:
         warehouse = Warehouse.objects.get(pk=warehouse_id, is_active=True)
     except Warehouse.DoesNotExist:
         raise WarehouseNotFoundError(f"Warehouse {warehouse_id} not found or inactive")
-    
-    available = get_product_stock(product.id, warehouse_id=warehouse.id)
-    
-    # Phase 17.1: Get selling price from ProductPricing (authoritative source)
-    # Fallback to variant pricing only if ProductPricing doesn't exist
-    selling_price = Decimal('0.00')
-    gst_percentage = Decimal('0.00')
-    cost_price = Decimal('0.00')
-    pricing_source = 'none'
-    
-    # Try ProductPricing first (Phase 17.1: authoritative source)
-    if hasattr(product, 'pricing') and product.pricing:
-        selling_price = product.pricing.selling_price or Decimal('0.00')
-        gst_percentage = product.pricing.gst_percentage or Decimal('0.00')
-        cost_price = product.pricing.cost_price or Decimal('0.00')
-        pricing_source = 'product_pricing'
-    else:
-        # Fallback: Try matched variant if present
-        matched_variant = getattr(product, '_matched_variant', None)
-        if matched_variant and matched_variant.selling_price:
-            selling_price = matched_variant.selling_price
-            cost_price = matched_variant.cost_price or Decimal('0.00')
-            pricing_source = 'variant'
-        elif hasattr(product, 'variants') and product.variants.exists():
-            variant = product.variants.first()
-            if variant.selling_price:
-                selling_price = variant.selling_price
-                cost_price = variant.cost_price or Decimal('0.00')
-                pricing_source = 'variant'
-    
-    # Build variant info if matched
-    matched_variant = getattr(product, '_matched_variant', None)
-    variant_info = {}
-    if matched_variant:
-        variant_info = {
-            'variant_sku': matched_variant.sku,
-            'variant_barcode': matched_variant.barcode,
-            'size': matched_variant.size or '',
-            'color': matched_variant.color or '',
+
+    return _pos_product_payload(product, warehouse, requested_quantity=quantity)
+
+
+def pos_search(
+    warehouse_id: Union[str, UUID],
+    query: str,
+    *,
+    limit: int = 20,
+) -> dict:
+    """
+    Text search for POS (products + service catalog) scoped to a warehouse.
+
+    Products: name, SKU, barcode, product_code, brand, alias (icontains).
+    Services: active ServiceItem by service_name.
+
+    Roadmap: GET /sales/pos/search/?q=&warehouse_id=&limit=
+    """
+    try:
+        warehouse = Warehouse.objects.get(pk=warehouse_id, is_active=True)
+    except Warehouse.DoesNotExist:
+        raise WarehouseNotFoundError(f"Warehouse {warehouse_id} not found or inactive")
+
+    try:
+        lim = int(limit)
+    except (TypeError, ValueError):
+        lim = 20
+    lim = max(1, min(lim, 50))
+
+    q = (query or '').strip()
+    products_out: list[dict] = []
+    services_out: list[dict] = []
+
+    if not q:
+        return {
+            'query': q,
+            'warehouse_id': str(warehouse.id),
+            'limit': lim,
+            'products': products_out,
+            'services': services_out,
         }
-    
+
+    product_qs = (
+        Product.objects.filter(is_active=True, is_deleted=False)
+        .select_related('pricing')
+        .filter(
+            Q(name__icontains=q)
+            | Q(sku__icontains=q)
+            | Q(barcode_value__icontains=q)
+            | Q(product_code__icontains=q)
+            | Q(brand__icontains=q)
+            | Q(alias__icontains=q)
+        )
+        .order_by('brand', 'name')[:lim]
+    )
+
+    for product in product_qs:
+        # Clear variant attachment from any previous iteration
+        if hasattr(product, '_matched_variant'):
+            delattr(product, '_matched_variant')
+        products_out.append(_pos_product_payload(product, warehouse, requested_quantity=1))
+
+    for svc in (
+        ServiceItem.objects.filter(active=True, service_name__icontains=q)
+        .order_by('service_name')[:lim]
+    ):
+        services_out.append({
+            'item_type': 'SERVICE',
+            'service_item_id': str(svc.id),
+            'service_name': svc.service_name,
+            'default_price': str(svc.default_price),
+            'gst_percent': str(svc.gst_percent),
+            'hsn_code': svc.hsn_code or '',
+        })
+
     return {
-        'product_id': str(product.id),
-        'barcode': product.barcode_value,
-        'sku': product.sku,
-        'product_name': product.name,
-        'selling_price': str(selling_price),
-        'gst_percentage': str(gst_percentage),
-        'available_stock': available,
-        'requested_quantity': quantity,
-        'can_fulfill': available >= quantity,
+        'query': q,
         'warehouse_id': str(warehouse.id),
-        'warehouse_name': warehouse.name,
-        # Phase 17.1: Include pricing object for frontend
-        'pricing': {
-            'selling_price': str(selling_price),
-            'cost_price': str(cost_price),
-            'gst_percentage': str(gst_percentage),
-        },
-        'pricing_source': pricing_source,
-        **variant_info,
+        'limit': lim,
+        'products': products_out,
+        'services': services_out,
     }
 
 
@@ -365,7 +460,8 @@ def calculate_line_gst(amount: Decimal, gst_percentage: Decimal) -> Decimal:
 def calculate_sale_totals(
     items: List[dict],
     discount_type: Optional[str],
-    discount_value: Decimal
+    discount_value: Decimal,
+    apply_automatic_gst: bool = True,
 ) -> dict:
     """
     Calculate all sale totals following the OFFICIAL calculation order.
@@ -380,11 +476,13 @@ def calculate_sale_totals(
     1. subtotal = sum(line_totals) - this is the MRP-based total
     2. discount_amount = apply discount on subtotal
     3. discounted_subtotal = subtotal - discount_amount
-    4. For each item (for tax reporting only):
+    4. For each item (for tax reporting only, when apply_automatic_gst is True):
        - discount_share = (line_total / subtotal) × discount_amount
        - discounted_line = line_total - discount_share
        - gst_amount = discounted_line × gst_percentage / (100 + gst_percentage)
          (This extracts GST from inclusive price)
+       When apply_automatic_gst is False, line GST amounts are zero and
+       gst_percentage snapshots on items are stored as 0 (amount due unchanged).
     5. total_gst = sum(gst_amount) for all items (for reporting)
     6. final_total = discounted_subtotal (MRP-based, GST already included)
     
@@ -392,6 +490,7 @@ def calculate_sale_totals(
         items: List of {'line_total': Decimal, 'gst_percentage': Decimal, ...}
         discount_type: 'PERCENT' or 'FLAT'
         discount_value: Discount value
+        apply_automatic_gst: If False, no GST extraction; invoice lines show 0% GST.
     
     Returns:
         Dict with subtotal, discount_amount, discounted_subtotal, 
@@ -401,6 +500,9 @@ def calculate_sale_totals(
     subtotal = sum(item['line_total'] for item in items)
     
     if subtotal == 0:
+        for item in items:
+            item['cgst_amount'] = Decimal('0.00')
+            item['sgst_amount'] = Decimal('0.00')
         return {
             'subtotal': Decimal('0.00'),
             'discount_amount': Decimal('0.00'),
@@ -428,21 +530,34 @@ def calculate_sale_totals(
         
         discounted_line = item['line_total'] - discount_share
         
-        # Calculate GST EXTRACTED from inclusive price
+        # Calculate GST EXTRACTED from inclusive price (only when automatic GST is on)
         # Formula: GST = Price × (GST% / (100 + GST%))
-        # Example: For 18% GST, if MRP is 118, GST = 118 × (18/118) = 18
-        gst_percentage = item.get('gst_percentage', Decimal('0.00'))
-        validate_gst_percentage(gst_percentage)
-        
-        if gst_percentage > 0:
-            gst_amount = (discounted_line * gst_percentage / (100 + gst_percentage)).quantize(Decimal('0.01'))
+        master_gst_pct = item.get('gst_percentage', Decimal('0.00'))
+        validate_gst_percentage(master_gst_pct)
+        effective_pct = master_gst_pct if apply_automatic_gst else Decimal('0.00')
+
+        if effective_pct > 0:
+            gst_amount = (
+                discounted_line * effective_pct / (100 + effective_pct)
+            ).quantize(Decimal('0.01'))
         else:
             gst_amount = Decimal('0.00')
+
+        if gst_amount > 0:
+            cgst = (gst_amount / Decimal('2')).quantize(Decimal('0.01'))
+            sgst = (gst_amount - cgst).quantize(Decimal('0.01'))
+        else:
+            cgst = Decimal('0.00')
+            sgst = Decimal('0.00')
         
         # Update item with calculated values
         item['discount_share'] = discount_share
         item['discounted_line'] = discounted_line
         item['gst_amount'] = gst_amount
+        item['cgst_amount'] = cgst
+        item['sgst_amount'] = sgst
+        # Snapshot rate stored on sale line: 0 when GST not applied for this checkout
+        item['gst_percentage'] = master_gst_pct if apply_automatic_gst else Decimal('0.00')
         # line_total_with_gst is same as discounted_line since GST is inclusive
         item['line_total_with_gst'] = discounted_line
         
@@ -476,7 +591,12 @@ def process_sale(
     discount_type: Optional[str] = None,
     discount_value: Decimal = Decimal('0.00'),
     customer_name: str = '',
-    default_gst_percentage: Decimal = Decimal('0.00')
+    customer_id: Optional[UUID] = None,
+    customer_mobile: str = '',
+    customer_email: str = '',
+    customer_address: str = '',
+    default_gst_percentage: Decimal = Decimal('0.00'),
+    apply_automatic_gst: bool = True,
 ) -> Sale:
     """
     Process a complete sale transaction atomically.
@@ -486,10 +606,11 @@ def process_sale(
     PHASE 13.1 CALCULATION ORDER (LOCKED):
     1. subtotal = sum(line_totals)
     2. discount_amount = apply discount on subtotal
-    3. discounted_subtotal = subtotal - discount_amount
-    4. GST calculated on discounted amounts (PER LINE ITEM)
-    5. total_gst = sum(line GST)
-    6. final_total = discounted_subtotal + total_gst
+    3. discounted_subtotal = subtotal - discount_amount (amount due; GST-inclusive MRP)
+    4. If apply_automatic_gst: per line, extract GST from discounted line for CGST/SGST;
+       if False, line GST amounts and stored gst_percentage are zero (total unchanged).
+    5. total_gst = sum(line GST) for reporting
+    6. final_total = discounted_subtotal (do not add GST again)
     
     FLOW:
     1. Check idempotency (return existing if duplicate)
@@ -512,8 +633,14 @@ def process_sale(
         user: User creating the sale
         discount_type: 'PERCENT' or 'FLAT' (optional)
         discount_value: Discount value (optional)
-        customer_name: Optional customer name
+        customer_name: Optional customer name (snapshot on Sale)
+        customer_id: Optional linked Customer UUID
+        customer_mobile, customer_email, customer_address: Optional contact snapshot;
+            blank values are filled from the linked Customer when customer_id is set
         default_gst_percentage: Default GST % to apply if not specified per item
+        apply_automatic_gst: If True, extract CGST/SGST from GST-inclusive line
+            amounts (product GST%). If False (default), line GST snapshots are zero;
+            amount due is unchanged.
     
     Returns:
         Sale object
@@ -541,6 +668,37 @@ def process_sale(
         warehouse = Warehouse.objects.select_for_update().get(pk=warehouse_id, is_active=True)
     except Warehouse.DoesNotExist:
         raise WarehouseNotFoundError(f"Warehouse {warehouse_id} not found or inactive")
+
+    customer = None
+    if customer_id is not None:
+        from customers.models import Customer
+        try:
+            customer = Customer.objects.get(pk=customer_id, is_active=True)
+        except Customer.DoesNotExist:
+            raise SaleError(f"Customer {customer_id} not found or inactive")
+
+    def _snap(s: Optional[str]) -> str:
+        if s is None:
+            return ''
+        return str(s).strip()
+
+    req_name = _snap(customer_name)
+    req_mobile = _snap(customer_mobile)
+    req_email = _snap(customer_email)
+    req_address = _snap(customer_address)
+
+    if customer is not None:
+        snapshot_name = req_name or (customer.name or '').strip()
+        snapshot_mobile = req_mobile or (customer.phone or '').strip()
+        snapshot_email = req_email or (customer.email or '').strip()
+        snapshot_address = req_address or (customer.address or '').strip()
+    else:
+        snapshot_name = req_name
+        snapshot_mobile = req_mobile
+        snapshot_email = req_email
+        snapshot_address = req_address
+
+    snapshot_mobile = snapshot_mobile[:20]
     
     # Validate default GST percentage
     validate_gst_percentage(default_gst_percentage)
@@ -620,7 +778,12 @@ def process_sale(
         })
     
     # 4. Calculate all totals using official order (Phase 13.1)
-    totals = calculate_sale_totals(resolved_items, discount_type, discount_value)
+    totals = calculate_sale_totals(
+        resolved_items,
+        discount_type,
+        discount_value,
+        apply_automatic_gst=apply_automatic_gst,
+    )
     
     subtotal = totals['subtotal']
     discount_amount = totals['discount_amount']
@@ -631,33 +794,69 @@ def process_sale(
     if final_total <= 0:
         raise InvalidDiscountError("Total after discount must be positive")
     
-    # 5. Validate payments (must equal final_total including GST)
-    payments_total = sum(Decimal(str(p.get('amount', 0))) for p in payments)
-    if payments_total != final_total:
+    # 5. Validate payments (may be less than total for on-account / partial checkout)
+    eps = Decimal('0.01')
+    payments_total = sum(
+        (Decimal(str(p.get('amount', 0))) for p in payments),
+        Decimal('0'),
+    )
+    if payments_total > final_total + eps:
         raise PaymentMismatchError(
-            f"Payments total ({payments_total}) does not match sale total ({final_total})"
+            f"Payments total ({payments_total}) exceeds sale total ({final_total})"
         )
+
+    immediate_paid = sum(
+        (
+            Decimal(str(p.get('amount', 0)))
+            for p in payments
+            if str(p.get('method', '')).upper() != 'CREDIT'
+        ),
+        Decimal('0'),
+    )
+    credit_row_total = sum(
+        (
+            Decimal(str(p.get('amount', 0)))
+            for p in payments
+            if str(p.get('method', '')).upper() == 'CREDIT'
+        ),
+        Decimal('0'),
+    )
+
+    outstanding = (final_total - payments_total).quantize(Decimal('0.01'))
+    if credit_row_total > 0:
+        credit_balance_initial = credit_row_total
+    elif outstanding > 0:
+        credit_balance_initial = outstanding
+    else:
+        credit_balance_initial = Decimal('0.00')
+
+    is_credit_sale = credit_balance_initial > 0
+    credit_amount_initial = credit_balance_initial
+    credit_status = Sale.CreditStatus.PENDING if is_credit_sale else Sale.CreditStatus.NONE
+
+    if credit_balance_initial <= eps:
+        payment_status = Sale.PaymentStatus.PAID
+    elif immediate_paid > eps:
+        payment_status = Sale.PaymentStatus.PARTIAL
+    else:
+        payment_status = Sale.PaymentStatus.UNPAID
+
+    paid_amount_initial = immediate_paid.quantize(Decimal('0.01'))
+    due_amount_initial = credit_balance_initial.quantize(Decimal('0.01'))
     
     # 6. Generate invoice number
-    invoice_number = InvoiceSequence.get_next_invoice_number()
-    
-    # 6.5. Check if this is a credit sale (any CREDIT payment)
-    credit_payment = None
-    for payment in payments:
-        if payment.get('method', '').upper() == 'CREDIT':
-            credit_payment = payment
-            break
-    
-    credit_amount = Decimal(str(credit_payment['amount'])) if credit_payment else Decimal('0.00')
-    is_credit_sale = credit_amount > 0
-    credit_status = Sale.CreditStatus.PENDING if is_credit_sale else Sale.CreditStatus.NONE
+    invoice_number = InvoiceSequence.get_next_sale_invoice_number()
     
     # 7. Create Sale
     sale = Sale.objects.create(
         idempotency_key=idempotency_key,
         invoice_number=invoice_number,
         warehouse=warehouse,
-        customer_name=customer_name or '',
+        customer=customer,
+        customer_name=snapshot_name,
+        customer_mobile=snapshot_mobile,
+        customer_email=snapshot_email,
+        customer_address=snapshot_address,
         subtotal=subtotal,
         discount_type=discount_type,
         discount_value=discount_value,
@@ -666,11 +865,13 @@ def process_sale(
         total_items=sum(item['quantity'] for item in resolved_items),
         status=Sale.Status.PENDING,
         created_by=user,
-        # Credit sale fields
         is_credit_sale=is_credit_sale,
-        credit_amount=credit_amount,
-        credit_balance=credit_amount,
+        credit_amount=credit_amount_initial,
+        credit_balance=credit_balance_initial,
         credit_status=credit_status,
+        payment_status=payment_status,
+        paid_amount=paid_amount_initial,
+        due_amount=due_amount_initial,
     )
     
     # 8. Create SaleItems (with GST breakdown)
@@ -684,6 +885,9 @@ def process_sale(
             gst_percentage=item['gst_percentage'],
             gst_amount=item['gst_amount'],
             line_total_with_gst=item['line_total_with_gst'],
+            purchase_price_snapshot=item.get('cost_price') or Decimal('0.00'),
+            cgst_amount=item['cgst_amount'],
+            sgst_amount=item['sgst_amount'],
         )
     
     # 9. Create Payments
@@ -750,6 +954,11 @@ def get_sale_details(sale_id: Union[str, UUID]) -> dict:
             'quantity': item.quantity,
             'selling_price': str(item.selling_price),
             'line_total': str(item.line_total),
+            'gst_percentage': str(item.gst_percentage),
+            'gst_amount': str(item.gst_amount),
+            'cgst_amount': str(item.cgst_amount),
+            'sgst_amount': str(item.sgst_amount),
+            'purchase_price_snapshot': str(item.purchase_price_snapshot),
         })
     
     payments = []
@@ -766,7 +975,14 @@ def get_sale_details(sale_id: Union[str, UUID]) -> dict:
         'invoice_number': sale.invoice_number,
         'warehouse_id': str(sale.warehouse.id),
         'warehouse_name': sale.warehouse.name,
+        'customer_id': str(sale.customer_id) if sale.customer_id else None,
         'customer_name': sale.customer_name,
+        'customer_mobile': sale.customer_mobile,
+        'customer_email': sale.customer_email,
+        'customer_address': sale.customer_address,
+        'payment_status': sale.payment_status,
+        'paid_amount': str(sale.paid_amount),
+        'due_amount': str(sale.due_amount),
         'subtotal': str(sale.subtotal),
         'discount_type': sale.discount_type,
         'discount_value': str(sale.discount_value),

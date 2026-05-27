@@ -89,8 +89,9 @@ export const emptyStates = {
     description: "Start by adding products to your inventory and making your first sale. Your dashboard will come alive with insights.",
   },
   inventory: {
-    title: "Your inventory is empty",
-    description: "Add products to start managing your stock. You can add them manually or import from a file.",
+    title: "No products in your list yet",
+    description:
+      "When you add a product, it shows up here with stock and prices. Start with “Add a product” (one at a time) or “Import from file” if you already have a list.",
   },
   pos: {
     title: "No products available for sale",

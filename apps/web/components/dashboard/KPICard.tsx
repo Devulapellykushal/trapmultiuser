@@ -39,12 +39,12 @@ export function KPICard({
   if (loading) {
     return (
       <div
-        className={`bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 ${className}`}
+        className={`bg-[var(--bg-surface)] backdrop-blur-sm rounded-xl border border-[var(--border-default)] p-6 ${className}`}
       >
         <div className="animate-pulse">
-          <div className="h-4 bg-white/10 rounded w-24 mb-4"></div>
-          <div className="h-8 bg-white/10 rounded w-32 mb-2"></div>
-          <div className="h-3 bg-white/10 rounded w-20"></div>
+          <div className="h-4 bg-[var(--border-default)] rounded w-24 mb-4"></div>
+          <div className="h-8 bg-[var(--border-default)] rounded w-32 mb-2"></div>
+          <div className="h-3 bg-[var(--border-default)] rounded w-20"></div>
         </div>
       </div>
     );
@@ -54,44 +54,44 @@ export function KPICard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 hover:border-white/20 transition-all ${className}`}
+      className={`bg-[var(--bg-surface)] backdrop-blur-sm rounded-xl border border-[var(--border-default)] p-6 hover:border-[var(--border-hover)] transition-all ${className}`}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-white/60 font-medium">{title}</span>
+          <span className="text-sm text-[var(--text-secondary)] font-medium">{title}</span>
           {tooltip && (
             <div className="relative">
               <button
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
-                className="p-0.5 text-white/30 hover:text-white/50 transition-colors"
+                className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
               >
                 <Info className="w-3.5 h-3.5" />
               </button>
               {showTooltip && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1A1B23] border border-white/10 rounded-lg shadow-lg z-50 w-48">
-                  <p className="text-xs text-white/70 leading-relaxed">
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 w-48">
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {tooltip}
                   </p>
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-[#1A1B23] border-r border-b border-white/10 transform rotate-45 -mt-1"></div>
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-[var(--bg-elevated)] border-r border-b border-[var(--border-default)] transform rotate-45 -mt-1"></div>
                 </div>
               )}
             </div>
           )}
         </div>
         {Icon && (
-          <div className="p-2 bg-white/5 rounded-lg">
-            <Icon className="w-4 h-4 text-white/40" />
+          <div className="p-2 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-default)]">
+            <Icon className="w-4 h-4 text-[var(--text-muted)]" />
           </div>
         )}
       </div>
 
       <div className="space-y-1">
-        <p className="text-3xl font-bold text-white tracking-tight">
+        <p className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">
           {typeof value === "number" ? value.toLocaleString() : value}
         </p>
 
-        {subtitle && <p className="text-sm text-white/40">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-[var(--text-muted)]">{subtitle}</p>}
 
         {trend && (
           <div className="flex items-center gap-1 mt-2">
@@ -103,7 +103,7 @@ export function KPICard({
               {trend.value >= 0 ? "+" : ""}
               {trend.value}%
             </span>
-            <span className="text-xs text-white/40">{trend.label}</span>
+            <span className="text-xs text-[var(--text-muted)]">{trend.label}</span>
           </div>
         )}
       </div>

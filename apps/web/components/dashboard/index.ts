@@ -19,3 +19,4 @@ export {
   ReportExportDropdown,
 } from "./report-export-buttons";
 export type { ReportExportConfig } from "@/lib/report-export";
+export { StoreAlertsWidget } from "./store-alerts-widget";

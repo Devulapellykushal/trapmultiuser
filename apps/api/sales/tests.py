@@ -1,5 +1,5 @@
 """
-Sales Tests for TRAP Inventory System.
+Sales Tests for Quake Inventory System.
 
 PHASE 13: POS ENGINE (LEDGER-BACKED)
 =====================================
@@ -17,13 +17,15 @@ Required tests:
 
 import uuid
 from decimal import Decimal
+from core.test_username import unique_username
 from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework import status
 
 from inventory.models import Warehouse, Product, ProductVariant, InventoryMovement
 from inventory import services as inventory_services
-from .models import Sale, SaleItem, Payment, InvoiceSequence
+from invoices.models import InvoiceSequence
+from .models import Sale, SaleItem, Payment
 from . import services
 
 
@@ -43,7 +45,7 @@ class BarcodeResolutionTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="TEST-001",
-            barcode_value="TRAP-TEST-001"
+            barcode_value="Quake-TEST-001"
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -52,7 +54,7 @@ class BarcodeResolutionTest(TestCase):
     
     def test_lookup_valid_barcode(self):
         """Test that valid barcode returns product."""
-        product = services.lookup_product_by_barcode("TRAP-TEST-001")
+        product = services.lookup_product_by_barcode("Quake-TEST-001")
         self.assertEqual(product.id, self.product.id)
     
     def test_lookup_invalid_barcode(self):
@@ -63,14 +65,15 @@ class BarcodeResolutionTest(TestCase):
     def test_scan_barcode_returns_info(self):
         """Test that scan_barcode returns complete product info."""
         result = services.scan_barcode(
-            barcode="TRAP-TEST-001",
+            barcode="Quake-TEST-001",
             warehouse_id=self.warehouse.id
         )
         
         self.assertEqual(result['product_id'], str(self.product.id))
-        self.assertEqual(result['barcode'], "TRAP-TEST-001")
+        self.assertEqual(result['barcode'], "Quake-TEST-001")
         self.assertEqual(result['sku'], "TEST-001")
         self.assertEqual(result['warehouse_id'], str(self.warehouse.id))
+        self.assertEqual(result['item_type'], 'PRODUCT')
 
 
 # =============================================================================
@@ -85,15 +88,15 @@ class InvoiceSequenceTest(TestCase):
     
     def test_first_invoice_number(self):
         """Test that first invoice is INV-YYYY-000001."""
-        invoice = InvoiceSequence.get_next_invoice_number()
+        invoice = InvoiceSequence.get_next_sale_invoice_number()
         self.assertTrue(invoice.startswith("INV-"))
         self.assertTrue(invoice.endswith("-000001"))
     
     def test_sequential_invoice_numbers(self):
         """Test that invoice numbers are sequential."""
-        inv1 = InvoiceSequence.get_next_invoice_number()
-        inv2 = InvoiceSequence.get_next_invoice_number()
-        inv3 = InvoiceSequence.get_next_invoice_number()
+        inv1 = InvoiceSequence.get_next_sale_invoice_number()
+        inv2 = InvoiceSequence.get_next_sale_invoice_number()
+        inv3 = InvoiceSequence.get_next_sale_invoice_number()
         
         # Extract numbers
         num1 = int(inv1.split("-")[-1])
@@ -117,7 +120,7 @@ class SaleSuccessTest(APITestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -128,7 +131,7 @@ class SaleSuccessTest(APITestCase):
             brand="TEST",
             category="TEST",
             sku="TEST-001",
-            barcode_value="TRAP-TEST-001"
+            barcode_value="Quake-TEST-001"
         )
         self.variant = ProductVariant.objects.create(
             product=self.product,
@@ -151,7 +154,7 @@ class SaleSuccessTest(APITestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-TEST-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-TEST-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -171,7 +174,7 @@ class SaleSuccessTest(APITestCase):
         services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-TEST-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-TEST-001', 'quantity': 10}],
             payments=[{'method': 'UPI', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -187,7 +190,7 @@ class SaleSuccessTest(APITestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-TEST-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-TEST-001', 'quantity': 2}],
             payments=[{'method': 'CARD', 'amount': Decimal('180.00')}],
             user=self.admin,
             discount_type='PERCENT',
@@ -203,7 +206,7 @@ class SaleSuccessTest(APITestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-TEST-001', 'quantity': 3}],
+            items=[{'barcode': 'Quake-TEST-001', 'quantity': 3}],
             payments=[
                 {'method': 'CASH', 'amount': Decimal('200.00')},
                 {'method': 'UPI', 'amount': Decimal('100.00')}
@@ -228,7 +231,7 @@ class InsufficientStockTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -239,7 +242,7 @@ class InsufficientStockTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="LIMITED-001",
-            barcode_value="TRAP-LIMITED-001"
+            barcode_value="Quake-LIMITED-001"
         )
         self.variant = ProductVariant.objects.create(
             product=self.product,
@@ -263,7 +266,7 @@ class InsufficientStockTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-LIMITED-001', 'quantity': 10}],  # Only 5 available
+                items=[{'barcode': 'Quake-LIMITED-001', 'quantity': 10}],  # Only 5 available
                 payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
                 user=self.admin
             )
@@ -278,7 +281,7 @@ class InsufficientStockTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-LIMITED-001', 'quantity': 10}],
+                items=[{'barcode': 'Quake-LIMITED-001', 'quantity': 10}],
                 payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
                 user=self.admin
             )
@@ -305,7 +308,7 @@ class AtomicityTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -316,7 +319,7 @@ class AtomicityTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PROD-001",
-            barcode_value="TRAP-PROD-001"
+            barcode_value="Quake-PROD-001"
         )
         ProductVariant.objects.create(
             product=self.product1,
@@ -329,7 +332,7 @@ class AtomicityTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PROD-002",
-            barcode_value="TRAP-PROD-002"
+            barcode_value="Quake-PROD-002"
         )
         ProductVariant.objects.create(
             product=self.product2,
@@ -368,8 +371,8 @@ class AtomicityTest(TestCase):
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
                 items=[
-                    {'barcode': 'TRAP-PROD-001', 'quantity': 5},  # Would succeed
-                    {'barcode': 'TRAP-PROD-002', 'quantity': 10},  # Will fail - only 2 in stock
+                    {'barcode': 'Quake-PROD-001', 'quantity': 5},  # Would succeed
+                    {'barcode': 'Quake-PROD-002', 'quantity': 10},  # Will fail - only 2 in stock
                 ],
                 payments=[{'method': 'CASH', 'amount': Decimal('1500.00')}],
                 user=self.admin
@@ -400,7 +403,7 @@ class LedgerReductionTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -411,7 +414,7 @@ class LedgerReductionTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="LEDGER-001",
-            barcode_value="TRAP-LEDGER-001"
+            barcode_value="Quake-LEDGER-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -439,7 +442,7 @@ class LedgerReductionTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-LEDGER-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-LEDGER-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -456,7 +459,7 @@ class LedgerReductionTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-LEDGER-001', 'quantity': 7}],
+            items=[{'barcode': 'Quake-LEDGER-001', 'quantity': 7}],
             payments=[{'method': 'UPI', 'amount': Decimal('700.00')}],
             user=self.admin
         )
@@ -477,7 +480,7 @@ class LedgerReductionTest(TestCase):
         services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-LEDGER-001', 'quantity': 15}],
+            items=[{'barcode': 'Quake-LEDGER-001', 'quantity': 15}],
             payments=[{'method': 'CASH', 'amount': Decimal('1500.00')}],
             user=self.admin
         )
@@ -502,14 +505,13 @@ class LedgerReductionTest(TestCase):
 
 class PaymentMismatchTest(TestCase):
     """
-    Test: Reject when payments ≠ total.
-    Phase 13: Payments must reconcile exactly.
+    Test: Overpay rejected; underpay allowed as partial settlement (opening due).
     """
     
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -520,7 +522,7 @@ class PaymentMismatchTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PAY-001",
-            barcode_value="TRAP-PAY-001"
+            barcode_value="Quake-PAY-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -537,16 +539,20 @@ class PaymentMismatchTest(TestCase):
             warehouse_id=self.warehouse.id
         )
     
-    def test_underpayment_rejected(self):
-        """Test that sale is rejected when payments < total."""
-        with self.assertRaises(services.PaymentMismatchError):
-            services.process_sale(
-                idempotency_key=uuid.uuid4(),
-                warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-PAY-001', 'quantity': 2}],  # 200.00 total
-                payments=[{'method': 'CASH', 'amount': Decimal('150.00')}],  # Short
-                user=self.admin
-            )
+    def test_partial_payment_accepted(self):
+        """Counter pays less than total: sale completes with PARTIAL and due_amount."""
+        sale = services.process_sale(
+            idempotency_key=uuid.uuid4(),
+            warehouse_id=self.warehouse.id,
+            items=[{'barcode': 'Quake-PAY-001', 'quantity': 2}],  # 200.00 total
+            payments=[{'method': 'CASH', 'amount': Decimal('150.00')}],
+            user=self.admin,
+        )
+        self.assertEqual(sale.status, Sale.Status.COMPLETED)
+        self.assertEqual(sale.payment_status, Sale.PaymentStatus.PARTIAL)
+        self.assertEqual(sale.paid_amount, Decimal('150.00'))
+        self.assertEqual(sale.due_amount, Decimal('50.00'))
+        self.assertEqual(sale.total, Decimal('200.00'))
     
     def test_overpayment_rejected(self):
         """Test that sale is rejected when payments > total."""
@@ -554,7 +560,7 @@ class PaymentMismatchTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-PAY-001', 'quantity': 2}],  # 200.00 total
+                items=[{'barcode': 'Quake-PAY-001', 'quantity': 2}],  # 200.00 total
                 payments=[{'method': 'CASH', 'amount': Decimal('250.00')}],  # Over
                 user=self.admin
             )
@@ -564,7 +570,7 @@ class PaymentMismatchTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-PAY-001', 'quantity': 3}],  # 300.00 total
+            items=[{'barcode': 'Quake-PAY-001', 'quantity': 3}],  # 300.00 total
             payments=[
                 {'method': 'CASH', 'amount': Decimal('150.00')},
                 {'method': 'UPI', 'amount': Decimal('150.00')}
@@ -588,7 +594,7 @@ class DiscountValidationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -599,7 +605,7 @@ class DiscountValidationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="DISC-001",
-            barcode_value="TRAP-DISC-001"
+            barcode_value="Quake-DISC-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -622,7 +628,7 @@ class DiscountValidationTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-DISC-001', 'quantity': 2}],
+                items=[{'barcode': 'Quake-DISC-001', 'quantity': 2}],
                 payments=[{'method': 'CASH', 'amount': Decimal('0.00')}],
                 user=self.admin,
                 discount_type='PERCENT',
@@ -635,7 +641,7 @@ class DiscountValidationTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-DISC-001', 'quantity': 2}],  # 200.00 subtotal
+                items=[{'barcode': 'Quake-DISC-001', 'quantity': 2}],  # 200.00 subtotal
                 payments=[{'method': 'CASH', 'amount': Decimal('0.00')}],
                 user=self.admin,
                 discount_type='FLAT',
@@ -647,7 +653,7 @@ class DiscountValidationTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-DISC-001', 'quantity': 2}],  # 200.00 subtotal
+            items=[{'barcode': 'Quake-DISC-001', 'quantity': 2}],  # 200.00 subtotal
             payments=[{'method': 'CASH', 'amount': Decimal('160.00')}],
             user=self.admin,
             discount_type='PERCENT',
@@ -662,7 +668,7 @@ class DiscountValidationTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-DISC-001', 'quantity': 2}],  # 200.00 subtotal
+            items=[{'barcode': 'Quake-DISC-001', 'quantity': 2}],  # 200.00 subtotal
             payments=[{'method': 'UPI', 'amount': Decimal('150.00')}],
             user=self.admin,
             discount_type='FLAT',
@@ -686,7 +692,7 @@ class IdempotencyTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -697,7 +703,7 @@ class IdempotencyTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="IDEMP-001",
-            barcode_value="TRAP-IDEMP-001"
+            barcode_value="Quake-IDEMP-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -721,7 +727,7 @@ class IdempotencyTest(TestCase):
         sale1 = services.process_sale(
             idempotency_key=key,
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IDEMP-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-IDEMP-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -729,7 +735,7 @@ class IdempotencyTest(TestCase):
         sale2 = services.process_sale(
             idempotency_key=key,
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IDEMP-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-IDEMP-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -747,7 +753,7 @@ class IdempotencyTest(TestCase):
         services.process_sale(
             idempotency_key=key,
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IDEMP-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-IDEMP-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -759,7 +765,7 @@ class IdempotencyTest(TestCase):
         services.process_sale(
             idempotency_key=key,  # Same key
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IDEMP-001', 'quantity': 10}],
+            items=[{'barcode': 'Quake-IDEMP-001', 'quantity': 10}],
             payments=[{'method': 'CASH', 'amount': Decimal('1000.00')}],
             user=self.admin
         )
@@ -785,7 +791,7 @@ class SaleStatusDefaultTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -796,7 +802,7 @@ class SaleStatusDefaultTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="STATUS-001",
-            barcode_value="TRAP-STATUS-001"
+            barcode_value="Quake-STATUS-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -818,7 +824,7 @@ class SaleStatusDefaultTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-STATUS-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-STATUS-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -843,7 +849,7 @@ class DiscountBeforeGSTTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -854,7 +860,7 @@ class DiscountBeforeGSTTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="GSTORD-001",
-            barcode_value="TRAP-GSTORD-001"
+            barcode_value="Quake-GSTORD-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -882,7 +888,7 @@ class DiscountBeforeGSTTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GSTORD-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
+            items=[{'barcode': 'Quake-GSTORD-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')}],
             payments=[{'method': 'CASH', 'amount': Decimal('180.00')}],  # MRP-inclusive
             user=self.admin,
             discount_type='PERCENT',
@@ -901,6 +907,144 @@ class DiscountBeforeGSTTest(TestCase):
 
 
 # =============================================================================
+# Checkout: optional automatic GST (default off at POS API)
+# =============================================================================
+
+
+class ApplyAutomaticGstOptionTest(TestCase):
+    """When apply_automatic_gst is False, totals unchanged but GST snapshots are zero."""
+
+    def setUp(self):
+        from users.models import User
+
+        self.admin = User.objects.create_user(
+            username=unique_username("admin"), password="adminpass", role="ADMIN"
+        )
+        self.warehouse = Warehouse.objects.create(name="Test WH", code="TST-WH")
+        self.product = Product.objects.create(
+            name="GST Toggle Product",
+            brand="TEST",
+            category="TEST",
+            sku="GSTTOG-001",
+            barcode_value="Quake-GSTTOG-001",
+        )
+        ProductVariant.objects.create(
+            product=self.product,
+            sku="GSTTOG-001-V1",
+            cost_price=Decimal("50.00"),
+            selling_price=Decimal("100.00"),
+        )
+        inventory_services.create_inventory_movement(
+            product_id=self.product.id,
+            movement_type="OPENING",
+            quantity=100,
+            user=self.admin,
+            warehouse_id=self.warehouse.id,
+        )
+
+    def test_apply_automatic_gst_false_zeros_gst(self):
+        sale = services.process_sale(
+            idempotency_key=uuid.uuid4(),
+            warehouse_id=self.warehouse.id,
+            items=[
+                {
+                    "barcode": "Quake-GSTTOG-001",
+                    "quantity": 2,
+                    "gst_percentage": Decimal("18.00"),
+                }
+            ],
+            payments=[{"method": "CASH", "amount": Decimal("180.00")}],
+            user=self.admin,
+            discount_type="PERCENT",
+            discount_value=Decimal("10.00"),
+            apply_automatic_gst=False,
+        )
+        self.assertEqual(sale.total, Decimal("180.00"))
+        self.assertEqual(sale.total_gst, Decimal("0.00"))
+        item = sale.items.first()
+        self.assertEqual(item.gst_percentage, Decimal("0.00"))
+        self.assertEqual(item.gst_amount, Decimal("0.00"))
+        self.assertEqual(item.cgst_amount, Decimal("0.00"))
+        self.assertEqual(item.sgst_amount, Decimal("0.00"))
+
+
+class ProcessSaleCustomerFieldsTest(TestCase):
+    """Customer contact fields from checkout are persisted on Sale."""
+
+    def setUp(self):
+        from users.models import User
+        from customers.models import Customer
+
+        self.admin = User.objects.create_user(
+            username=unique_username("admin"), password="adminpass", role="ADMIN"
+        )
+        self.warehouse = Warehouse.objects.create(name="Test WH Cust", code="TST-CUST")
+        self.product = Product.objects.create(
+            name="Cust Test Product",
+            brand="TEST",
+            category="TEST",
+            sku="CUST-001",
+            barcode_value="Quake-CUST-001",
+        )
+        ProductVariant.objects.create(
+            product=self.product,
+            sku="CUST-001-V1",
+            cost_price=Decimal("50.00"),
+            selling_price=Decimal("100.00"),
+        )
+        inventory_services.create_inventory_movement(
+            product_id=self.product.id,
+            movement_type="OPENING",
+            quantity=100,
+            user=self.admin,
+            warehouse_id=self.warehouse.id,
+        )
+        self.customer = Customer.objects.create(
+            name="Ledger Customer",
+            phone="9998887777",
+            email="ledger@example.com",
+            address="123 Billing St",
+        )
+
+    def test_persists_request_customer_contact_fields(self):
+        sale = services.process_sale(
+            idempotency_key=uuid.uuid4(),
+            warehouse_id=self.warehouse.id,
+            items=[{"barcode": "Quake-CUST-001", "quantity": 1}],
+            payments=[{"method": "CASH", "amount": Decimal("100.00")}],
+            user=self.admin,
+            customer_name="Walk In",
+            customer_mobile="5551234567",
+            customer_email="walk@example.com",
+            customer_address="99 Main Rd",
+        )
+        self.assertEqual(sale.customer_name, "Walk In")
+        self.assertEqual(sale.customer_mobile, "5551234567")
+        self.assertEqual(sale.customer_email, "walk@example.com")
+        self.assertEqual(sale.customer_address, "99 Main Rd")
+        self.assertIsNone(sale.customer_id)
+
+    def test_snapshot_fills_from_linked_customer_when_contact_blank(self):
+        sale = services.process_sale(
+            idempotency_key=uuid.uuid4(),
+            warehouse_id=self.warehouse.id,
+            items=[{"barcode": "Quake-CUST-001", "quantity": 1}],
+            payments=[{"method": "CASH", "amount": Decimal("100.00")}],
+            user=self.admin,
+            customer_id=self.customer.id,
+            customer_name="",
+            customer_mobile="",
+            customer_email="",
+            customer_address="",
+        )
+        self.assertEqual(sale.customer_id, self.customer.id)
+        self.assertEqual(sale.customer_name, "Ledger Customer")
+        self.assertEqual(sale.customer_mobile, "9998887777")
+        self.assertEqual(sale.customer_email, "ledger@example.com")
+        self.assertEqual(sale.customer_address, "123 Billing St")
+
+
+# =============================================================================
 # PHASE 13.1: GST STORED TESTS
 # =============================================================================
 
@@ -913,7 +1057,7 @@ class GSTStoredTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -924,7 +1068,7 @@ class GSTStoredTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="GSTSTORE-001",
-            barcode_value="TRAP-GSTSTORE-001"
+            barcode_value="Quake-GSTSTORE-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -946,7 +1090,7 @@ class GSTStoredTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GSTSTORE-001', 'quantity': 3, 'gst_percentage': Decimal('12.00')}],
+            items=[{'barcode': 'Quake-GSTSTORE-001', 'quantity': 3, 'gst_percentage': Decimal('12.00')}],
             payments=[{'method': 'UPI', 'amount': Decimal('300.00')}],  # MRP-inclusive
             user=self.admin
         )
@@ -963,7 +1107,7 @@ class GSTStoredTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GSTSTORE-001', 'quantity': 2, 'gst_percentage': Decimal('5.00')}],
+            items=[{'barcode': 'Quake-GSTSTORE-001', 'quantity': 2, 'gst_percentage': Decimal('5.00')}],
             payments=[{'method': 'CARD', 'amount': Decimal('200.00')}],  # MRP-inclusive
             user=self.admin
         )
@@ -985,7 +1129,7 @@ class GSTValidationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -996,7 +1140,7 @@ class GSTValidationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="GSTVAL-001",
-            barcode_value="TRAP-GSTVAL-001"
+            barcode_value="Quake-GSTVAL-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1019,7 +1163,7 @@ class GSTValidationTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('-5.00')}],
+                items=[{'barcode': 'Quake-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('-5.00')}],
                 payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],
                 user=self.admin
             )
@@ -1030,7 +1174,7 @@ class GSTValidationTest(TestCase):
             services.process_sale(
                 idempotency_key=uuid.uuid4(),
                 warehouse_id=self.warehouse.id,
-                items=[{'barcode': 'TRAP-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('150.00')}],
+                items=[{'barcode': 'Quake-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('150.00')}],
                 payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],
                 user=self.admin
             )
@@ -1040,7 +1184,7 @@ class GSTValidationTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('28.00')}],
+            items=[{'barcode': 'Quake-GSTVAL-001', 'quantity': 1, 'gst_percentage': Decimal('28.00')}],
             payments=[{'method': 'CASH', 'amount': Decimal('100.00')}],  # MRP-inclusive
             user=self.admin
         )
@@ -1061,7 +1205,7 @@ class InvoiceMathTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1072,7 +1216,7 @@ class InvoiceMathTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="MATH-001",
-            barcode_value="TRAP-MATH-001"
+            barcode_value="Quake-MATH-001"
         )
         ProductVariant.objects.create(
             product=self.product1,
@@ -1085,7 +1229,7 @@ class InvoiceMathTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="MATH-002",
-            barcode_value="TRAP-MATH-002"
+            barcode_value="Quake-MATH-002"
         )
         ProductVariant.objects.create(
             product=self.product2,
@@ -1129,8 +1273,8 @@ class InvoiceMathTest(TestCase):
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
             items=[
-                {'barcode': 'TRAP-MATH-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')},
-                {'barcode': 'TRAP-MATH-002', 'quantity': 1, 'gst_percentage': Decimal('12.00')},
+                {'barcode': 'Quake-MATH-001', 'quantity': 2, 'gst_percentage': Decimal('18.00')},
+                {'barcode': 'Quake-MATH-002', 'quantity': 1, 'gst_percentage': Decimal('12.00')},
             ],
             payments=[{'method': 'CASH', 'amount': Decimal('315.00')}],  # MRP-inclusive
             user=self.admin,
@@ -1164,7 +1308,7 @@ class RefundPreparationTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1175,7 +1319,7 @@ class RefundPreparationTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="REFPREP-001",
-            barcode_value="TRAP-REFPREP-001"
+            barcode_value="Quake-REFPREP-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1197,7 +1341,7 @@ class RefundPreparationTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-REFPREP-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-REFPREP-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -1215,7 +1359,7 @@ class RefundPreparationTest(TestCase):
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-REFPREP-001', 'quantity': 2}],
+            items=[{'barcode': 'Quake-REFPREP-001', 'quantity': 2}],
             payments=[{'method': 'CASH', 'amount': Decimal('200.00')}],
             user=self.admin
         )
@@ -1241,7 +1385,7 @@ class PartialReturnTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1252,7 +1396,7 @@ class PartialReturnTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="PARTIAL-001",
-            barcode_value="TRAP-PARTIAL-001"
+            barcode_value="Quake-PARTIAL-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1273,7 +1417,7 @@ class PartialReturnTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-PARTIAL-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-PARTIAL-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -1323,7 +1467,7 @@ class FullReturnTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1334,7 +1478,7 @@ class FullReturnTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="FULL-001",
-            barcode_value="TRAP-FULL-001"
+            barcode_value="Quake-FULL-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1354,7 +1498,7 @@ class FullReturnTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-FULL-001', 'quantity': 3}],
+            items=[{'barcode': 'Quake-FULL-001', 'quantity': 3}],
             payments=[{'method': 'CASH', 'amount': Decimal('300.00')}],
             user=self.admin
         )
@@ -1387,7 +1531,7 @@ class OverReturnBlockedTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1398,7 +1542,7 @@ class OverReturnBlockedTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="OVER-001",
-            barcode_value="TRAP-OVER-001"
+            barcode_value="Quake-OVER-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1419,7 +1563,7 @@ class OverReturnBlockedTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-OVER-001', 'quantity': 3}],
+            items=[{'barcode': 'Quake-OVER-001', 'quantity': 3}],
             payments=[{'method': 'CASH', 'amount': Decimal('300.00')}],
             user=self.admin
         )
@@ -1474,7 +1618,7 @@ class LedgerReturnTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1485,7 +1629,7 @@ class LedgerReturnTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="LEDRET-001",
-            barcode_value="TRAP-LEDRET-001"
+            barcode_value="Quake-LEDRET-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1506,7 +1650,7 @@ class LedgerReturnTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-LEDRET-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-LEDRET-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -1570,7 +1714,7 @@ class AdjustmentTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1581,7 +1725,7 @@ class AdjustmentTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="ADJ-001",
-            barcode_value="TRAP-ADJ-001"
+            barcode_value="Quake-ADJ-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1678,7 +1822,7 @@ class ReturnImmutabilityTest(TestCase):
         from sales.models import Return, ReturnItem
         
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1689,7 +1833,7 @@ class ReturnImmutabilityTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="IMMUT-RET-001",
-            barcode_value="TRAP-IMMUT-RET-001"
+            barcode_value="Quake-IMMUT-RET-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1709,7 +1853,7 @@ class ReturnImmutabilityTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-IMMUT-RET-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-IMMUT-RET-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -1769,7 +1913,7 @@ class OriginalSaleImmutabilityTest(TestCase):
     def setUp(self):
         from users.models import User
         self.admin = User.objects.create_user(
-            username='admin', password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN'
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
@@ -1780,7 +1924,7 @@ class OriginalSaleImmutabilityTest(TestCase):
             brand="TEST",
             category="TEST",
             sku="SALEIMMUT-001",
-            barcode_value="TRAP-SALEIMMUT-001"
+            barcode_value="Quake-SALEIMMUT-001"
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -1800,7 +1944,7 @@ class OriginalSaleImmutabilityTest(TestCase):
         self.sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
-            items=[{'barcode': 'TRAP-SALEIMMUT-001', 'quantity': 5}],
+            items=[{'barcode': 'Quake-SALEIMMUT-001', 'quantity': 5}],
             payments=[{'method': 'CASH', 'amount': Decimal('500.00')}],
             user=self.admin
         )
@@ -1844,3 +1988,132 @@ class OriginalSaleImmutabilityTest(TestCase):
         self.assertEqual(sale_item.quantity, self.original_item_qty)
 
 
+# =============================================================================
+# POS TEXT SEARCH (GET /api/v1/sales/pos/search/)
+# =============================================================================
+
+class PosSearchServiceTest(TestCase):
+    """Tests for services.pos_search (warehouse-scoped product + service search)."""
+
+    def setUp(self):
+        from users.models import User
+        from inventory.models import ServiceItem
+
+        self.admin = User.objects.create_user(
+            username=unique_username('possearch_admin'), password='x', role='ADMIN'
+        )
+        self.warehouse = Warehouse.objects.create(name='POS Search WH', code='PS-WH')
+        self.product = Product.objects.create(
+            name='Apollo Tyre 185/65 R15',
+            brand='Apollo',
+            category='TYRE',
+            sku='APOLLO-185',
+            barcode_value='Quake-PS-APOLLO-001',
+        )
+        ProductVariant.objects.create(
+            product=self.product,
+            sku='APOLLO-185-V1',
+            cost_price=Decimal('2000'),
+            selling_price=Decimal('4500.00'),
+        )
+        inventory_services.create_inventory_movement(
+            product_id=self.product.id,
+            movement_type='OPENING',
+            quantity=10,
+            user=self.admin,
+            warehouse_id=self.warehouse.id,
+        )
+        ServiceItem.objects.create(
+            service_name='Wheel balancing',
+            default_price=Decimal('200.00'),
+            gst_percent=Decimal('18.00'),
+        )
+
+    def test_pos_search_finds_product_by_partial_name(self):
+        data = services.pos_search(str(self.warehouse.id), 'Apollo', limit=10)
+        self.assertEqual(len(data['products']), 1)
+        self.assertEqual(data['products'][0]['item_type'], 'PRODUCT')
+        self.assertEqual(data['products'][0]['product_id'], str(self.product.id))
+        self.assertEqual(data['products'][0]['available_stock'], 10)
+
+    def test_pos_search_finds_service(self):
+        data = services.pos_search(str(self.warehouse.id), 'balancing', limit=10)
+        names = [s['service_name'] for s in data['services']]
+        self.assertIn('Wheel balancing', names)
+        self.assertEqual(data['services'][0]['item_type'], 'SERVICE')
+
+    def test_pos_search_empty_query_returns_empty_lists(self):
+        data = services.pos_search(str(self.warehouse.id), '   ', limit=10)
+        self.assertEqual(data['products'], [])
+        self.assertEqual(data['services'], [])
+
+    def test_pos_search_invalid_warehouse(self):
+        with self.assertRaises(services.WarehouseNotFoundError):
+            services.pos_search(uuid.uuid4(), 'Apollo', limit=10)
+
+    def test_pos_search_limit_clamped_high(self):
+        data = services.pos_search(str(self.warehouse.id), 'Apollo', limit=999)
+        self.assertEqual(data['limit'], 50)
+
+
+class PosSearchApiTest(APITestCase):
+    """HTTP tests for GET /api/v1/sales/pos/search/."""
+
+    def setUp(self):
+        from users.models import User
+
+        self.user = User.objects.create_user(
+            username=unique_username('possearch_api'), password='pass12345', role='ADMIN'
+        )
+        self.warehouse = Warehouse.objects.create(name='API POS WH', code='API-PS')
+        self.product = Product.objects.create(
+            name='Searchable Widget',
+            brand='SW',
+            category='CAT',
+            sku='SW-001',
+            barcode_value='Quake-SW-001',
+        )
+        ProductVariant.objects.create(
+            product=self.product,
+            sku='SW-001-V',
+            cost_price=Decimal('10'),
+            selling_price=Decimal('25.00'),
+        )
+        inventory_services.create_inventory_movement(
+            product_id=self.product.id,
+            movement_type='OPENING',
+            quantity=5,
+            user=self.user,
+            warehouse_id=self.warehouse.id,
+        )
+
+    def test_pos_search_requires_warehouse_id(self):
+        self.client.force_authenticate(user=self.user)
+        r = self.client.get('/api/v1/sales/pos/search/', {'q': 'Widget'})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('warehouse_id', r.data.get('error', ''))
+
+    def test_pos_search_unknown_warehouse_404(self):
+        self.client.force_authenticate(user=self.user)
+        r = self.client.get(
+            '/api/v1/sales/pos/search/',
+            {'q': 'Widget', 'warehouse_id': str(uuid.uuid4())},
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_pos_search_returns_products(self):
+        self.client.force_authenticate(user=self.user)
+        r = self.client.get(
+            '/api/v1/sales/pos/search/',
+            {
+                'q': 'Widget',
+                'warehouse_id': str(self.warehouse.id),
+                'limit': '5',
+            },
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data['query'], 'Widget')
+        self.assertEqual(r.data['warehouse_id'], str(self.warehouse.id))
+        self.assertEqual(r.data['limit'], 5)
+        self.assertEqual(len(r.data['products']), 1)
+        self.assertEqual(r.data['products'][0]['item_type'], 'PRODUCT')

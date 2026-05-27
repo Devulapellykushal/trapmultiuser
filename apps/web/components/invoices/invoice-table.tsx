@@ -3,6 +3,8 @@
 import * as React from "react";
 import { FileText, ChevronRight, Banknote, CreditCard } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatDateTimeIST } from "@/lib/invoices/format-ist";
+import type { Invoice } from "@/lib/invoices/transform-api-invoice";
 
 // Local helpers
 function formatCurrency(amount: number): string {
@@ -14,43 +16,16 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "Invalid Date";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "Invalid Date";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+function warehouseLabel(invoice: Invoice): string {
+  return invoice.warehouse?.name?.trim() || "—";
 }
 
-// Invoice type
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  time?: string;
-  customer: {
-    name: string;
-    phone?: string;
-    email?: string;
-  };
-  items: {
-    productId: string;
-    name: string;
-    sku?: string;
-    quantity: number;
-    unitPrice?: number;
-    total: number;
-  }[];
-  subtotal?: number;
-  discount?: number;
-  discountPercent?: number;
-  total: number;
-  paymentMethod: "cash" | "card" | "upi" | "credit";
-  status: "paid" | "cancelled" | "refunded";
-  cashier?: string;
+function formatInvoiceWhen(invoice: Invoice): string {
+  if (invoice.occurredAtIso) return formatDateTimeIST(invoice.occurredAtIso);
+  if (!invoice.date) return "—";
+  const d = new Date(invoice.date);
+  if (Number.isNaN(d.getTime())) return invoice.date;
+  return formatDateTimeIST(d.toISOString());
 }
 
 interface InvoiceTableProps {
@@ -78,10 +53,11 @@ export function InvoiceTable({ invoices, onInvoiceClick }: InvoiceTableProps) {
   return (
     <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
       {/* Table Header */}
-      <div className="hidden md:grid grid-cols-[120px_100px_1fr_100px_120px_100px_40px] gap-4 px-4 py-3 bg-[#1A1B23] border-b border-white/[0.08] text-xs font-medium text-[#6F7285] uppercase tracking-wide sticky top-0 z-10">
+      <div className="hidden md:grid grid-cols-[minmax(11rem,1.6fr)_168px_minmax(0,1fr)_minmax(96px,160px)_100px_120px_100px_40px] gap-4 px-4 py-3 bg-[#1A1B23] border-b border-white/[0.08] text-xs font-medium text-[#6F7285] uppercase tracking-wide sticky top-0 z-10">
         <span>Invoice</span>
-        <span>Date</span>
+        <span>{"Date & time (IST)"}</span>
         <span>Customer</span>
+        <span>Warehouse</span>
         <span>Payment</span>
         <span className="text-right">Amount</span>
         <span>Status</span>
@@ -103,33 +79,49 @@ export function InvoiceTable({ invoices, onInvoiceClick }: InvoiceTableProps) {
               onMouseEnter={() => setHoveredId(invoice.id)}
               onMouseLeave={() => setHoveredId(null)}
               className={`
-                w-full grid grid-cols-1 md:grid-cols-[120px_100px_1fr_100px_120px_100px_40px] gap-2 md:gap-4 px-4 py-4 text-left cursor-pointer
+                w-full grid grid-cols-1 md:grid-cols-[minmax(11rem,1.6fr)_168px_minmax(0,1fr)_minmax(96px,160px)_100px_120px_100px_40px] gap-2 md:gap-4 px-4 py-4 text-left cursor-pointer
                 transition-all duration-150 ease-out
                 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C6A15B]
                 ${isHovered ? "bg-white/[0.04]" : "hover:bg-white/[0.03]"}
               `}
             >
               {/* Invoice ID */}
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#6F7285] hidden md:block" />
-                <span className="text-sm font-mono text-[#C6A15B]">
-                  {invoice.invoiceNumber.slice(-7)}
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-[#6F7285] hidden md:block shrink-0" />
+                <span
+                  className="text-sm font-mono text-[#C6A15B] min-w-0 break-all md:break-words text-left"
+                  title={invoice.invoiceNumber}
+                >
+                  {invoice.invoiceNumber}
                 </span>
               </div>
 
               {/* Date */}
-              <span className="hidden md:block text-sm text-[#A1A4B3] self-center">
-                {formatDate(invoice.date)}
+              <span className="hidden md:block text-sm text-[#A1A4B3] self-center whitespace-nowrap">
+                {formatInvoiceWhen(invoice)}
               </span>
 
               {/* Customer */}
-              <span className="text-sm text-[#F5F6FA] self-center truncate">
-                {invoice.customer.name}
+              <div className="self-center min-w-0">
+                <span className="text-sm text-[#F5F6FA] block truncate">
+                  {invoice.customer.name}
+                </span>
+                <span className="md:hidden text-xs text-[#6F7285] truncate block mt-0.5">
+                  {warehouseLabel(invoice)}
+                </span>
+              </div>
+
+              {/* Warehouse (desktop) */}
+              <span
+                className="hidden md:block text-sm text-[#A1A4B3] self-center truncate"
+                title={warehouseLabel(invoice)}
+              >
+                {warehouseLabel(invoice)}
               </span>
 
               {/* Mobile: Row 2 */}
               <div className="md:hidden flex items-center justify-between text-xs text-[#A1A4B3]">
-                <span>{formatDate(invoice.date)}</span>
+                <span className="whitespace-nowrap">{formatInvoiceWhen(invoice)}</span>
                 <PaymentBadge method={invoice.paymentMethod} />
                 <StatusBadge status={invoice.status} />
               </div>
@@ -143,7 +135,7 @@ export function InvoiceTable({ invoices, onInvoiceClick }: InvoiceTableProps) {
               <span
                 className={`
                 hidden md:block text-sm font-semibold self-center text-right tabular-nums
-                ${invoice.status === "cancelled" ? "text-[#6F7285] line-through" : "text-[#F5F6FA]"}
+                ${invoice.status === "cancelled" || invoice.status === "refunded" ? "text-[#6F7285] line-through" : "text-[#F5F6FA]"}
               `}
               >
                 {formatCurrency(invoice.total)}
@@ -170,7 +162,8 @@ export function InvoiceTable({ invoices, onInvoiceClick }: InvoiceTableProps) {
                 </span>
                 <span
                   className={`text-base font-semibold tabular-nums ${
-                    invoice.status === "cancelled"
+                    invoice.status === "cancelled" ||
+                    invoice.status === "refunded"
                       ? "text-[#6F7285] line-through"
                       : "text-[#C6A15B]"
                   }`}
@@ -227,10 +220,10 @@ function PaymentBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${config.bg} ${config.text}`}
     >
-      <Icon className="w-3 h-3" />
-      {config.label}
+      <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+      <span>{config.label}</span>
     </span>
   );
 }
@@ -238,23 +231,28 @@ function PaymentBadge({
 function StatusBadge({ status }: { status: string }) {
   const config = {
     paid: { bg: "bg-[#2ECC71]/15", text: "text-[#2ECC71]", label: "Paid" },
+    credit: {
+      bg: "bg-[#F5A623]/18",
+      text: "text-[#F5A623]",
+      label: "Outstanding",
+    },
     cancelled: {
       bg: "bg-[#E74C3C]/15",
       text: "text-[#E74C3C]",
       label: "Cancelled",
     },
     refunded: {
-      bg: "bg-[#F5A623]/15",
-      text: "text-[#F5A623]",
+      bg: "bg-[#9B59B6]/15",
+      text: "text-[#9B59B6]",
       label: "Refunded",
     },
   }[status] || { bg: "bg-white/[0.1]", text: "text-[#A1A4B3]", label: status };
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${config.bg} ${config.text}`}
     >
-      {config.label}
+      <span>{config.label}</span>
     </span>
   );
 }

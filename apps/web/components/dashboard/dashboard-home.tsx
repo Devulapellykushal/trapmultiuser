@@ -1,20 +1,11 @@
 /**
- * Dashboard Overview Page
- *
- * PHASE 17: DASHBOARDS & VISUAL ANALYTICS
- * ========================================
- *
- * Core Rule: Dashboards visualize answers. They do not calculate them.
- * All data comes from Phase 16 report APIs.
- *
- * KPIs displayed from /reports/sales/summary/
- * Trend chart from /reports/sales/trends/
+ * Dashboard Overview Page (admin home)
  */
 "use client";
 
-import * as React from "react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
+  BarChart3,
   DollarSign,
   ShoppingCart,
   Receipt,
@@ -24,6 +15,7 @@ import {
   FileText,
   LayoutDashboard,
   Calendar,
+  UserRound,
 } from "lucide-react";
 import {
   LineChart,
@@ -47,8 +39,12 @@ import {
   EmptyState,
 } from "@/components/dashboard";
 import { LowStockWidget } from "@/components/notifications";
+import {
+  normalizeSalesSummary,
+  normalizeSalesTrends,
+} from "@/hooks/use-reports";
+import { adminHref } from "@/lib/admin-routes";
 
-// Format currency helper
 function formatCurrency(amount: number | string): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   return new Intl.NumberFormat("en-IN", {
@@ -59,13 +55,24 @@ function formatCurrency(amount: number | string): string {
   }).format(num);
 }
 
-// Format date for chart
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
 }
 
-export default function DashboardPage() {
+/** Readable Y-axis labels for revenue (avoids ₹0k for small totals in light mode). */
+function formatYAxisRevenue(value: number): string {
+  const v = Math.abs(value);
+  if (v < 1000) return `₹${Math.round(value)}`;
+  if (v < 100_000) {
+    const k = value / 1000;
+    return `₹${v >= 10_000 ? k.toFixed(0) : k.toFixed(1)}k`;
+  }
+  if (v < 10_000_000) return `₹${(value / 100_000).toFixed(1)}L`;
+  return formatCurrency(value);
+}
+
+export default function DashboardHomePage() {
   const [summary, setSummary] = useState<SalesSummaryReport | null>(null);
   const [trends, setTrends] = useState<SalesTrendsReport | null>(null);
   const [groupBy, setGroupBy] = useState<"day" | "month">("day");
@@ -80,8 +87,8 @@ export default function DashboardPage() {
         reportsService.getSalesSummary(),
         reportsService.getSalesTrends({ groupBy }),
       ]);
-      setSummary(summaryRes);
-      setTrends(trendsRes);
+      setSummary(normalizeSalesSummary(summaryRes));
+      setTrends(normalizeSalesTrends(trendsRes));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load dashboard data",
@@ -95,43 +102,72 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  // Loading state
+  const paddedSinglePeriod = (trends?.results?.length ?? 0) === 1;
+
+  const chartData = useMemo(() => {
+    const rawRows = trends?.results ?? [];
+    if (rawRows.length === 0) return [];
+    if (rawRows.length === 1) {
+      const item = rawRows[0];
+      const period = formatDate(item.period);
+      const revenue = parseFloat(String(item.totalSales));
+      const orders = item.invoiceCount;
+      const items = item.totalItems;
+      return [
+        { idx: 0, period, revenue, orders, items },
+        { idx: 1, period, revenue, orders, items },
+      ];
+    }
+    return rawRows.map((item) => ({
+      period: formatDate(item.period),
+      revenue: parseFloat(String(item.totalSales)),
+      orders: item.invoiceCount,
+      items: item.totalItems,
+    }));
+  }, [trends]);
+
+  const axisMuted = "var(--text-muted)";
+  const axisLine = "var(--border-default)";
+  const gridStroke = "var(--border-default)";
+
   if (loading && !summary) {
     return (
       <PageTransition>
         <div className="space-y-6">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-              <p className="text-sm text-white/40 mt-1">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <LayoutDashboard className="w-6 h-6 text-[#6366F1]" />
+                Dashboard
+              </h1>
+              <p className="text-sm text-[var(--text-muted)] mt-1">
                 Analytics overview from report APIs
               </p>
             </div>
           </div>
 
-          {/* KPI Skeletons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[...Array(5)].map((_, i) => (
               <KPICard key={i} title="" value="" loading />
             ))}
           </div>
 
-          {/* Chart Skeleton */}
           <ChartSkeleton height={400} />
         </div>
       </PageTransition>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-sm text-white/40 mt-1">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <LayoutDashboard className="w-6 h-6 text-[#6366F1]" />
+              Dashboard
+            </h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               Analytics overview from report APIs
             </p>
           </div>
@@ -141,25 +177,29 @@ export default function DashboardPage() {
     );
   }
 
-  // Empty state
   if (!summary || summary.invoiceCount === 0) {
     return (
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-sm text-white/40 mt-1">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <LayoutDashboard className="w-6 h-6 text-[#6366F1]" />
+              Dashboard
+            </h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               Analytics overview from report APIs
             </p>
           </div>
-          <div className="bg-white/5 rounded-xl border border-white/10">
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)]">
             <EmptyState
               icon={LayoutDashboard}
               title="No sales data yet"
               description="Start making sales through the POS system to see analytics here. All data is derived from your sales and inventory records."
               action={{
                 label: "Go to POS",
-                onClick: () => (window.location.href = "/pos"),
+                onClick: () => {
+                  window.location.href = "/pos";
+                },
               }}
             />
           </div>
@@ -168,34 +208,26 @@ export default function DashboardPage() {
     );
   }
 
-  // Prepare chart data
-  const chartData =
-    trends?.results?.map((item) => ({
-      period: formatDate(item.period),
-      revenue: parseFloat(item.totalSales),
-      orders: item.invoiceCount,
-      items: item.totalItems,
-    })) || [];
-
   return (
     <PageTransition>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-sm text-white/40 mt-1">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <LayoutDashboard className="w-6 h-6 text-[#6366F1]" />
+              Dashboard
+            </h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               Data derived from Phase 16 report APIs • No frontend calculations
             </p>
           </div>
 
-          {/* Period Toggle */}
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-white/40" />
+            <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as "day" | "month")}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+              className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
             >
               <option value="day">Daily</option>
               <option value="month">Monthly</option>
@@ -203,7 +235,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI Cards - Data from /reports/sales/summary/ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
             title="Total Revenue"
@@ -237,24 +268,23 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Sales Trend Chart - Data from /reports/sales/trends/ */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-sm rounded-xl border border-[var(--border-default)] p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-semibold text-white">Sales Trend</h2>
-              <p className="text-sm text-white/40">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Sales Trend</h2>
+              <p className="text-sm text-[var(--text-muted)]">
                 {groupBy === "day" ? "Daily" : "Monthly"} revenue from completed
                 sales
               </p>
             </div>
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#C6A15B]"></div>
-                <span className="text-white/60">Revenue</span>
+                <div className="w-3 h-3 rounded-full bg-[#6366F1]"></div>
+                <span className="text-[var(--text-secondary)]">Revenue</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                <span className="text-white/60">Orders</span>
+                <div className="w-3 h-3 rounded-full bg-[#A855F7]"></div>
+                <span className="text-[var(--text-secondary)]">Orders</span>
               </div>
             </div>
           </div>
@@ -264,31 +294,44 @@ export default function DashboardPage() {
               <LineChart data={chartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={gridStroke}
+                  opacity={0.55}
                 />
-                <XAxis
-                  dataKey="period"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-                />
+                {paddedSinglePeriod ? (
+                  <XAxis
+                    dataKey="idx"
+                    type="number"
+                    domain={[0, 1]}
+                    ticks={[0.5]}
+                    tickFormatter={() => chartData[0]?.period ?? ""}
+                    tick={{ fill: axisMuted, fontSize: 12 }}
+                    axisLine={{ stroke: axisLine }}
+                  />
+                ) : (
+                  <XAxis
+                    dataKey="period"
+                    tick={{ fill: axisMuted, fontSize: 12 }}
+                    axisLine={{ stroke: axisLine }}
+                  />
+                )}
                 <YAxis
                   yAxisId="left"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-                  tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                  tick={{ fill: axisMuted, fontSize: 12 }}
+                  axisLine={{ stroke: axisLine }}
+                  tickFormatter={formatYAxisRevenue}
                 />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                  tick={{ fill: axisMuted, fontSize: 12 }}
+                  axisLine={{ stroke: axisLine }}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(26, 27, 35, 0.95)",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    backgroundColor: "var(--bg-elevated)",
+                    border: "1px solid var(--border-default)",
                     borderRadius: "8px",
-                    color: "white",
+                    color: "var(--text-primary)",
                   }}
                   formatter={(value, name) => {
                     if (value === undefined) return ["-", name];
@@ -303,19 +346,19 @@ export default function DashboardPage() {
                   yAxisId="left"
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#C6A15B"
+                  stroke="#6366F1"
                   strokeWidth={2}
-                  dot={{ fill: "#C6A15B", strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: "#C6A15B" }}
+                  dot={{ fill: "#6366F1", strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: "#6366F1" }}
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="orders"
-                  stroke="#10B981"
+                  stroke="#A855F7"
                   strokeWidth={2}
-                  dot={{ fill: "#10B981", strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: "#10B981" }}
+                  dot={{ fill: "#A855F7", strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: "#A855F7" }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -328,18 +371,18 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
-            <h2 className="text-lg font-semibold text-white mb-5">
+          <div className="bg-[var(--bg-surface)] backdrop-blur-sm rounded-xl border border-[var(--border-default)] p-6">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-5">
               Quick Actions
             </h2>
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: "New Sale", icon: ShoppingCart, href: "/pos" },
-                { label: "Inventory", icon: Package, href: "/inventory" },
-                { label: "View Invoices", icon: FileText, href: "/invoices" },
-                { label: "Stores", icon: TrendingUp, href: "/stores" },
+                { label: "Inventory", icon: Package, href: adminHref("/inventory") },
+                { label: "Sales", icon: FileText, href: adminHref("/invoices") },
+                { label: "Reports", icon: BarChart3, href: adminHref("/reports") },
+                { label: "Customers", icon: UserRound, href: adminHref("/customers") },
               ].map((action) => {
                 const Icon = action.icon;
                 return (
@@ -348,10 +391,10 @@ export default function DashboardPage() {
                     href={action.href}
                     className="flex items-center gap-3 p-4 rounded-lg bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.12] transition-all group"
                   >
-                    <div className="p-2 rounded-md bg-[#C6A15B]/10 group-hover:bg-[#C6A15B]/15 transition-colors">
-                      <Icon className="w-4 h-4 text-[#C6A15B] stroke-[1.5]" />
+                    <div className="p-2 rounded-md bg-[#6366F1]/10 group-hover:bg-[#6366F1]/15 transition-colors">
+                      <Icon className="w-4 h-4 text-[#6366F1] stroke-[1.5]" />
                     </div>
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium text-[var(--text-primary)]">
                       {action.label}
                     </span>
                   </a>
@@ -360,118 +403,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Low Stock Widget */}
           <LowStockWidget maxItems={5} />
-        </div>
-
-        {/* Store Alerts Widget */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StoreAlertsWidget />
         </div>
       </div>
     </PageTransition>
-  );
-}
-
-// Store Alerts Widget Component - fetches low stock alerts from stores
-function StoreAlertsWidget() {
-  const [alerts, setAlerts] = React.useState<{
-    totalAlerts: number;
-    stores: Array<{
-      storeId: string;
-      storeName: string;
-      storeCode: string;
-      lowStockCount: number;
-    }>;
-  } | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    async function fetchAlerts() {
-      try {
-        const { storesService } = await import("@/services");
-        const data = await storesService.getLowStockAlerts();
-        setAlerts(data);
-      } catch (err) {
-        console.error("Failed to fetch store alerts:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchAlerts();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
-        <h2 className="text-lg font-semibold text-white mb-5">Store Alerts</h2>
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-pulse text-white/40">Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!alerts || alerts.totalAlerts === 0) {
-    return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
-        <h2 className="text-lg font-semibold text-white mb-5">Store Alerts</h2>
-        <div className="flex flex-col items-center justify-center py-6 text-center">
-          <div className="p-3 rounded-full bg-emerald-500/10 mb-3">
-            <Package className="w-6 h-6 text-emerald-400" />
-          </div>
-          <p className="text-white/60 text-sm">All stores are well stocked</p>
-          <a
-            href="/stores"
-            className="text-[#C6A15B] text-sm mt-2 hover:underline"
-          >
-            View all stores →
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-amber-500/5 backdrop-blur-sm rounded-xl border border-amber-500/20 p-6">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold text-white">Store Alerts</h2>
-        <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
-          {alerts.totalAlerts} alert(s)
-        </span>
-      </div>
-      <div className="space-y-3">
-        {alerts.stores.slice(0, 3).map((store) => (
-          <a
-            key={store.storeId}
-            href={`/stores/${store.storeId}`}
-            className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-amber-500/10">
-                <Package className="w-4 h-4 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white group-hover:text-amber-300 transition-colors">
-                  {store.storeName}
-                </p>
-                <p className="text-xs text-white/40">{store.storeCode}</p>
-              </div>
-            </div>
-            <span className="text-amber-400 text-sm font-medium">
-              {store.lowStockCount} low
-            </span>
-          </a>
-        ))}
-        {alerts.stores.length > 3 && (
-          <a
-            href="/stores"
-            className="block text-center text-sm text-[#C6A15B] hover:underline py-2"
-          >
-            View all {alerts.stores.length} stores with alerts →
-          </a>
-        )}
-      </div>
-    </div>
   );
 }

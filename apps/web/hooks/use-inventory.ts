@@ -11,7 +11,8 @@ export const inventoryKeys = {
   productList: (params?: ProductListParams) =>
     [...inventoryKeys.products(), params] as const,
   product: (id: string) => [...inventoryKeys.products(), id] as const,
-  warehouses: () => [...inventoryKeys.all, "warehouses"] as const,
+  warehouses: (scope: "active" | "with-inactive" = "active") =>
+    [...inventoryKeys.all, "warehouses", scope] as const,
   categories: () => [...inventoryKeys.all, "categories"] as const,
   summary: () => [...inventoryKeys.all, "summary"] as const,
   posProducts: (params?: {
@@ -37,10 +38,14 @@ export function useProduct(id: string) {
   });
 }
 
-export function useWarehouses() {
+export function useWarehouses(options?: { includeInactive?: boolean }) {
+  const scope = options?.includeInactive ? "with-inactive" : "active";
   return useQuery({
-    queryKey: inventoryKeys.warehouses(),
-    queryFn: () => inventoryService.getWarehouses(),
+    queryKey: inventoryKeys.warehouses(scope),
+    queryFn: () =>
+      inventoryService.getWarehouses({
+        includeInactive: options?.includeInactive,
+      }),
   });
 }
 

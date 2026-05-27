@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             name='BusinessSettings',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('business_name', models.CharField(default='TRAP INVENTORY', max_length=200)),
+                ('business_name', models.CharField(default='Quake INVENTORY', max_length=200)),
                 ('tagline', models.CharField(blank=True, default='Premium Apparel', max_length=200)),
                 ('address_line1', models.CharField(blank=True, max_length=200)),
                 ('address_line2', models.CharField(blank=True, max_length=200)),

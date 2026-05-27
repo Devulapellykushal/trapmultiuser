@@ -1,5 +1,5 @@
 """
-TRAP Inventory API URL Configuration.
+Quake Inventory API URL Configuration.
 """
 
 from django.contrib import admin
@@ -31,6 +31,9 @@ urlpatterns = [
     
     # API v1 - Inventory
     path('api/v1/inventory/', include('inventory.urls')),
+
+    # API v1 - Customers (POS / CRM)
+    path('api/v1/customers/', include('customers.urls')),
     
     # API v1 - Sales
     path('api/v1/sales/', include('sales.urls')),

@@ -161,16 +161,16 @@ def get_top_selling_products(
         sale__status=Sale.Status.COMPLETED,
         sale__created_at__date__gte=start,
         sale__created_at__date__lte=end
-    ).select_related('variant__product')
+    ).select_related('product')
     
     if warehouse_id:
         items = items.filter(sale__warehouse_id=warehouse_id)
     
-    # Aggregate by variant
+    # Aggregate by product (Phase 13: line items reference Product, not ProductVariant)
     top_products = items.values(
-        'variant__id',
-        'variant__sku',
-        'variant__product__name'
+        'product__id',
+        'product__sku',
+        'product__name'
     ).annotate(
         total_quantity=Sum('quantity'),
         total_revenue=Sum('line_total')
@@ -178,11 +178,13 @@ def get_top_selling_products(
     
     result = []
     for idx, item in enumerate(top_products, 1):
+        sku = item['product__sku'] or ''
         result.append({
             'rank': idx,
-            'variant_id': str(item['variant__id']),
-            'sku': item['variant__sku'],
-            'product_name': item['variant__product__name'],
+            # Legacy key name kept for dashboard consumers; value is product UUID
+            'variant_id': str(item['product__id']),
+            'sku': sku,
+            'product_name': item['product__name'],
             'total_quantity': item['total_quantity'],
             'total_revenue': str(item['total_revenue'])
         })
@@ -205,16 +207,16 @@ def get_low_performers(
         sale__status=Sale.Status.COMPLETED,
         sale__created_at__date__gte=start,
         sale__created_at__date__lte=end
-    ).select_related('variant__product')
+    ).select_related('product')
     
     if warehouse_id:
         items = items.filter(sale__warehouse_id=warehouse_id)
     
-    # Aggregate by variant - order ascending to get lowest
+    # Aggregate by product — ascending quantity for lowest performers
     low_products = items.values(
-        'variant__id',
-        'variant__sku',
-        'variant__product__name'
+        'product__id',
+        'product__sku',
+        'product__name'
     ).annotate(
         total_quantity=Sum('quantity'),
         total_revenue=Sum('line_total')
@@ -222,11 +224,12 @@ def get_low_performers(
     
     result = []
     for idx, item in enumerate(low_products, 1):
+        sku = item['product__sku'] or ''
         result.append({
             'rank': idx,
-            'variant_id': str(item['variant__id']),
-            'sku': item['variant__sku'],
-            'product_name': item['variant__product__name'],
+            'variant_id': str(item['product__id']),
+            'sku': sku,
+            'product_name': item['product__name'],
             'total_quantity': item['total_quantity'],
             'total_revenue': str(item['total_revenue'])
         })

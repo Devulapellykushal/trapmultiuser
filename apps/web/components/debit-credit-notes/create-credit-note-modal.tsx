@@ -19,6 +19,7 @@ import {
   CreateCreditNoteData,
 } from "@/services/debit-credit-notes.service";
 import { inventoryService } from "@/services/inventory.service";
+import { inventoryKeys } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 interface CreateCreditNoteModalProps {
@@ -88,7 +89,7 @@ export function CreateCreditNoteModal({
 
   // Fetch warehouses
   const { data: warehousesResponse } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
     enabled: isOpen,
   });

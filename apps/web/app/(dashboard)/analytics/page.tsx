@@ -61,7 +61,10 @@ export default function AnalyticsPage() {
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Analytics</h1>
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+              Analytics
+            </h1>
             <p className="text-sm text-[#6F7285] mt-1">Loading analytics...</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,7 +81,10 @@ export default function AnalyticsPage() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA]">Analytics</h1>
+          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+            Analytics
+          </h1>
           <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
             <ErrorState 
               message="Could not load analytics. Check if backend is running."
@@ -96,7 +102,10 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA]">Analytics</h1>
+            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+              Analytics
+            </h1>
             <p className="text-sm text-[#6F7285] mt-1">Business intelligence & insights</p>
           </div>
           

@@ -325,7 +325,7 @@ export default function SalesReportsPage() {
               onClick={() => setProductMetric("revenue")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 productMetric === "revenue"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -335,7 +335,7 @@ export default function SalesReportsPage() {
               onClick={() => setProductMetric("quantity")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 productMetric === "quantity"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -377,7 +377,7 @@ export default function SalesReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -402,7 +402,7 @@ export default function SalesReportsPage() {
               />
               <Bar
                 dataKey={productMetric}
-                fill="#C6A15B"
+                fill="#6366F1"
                 radius={[0, 4, 4, 0]}
               />
             </BarChart>
@@ -425,7 +425,7 @@ export default function SalesReportsPage() {
           <select
             value={trendGroupBy}
             onChange={(e) => setTrendGroupBy(e.target.value as "day" | "month")}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
           >
             <option value="day">Daily</option>
             <option value="month">Monthly</option>
@@ -437,7 +437,7 @@ export default function SalesReportsPage() {
             {/* Legend */}
             <div className="flex items-center gap-6 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#C6A15B]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#6366F1]"></div>
                 <span className="text-sm text-white/60">Invoices</span>
               </div>
               <div className="flex items-center gap-2">
@@ -456,8 +456,8 @@ export default function SalesReportsPage() {
                     x2="0"
                     y2="1"
                   >
-                    <stop offset="5%" stopColor="#C6A15B" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#C6A15B" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient
                     id="itemsGradient"
@@ -466,8 +466,8 @@ export default function SalesReportsPage() {
                     x2="0"
                     y2="1"
                   >
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#A855F7" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -487,7 +487,7 @@ export default function SalesReportsPage() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(26, 27, 35, 0.95)",
+                    backgroundColor: "rgba(6, 6, 8, 0.95)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "8px",
                     color: "white",
@@ -497,7 +497,7 @@ export default function SalesReportsPage() {
                 <Area
                   type="monotone"
                   dataKey="invoices"
-                  stroke="#C6A15B"
+                  stroke="#6366F1"
                   strokeWidth={2}
                   fill="url(#invoiceGradient)"
                   name="Invoices"
@@ -505,7 +505,7 @@ export default function SalesReportsPage() {
                 <Area
                   type="monotone"
                   dataKey="items"
-                  stroke="#10B981"
+                  stroke="#A855F7"
                   strokeWidth={2}
                   fill="url(#itemsGradient)"
                   name="Items Sold"

@@ -382,7 +382,6 @@ export const reportsService = {
     api.get<CurrentStockReport>("/reports/inventory/current/", {
       warehouse_id: params?.warehouseId,
       product_id: params?.productId,
-      category: params?.dateFrom, // using for filter
       page: params?.page,
       page_size: params?.pageSize,
     }),

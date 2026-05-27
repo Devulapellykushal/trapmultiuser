@@ -73,15 +73,15 @@ function formatFullCurrency(amount: number | string): string {
 
 // Colors for pie chart
 const COLORS = [
-  "#C6A15B",
-  "#10B981",
-  "#3B82F6",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
+  "#6366F1",
+  "#A855F7",
   "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
   "#6366F1",
 ];
 
@@ -323,7 +323,7 @@ export default function CategoryReportsPage() {
               onClick={() => setMetric("revenue")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "revenue"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -333,7 +333,7 @@ export default function CategoryReportsPage() {
               onClick={() => setMetric("quantity")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "quantity"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -375,7 +375,7 @@ export default function CategoryReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -398,7 +398,7 @@ export default function CategoryReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey={metric} fill="#C6A15B" radius={[0, 4, 4, 0]} />
+              <Bar dataKey={metric} fill="#6366F1" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -428,7 +428,7 @@ export default function CategoryReportsPage() {
                   `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
                 }
                 outerRadius={120}
-                fill="#8884d8"
+                fill="#A855F7"
                 dataKey="value"
               >
                 {pieChartData.map((entry, index) => (
@@ -440,7 +440,7 @@ export default function CategoryReportsPage() {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",

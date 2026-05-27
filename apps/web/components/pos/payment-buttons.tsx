@@ -24,7 +24,7 @@ export function PaymentButtons({ onPayment }: PaymentButtonsProps) {
           transition-all duration-200
           ${isEmpty
             ? "bg-white/[0.03] border border-white/[0.06] text-[#6F7285] cursor-not-allowed"
-            : "bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] hover:bg-white/[0.08] hover:border-white/[0.12]"
+            : "bg-white/[0.05] border border-white/[0.08] text-[var(--text-primary)] hover:bg-white/[0.08] hover:border-white/[0.12]"
           }
         `}
       >
@@ -40,8 +40,8 @@ export function PaymentButtons({ onPayment }: PaymentButtonsProps) {
           flex items-center justify-center gap-3 py-4 rounded-xl font-semibold text-base
           transition-all duration-200
           ${isEmpty
-            ? "bg-[#C6A15B]/30 text-[#0E0F13]/50 cursor-not-allowed"
-            : "bg-[#C6A15B] text-[#0E0F13] hover:bg-[#D4B06A] shadow-lg shadow-[#C6A15B]/20"
+            ? "bg-[#6366F1]/30 text-white/50 cursor-not-allowed"
+            : "bg-[#6366F1] text-white hover:bg-[#7376FF] shadow-lg shadow-[#6366F1]/20"
           }
         `}
       >

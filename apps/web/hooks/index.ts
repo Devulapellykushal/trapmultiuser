@@ -1,4 +1,5 @@
 export * from "./use-inventory";
+export * from "./use-inventory-warehouse-filter";
 export * from "./use-analytics";
 export * from "./use-invoices";
 export * from "./use-sales";

@@ -3,8 +3,10 @@
 import * as React from "react";
 import { Search, X, SlidersHorizontal, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { useWarehouses, useCategories } from "@/hooks";
 import { useAuth } from "@/lib/auth";
+import { adminHref } from "@/lib/admin-routes";
 
 export type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
 export type SortOption = "name" | "stock" | "price";
@@ -142,19 +144,29 @@ export function FilterBar({
           />
         )}
 
-        {/* Warehouse */}
-        <select
-          value={warehouseFilter}
-          onChange={(e) => onWarehouseChange(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] cursor-pointer"
-        >
-          <option value="">All Warehouses</option>
-          {warehouses.map((wh: { id: string; name: string }) => (
-            <option key={wh.id} value={wh.id}>
-              {wh.name}
-            </option>
-          ))}
-        </select>
+        {/* Warehouse (optional link for admins) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={warehouseFilter}
+            onChange={(e) => onWarehouseChange(e.target.value)}
+            className="px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] cursor-pointer"
+          >
+            <option value="">All Warehouses</option>
+            {warehouses.map((wh: { id: string; name: string }) => (
+              <option key={wh.id} value={wh.id}>
+                {wh.name}
+              </option>
+            ))}
+          </select>
+          {isAdmin && (
+            <Link
+              href={adminHref("/warehouses")}
+              className="text-xs text-[#C6A15B] hover:underline whitespace-nowrap"
+            >
+              Add or edit warehouses
+            </Link>
+          )}
+        </div>
 
         {/* Sort */}
         <select
@@ -262,6 +274,18 @@ export function FilterBar({
                   </option>
                 ))}
               </select>
+
+              {isAdmin && (
+                <p className="col-span-2 text-xs text-[#6F7285]">
+                  <Link
+                    href={adminHref("/warehouses")}
+                    className="text-[#C6A15B] hover:underline font-medium"
+                  >
+                    Add or edit warehouses
+                  </Link>{" "}
+                  for stock storage.
+                </p>
+              )}
 
               <select
                 value={sortBy}

@@ -11,6 +11,7 @@ HARDENING RULES:
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
+    ServiceItem,
     Warehouse, Product, ProductVariant, StockLedger, StockSnapshot,
     ProductPricing, ProductImage
 )
@@ -27,6 +28,17 @@ class NoDeleteMixin:
         return False
     
     actions = None  # Disable bulk actions including delete
+
+
+@admin.register(ServiceItem)
+class ServiceItemAdmin(NoDeleteMixin, admin.ModelAdmin):
+    list_display = [
+        'service_name', 'default_price', 'gst_percent', 'hsn_code',
+        'active', 'created_at',
+    ]
+    list_filter = ['active']
+    search_fields = ['service_name', 'hsn_code']
+    readonly_fields = ['id', 'created_at', 'updated_at']
 
 
 @admin.register(Warehouse)

@@ -17,10 +17,10 @@ export PATH="/usr/local/opt/postgresql@15/bin:$PATH"
 
 ```bash
 # Create the database
-createdb trap_inventory
+createdb Quake_inventory
 
 # Verify connection
-psql -d trap_inventory -c "SELECT 1;"
+psql -d Quake_inventory -c "SELECT 1;"
 ```
 
 ## Configuration
@@ -28,7 +28,7 @@ psql -d trap_inventory -c "SELECT 1;"
 Update your `.env` file with:
 
 ```env
-POSTGRES_DB=trap_inventory
+POSTGRES_DB=Quake_inventory
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your-password
 POSTGRES_HOST=localhost
@@ -39,7 +39,7 @@ POSTGRES_PORT=5432
 
 ```bash
 # Connect to database
-psql -d trap_inventory
+psql -d Quake_inventory
 
 # List all databases
 psql -l

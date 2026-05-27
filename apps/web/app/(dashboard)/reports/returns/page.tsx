@@ -58,6 +58,7 @@ import {
   useAdjustments,
 } from "@/hooks";
 import { useAuth } from "@/lib/auth";
+import { adminHref } from "@/lib/admin-routes";
 import { AdjustmentItem } from "@/services";
 
 // Format currency
@@ -80,7 +81,7 @@ export default function ReturnsReportsPage() {
   // Redirect non-admins
   React.useEffect(() => {
     if (!authLoading && !isAdmin) {
-      router.push("/reports");
+      router.push(adminHref("/reports"));
     }
   }, [authLoading, isAdmin, router]);
 
@@ -387,7 +388,7 @@ export default function ReturnsReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -404,7 +405,7 @@ export default function ReturnsReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey="returned" fill="#EF4444" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="returned" fill="#EC4899" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

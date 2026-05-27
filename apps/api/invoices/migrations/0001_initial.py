@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
             name='Invoice',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('invoice_number', models.CharField(db_index=True, help_text='Sequential invoice number (e.g., TRAP/INV/2026/0001)', max_length=50, unique=True)),
+                ('invoice_number', models.CharField(db_index=True, help_text='Sequential invoice number (e.g., Quake/INV/2026/0001)', max_length=50, unique=True)),
                 ('subtotal_amount', models.DecimalField(decimal_places=2, help_text='Sum of all line items (before discount)', max_digits=12, validators=[django.core.validators.MinValueValidator(Decimal('0.00'))])),
                 ('discount_type', models.CharField(choices=[('NONE', 'No Discount'), ('PERCENTAGE', 'Percentage Discount'), ('FLAT', 'Flat Discount')], default='NONE', max_length=20)),
                 ('discount_value', models.DecimalField(blank=True, decimal_places=2, help_text='Discount percentage (0-100) or flat amount', max_digits=10, null=True)),
@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
             name='InvoiceSequence',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('prefix', models.CharField(default='TRAP/INV', max_length=20)),
+                ('prefix', models.CharField(default='Quake/INV', max_length=20)),
                 ('current_number', models.PositiveIntegerField(default=0)),
                 ('year', models.PositiveIntegerField()),
             ],

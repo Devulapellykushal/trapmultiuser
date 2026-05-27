@@ -13,6 +13,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { purchaseOrdersService, inventoryService } from "@/services";
+import { inventoryKeys } from "@/hooks";
 
 // =============================================================================
 // TYPES
@@ -84,7 +85,7 @@ export function CreatePurchaseOrderModal({
   });
 
   const { data: warehouses = [], isLoading: warehousesLoading } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
     enabled: isOpen,
   });

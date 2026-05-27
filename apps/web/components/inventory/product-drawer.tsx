@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import {
   X,
   Package,
@@ -445,26 +444,37 @@ export function ProductDrawer({
 
                   {/* Selected Warehouse Stock Info */}
                   {selectedWarehouse && (
-                    <div className="p-3 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/20">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-[#C6A15B]" />
-                          <span className="text-sm font-medium text-[#C6A15B]">
-                            {selectedWarehouse.name} Stock
-                          </span>
+                    <div className="rounded-lg border border-[#C6A15B]/30 bg-[#1E1F2A] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#A1A4B3]">
+                            Stock at this warehouse
+                          </p>
+                          <p className="mt-0.5 truncate text-sm font-semibold text-[#F5F6FA]">
+                            {selectedWarehouse.name}
+                          </p>
                         </div>
-                        <span
-                          className={`text-lg font-bold tabular-nums ${
-                            selectedWarehouseStock === 0
-                              ? "text-[#E74C3C]"
-                              : selectedWarehouseStock !== null &&
-                                  selectedWarehouseStock <= 5
-                                ? "text-[#F5A623]"
-                                : "text-[#C6A15B]"
-                          }`}
-                        >
-                          {selectedWarehouseStock ?? 0} units
-                        </span>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#A1A4B3]">
+                            On hand
+                          </p>
+                          <p
+                            className={`mt-0.5 text-xl font-bold tabular-nums ${
+                              selectedWarehouseStock === 0
+                                ? "text-[#E74C3C]"
+                                : selectedWarehouseStock !== null &&
+                                    selectedWarehouseStock <= 5
+                                  ? "text-[#F5A623]"
+                                  : "text-[#F5F6FA]"
+                            }`}
+                          >
+                            {selectedWarehouseStock ?? 0}
+                            <span className="text-sm font-semibold text-[#A1A4B3]">
+                              {" "}
+                              units
+                            </span>
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -477,16 +487,16 @@ export function ProductDrawer({
                       Barcode
                     </h4>
                     <div className="p-4 rounded-lg bg-white border border-white/[0.08] text-center">
-                      {/* Barcode Image */}
+                      {/* Barcode image: public SVG endpoint; use <img> so no next/image remote host config */}
                       <div className="mb-3">
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element -- API SVG; avoids next/image host config */}
+                        <img
                           src={`${API_BASE_URL}/inventory/barcodes/${product.barcode}/image/`}
                           alt={`Barcode ${product.barcode}`}
                           width={200}
                           height={96}
-                          className="mx-auto max-h-24"
+                          className="mx-auto max-h-24 w-auto"
                           onError={(e) => {
-                            // Hide image on error, show text fallback
                             e.currentTarget.style.display = "none";
                           }}
                         />
@@ -547,18 +557,30 @@ export function ProductDrawer({
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-[#6F7285]">
-                        No warehouse data
-                      </p>
+                      <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-sm leading-relaxed text-[#A1A4B3]">
+                        <p className="font-medium text-[#F5F6FA]">
+                          No breakdown by warehouse
+                        </p>
+                        <p className="mt-1 text-[#6F7285]">
+                          Receipts or stock transfers will populate per-location
+                          quantities. Total below is still the sum across
+                          warehouses.
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/20">
-                    <span className="text-sm font-medium text-[#C6A15B]">
-                      Total Stock
-                    </span>
-                    <span className="text-lg font-bold text-[#C6A15B] tabular-nums">
-                      {product.stock.total} units
-                    </span>
+                  <div className="rounded-lg border border-white/[0.1] bg-[#1E1F2A] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-[#A1A4B3]">
+                        Total stock (all locations)
+                      </span>
+                      <span className="text-lg font-bold text-[#F5F6FA] tabular-nums">
+                        {product.stock.total}
+                        <span className="text-sm font-semibold text-[#A1A4B3] ml-1">
+                          units
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -580,28 +602,52 @@ export function ProductDrawer({
                         {formatCurrency(product.mrp || product.sellingPrice)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/20">
-                      <p className="text-xs text-[#C6A15B] mb-1">Selling</p>
-                      <p className="text-lg font-semibold text-[#C6A15B] tabular-nums">
+                    <div className="rounded-lg border border-[#C6A15B]/35 bg-[#1E1F2A] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[#A1A4B3] mb-1">
+                        Selling price
+                      </p>
+                      <p className="text-lg font-semibold text-[#F5F6FA] tabular-nums">
                         {formatCurrency(product.sellingPrice)}
                       </p>
+                      {product.sellingPrice <= 0 && (
+                        <p className="mt-2 text-[11px] leading-snug text-[#F5A623]">
+                          Not set — use Edit to add a selling price (POS uses
+                          this amount).
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#2ECC71]/10 border border-[#2ECC71]/20">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-[#2ECC71]">
-                        Profit Margin
+                  <div
+                    className={`rounded-lg border p-3 ${
+                      product.costPrice && product.costPrice > 0
+                        ? "border-[#2ECC71]/30 bg-[#1E1F2A]"
+                        : "border-white/[0.08] bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`text-sm ${
+                          product.costPrice && product.costPrice > 0
+                            ? "text-[#2ECC71]"
+                            : "text-[#6F7285]"
+                        }`}
+                      >
+                        Profit margin
                       </span>
-                      <span className="text-sm font-semibold text-[#2ECC71] tabular-nums">
-                        {product.costPrice && product.costPrice > 0
-                          ? Math.round(
-                              ((product.sellingPrice - product.costPrice) /
-                                product.costPrice) *
-                                100,
-                            )
-                          : 0}
-                        %
-                      </span>
+                      {product.costPrice && product.costPrice > 0 ? (
+                        <span className="text-sm font-semibold text-[#2ECC71] tabular-nums">
+                          {Math.round(
+                            ((product.sellingPrice - product.costPrice) /
+                              product.costPrice) *
+                              100,
+                          )}
+                          %
+                        </span>
+                      ) : (
+                        <span className="text-xs text-right leading-snug text-[#A1A4B3]">
+                          Add cost price to calculate margin
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -641,23 +687,27 @@ export function ProductDrawer({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     {/* Edit button */}
                     {!product.isDeleted && (
                       <button
+                        type="button"
                         onClick={() => setShowEditModal(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/30 text-[#C6A15B] font-medium hover:bg-[#C6A15B]/20 transition-colors"
+                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0E0F13] border-2 border-[#C6A15B]/60 text-[#F7EED6] text-sm font-semibold hover:bg-[#C6A15B]/15 hover:border-[#C6A15B] transition-colors shadow-sm"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="w-4 h-4 shrink-0" aria-hidden />
+                        <span>Edit product</span>
                       </button>
                     )}
                     {/* Delete button - Admin only */}
                     {isAdmin && !product.isDeleted && (
                       <button
+                        type="button"
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-[#E74C3C]/10 border border-[#E74C3C]/30 text-[#E74C3C] font-medium hover:bg-[#E74C3C]/20 transition-colors"
+                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0E0F13] border-2 border-red-500/55 text-red-200 text-sm font-semibold hover:bg-red-500/15 hover:border-red-400 transition-colors shadow-sm"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 shrink-0" aria-hidden />
+                        <span>Deactivate</span>
                       </button>
                     )}
                     <button

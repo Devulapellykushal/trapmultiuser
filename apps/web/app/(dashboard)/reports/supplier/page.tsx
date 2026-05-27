@@ -73,15 +73,15 @@ function formatFullCurrency(amount: number | string): string {
 
 // Colors for pie chart
 const COLORS = [
-  "#F59E0B",
-  "#10B981",
-  "#3B82F6",
-  "#C6A15B",
-  "#EF4444",
-  "#8B5CF6",
+  "#6366F1",
+  "#A855F7",
   "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
+  "#6366F1",
+  "#A855F7",
+  "#EC4899",
   "#6366F1",
 ];
 
@@ -337,7 +337,7 @@ export default function SupplierReportsPage() {
               onClick={() => setMetric("amount")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "amount"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -347,7 +347,7 @@ export default function SupplierReportsPage() {
               onClick={() => setMetric("quantity")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "quantity"
-                  ? "bg-[#C6A15B] text-black font-medium"
+                  ? "bg-[#6366F1] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -389,7 +389,7 @@ export default function SupplierReportsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",
@@ -412,7 +412,7 @@ export default function SupplierReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey={metric} fill="#F59E0B" radius={[0, 4, 4, 0]} />
+              <Bar dataKey={metric} fill="#6366F1" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -443,7 +443,7 @@ export default function SupplierReportsPage() {
                   return `${n.length > 10 ? n.substring(0, 10) + "..." : n} (${((percent ?? 0) * 100).toFixed(0)}%)`;
                 }}
                 outerRadius={120}
-                fill="#8884d8"
+                fill="#A855F7"
                 dataKey="value"
               >
                 {pieChartData.map((entry, index) => (
@@ -455,7 +455,7 @@ export default function SupplierReportsPage() {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(26, 27, 35, 0.95)",
+                  backgroundColor: "rgba(6, 6, 8, 0.95)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "white",

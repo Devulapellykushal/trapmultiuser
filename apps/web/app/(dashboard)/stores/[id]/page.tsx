@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
+import { adminHref } from "@/lib/admin-routes";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -36,6 +37,7 @@ import {
   StoreAnalytics,
 } from "@/services";
 import { inventoryService, Warehouse } from "@/services";
+import { inventoryKeys } from "@/hooks";
 
 // =============================================================================
 // TRANSFER STOCK MODAL
@@ -61,7 +63,7 @@ function TransferStockModal({
   const [quantity, setQuantity] = React.useState(1);
 
   const { data: warehouses = [] } = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
     enabled: isOpen,
   });
@@ -964,7 +966,7 @@ export default function StoreDetailPage() {
             Store not found
           </h2>
           <button
-            onClick={() => router.push("/stores")}
+            onClick={() => router.push(adminHref("/stores"))}
             className="mt-4 px-4 py-2 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
           >
             Back to Stores
@@ -979,7 +981,7 @@ export default function StoreDetailPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Back Button */}
         <button
-          onClick={() => router.push("/stores")}
+          onClick={() => router.push(adminHref("/stores"))}
           className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

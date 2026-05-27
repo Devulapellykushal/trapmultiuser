@@ -1,5 +1,5 @@
 """
-Analytics Views for TRAP Inventory System.
+Analytics Views for Quake Inventory System.
 
 READ-ONLY ANALYTICS API:
 - Inventory insights

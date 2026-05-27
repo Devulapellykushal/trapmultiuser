@@ -46,12 +46,18 @@ dist/
 .DS_Store
 Thumbs.db
 
+# QA battery outputs (timestamped logs; do not commit)
+qa-artifacts/
+
 # Testing
 coverage/
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
+
+# Local invoice PDF experiments (keep folder; ignore generated PDFs)
+testinvoice/*.pdf
 
 # Misc
 *.bak

@@ -1,5 +1,5 @@
 """
-Permission Classes for TRAP Inventory System.
+Permission Classes for Quake Inventory System.
 
 Provides role-based access control for API endpoints.
 """

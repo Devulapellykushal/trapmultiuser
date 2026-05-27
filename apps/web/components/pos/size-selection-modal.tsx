@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X, Package, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCart } from "./cart-context";
 
 export interface ProductVariant {
   id: string;
@@ -13,6 +14,8 @@ export interface ProductVariant {
   size: string | null;
   color: string | null;
   sellingPrice: number;
+  /** List price reference when selling price is unset in POS payloads */
+  mrp?: number;
   costPrice?: number;
   gstPercentage?: number;
   stock: number;
@@ -106,6 +109,21 @@ export function SizeSelectionModal({
   variants,
   onSelectVariant,
 }: SizeSelectionModalProps) {
+  const { items } = useCart();
+  const qtyByVariantId = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of items) {
+      const id = it.product.id;
+      m.set(id, (m.get(id) || 0) + it.quantity);
+    }
+    return m;
+  }, [items]);
+
+  const remainingForVariant = React.useCallback(
+    (v: ProductVariant) => Math.max(0, v.stock - (qtyByVariantId.get(v.id) || 0)),
+    [qtyByVariantId],
+  );
+
   const [selectedColor, setSelectedColor] = React.useState<string | null>(null);
 
   // Group variants by color
@@ -141,7 +159,7 @@ export function SizeSelectionModal({
   const hasSize = variants.some((v) => v.size);
 
   const handleSelect = (variant: ProductVariant) => {
-    if (variant.stock > 0) {
+    if (remainingForVariant(variant) > 0) {
       onSelectVariant(variant);
       onClose();
     }
@@ -166,16 +184,16 @@ export function SizeSelectionModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#1A1B23] border border-white/[0.08] rounded-2xl shadow-2xl z-50 overflow-hidden"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[var(--bg-elevated)] border border-white/[0.08] rounded-2xl shadow-2xl z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-                  <Package className="w-5 h-5 text-[#C6A15B]" />
+                <div className="p-2 rounded-lg bg-[#6366F1]/10">
+                  <Package className="w-5 h-5 text-[#6366F1]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-[#F5F6FA]">
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                     Select {hasSize ? "Size" : "Variant"}
                   </h2>
                   <p className="text-sm text-[#6F7285]">
@@ -203,11 +221,11 @@ export function SizeSelectionModal({
                     {colors.map((color) => {
                       const isSelected = selectedColor === color;
                       const colorVariants = colorGroups.get(color) || [];
-                      const totalStock = colorVariants.reduce(
-                        (sum, v) => sum + v.stock,
+                      const totalRemaining = colorVariants.reduce(
+                        (sum, v) => sum + remainingForVariant(v),
                         0,
                       );
-                      const isOutOfStock = totalStock === 0;
+                      const isOutOfStock = totalRemaining === 0;
 
                       return (
                         <button
@@ -220,10 +238,10 @@ export function SizeSelectionModal({
                             px-4 py-2 rounded-lg text-sm font-medium transition-all
                             ${
                               isSelected
-                                ? "bg-[#C6A15B] text-[#0E0F13]"
+                                ? "bg-[#6366F1] text-white"
                                 : isOutOfStock
                                   ? "bg-white/[0.02] text-[#6F7285] cursor-not-allowed line-through"
-                                  : "bg-white/[0.05] text-[#F5F6FA] hover:bg-white/[0.08]"
+                                  : "bg-white/[0.05] text-[var(--text-primary)] hover:bg-white/[0.08]"
                             }
                           `}
                         >
@@ -244,8 +262,9 @@ export function SizeSelectionModal({
                 )}
                 <div className="grid grid-cols-4 gap-2">
                   {displayVariants.map((variant) => {
-                    const isOutOfStock = variant.stock === 0;
-                    const isLowStock = variant.stock > 0 && variant.stock <= 5;
+                    const left = remainingForVariant(variant);
+                    const isOutOfStock = left === 0;
+                    const isLowStock = left > 0 && left <= 5;
                     const displayLabel =
                       variant.size || variant.color || "Default";
 
@@ -259,7 +278,7 @@ export function SizeSelectionModal({
                           ${
                             isOutOfStock
                               ? "bg-white/[0.02] border-white/[0.04] opacity-50 cursor-not-allowed"
-                              : "bg-white/[0.03] border-white/[0.08] hover:border-[#C6A15B]/50 hover:bg-[#C6A15B]/10 cursor-pointer"
+                              : "bg-white/[0.03] border-white/[0.08] hover:border-[#6366F1]/50 hover:bg-[#6366F1]/10 cursor-pointer"
                           }
                         `}
                       >
@@ -267,7 +286,7 @@ export function SizeSelectionModal({
                           className={`text-base font-semibold ${
                             isOutOfStock
                               ? "text-[#6F7285] line-through"
-                              : "text-[#F5F6FA]"
+                              : "text-[var(--text-primary)]"
                           }`}
                         >
                           {displayLabel}
@@ -275,20 +294,20 @@ export function SizeSelectionModal({
                         <span
                           className={`text-xs mt-1 ${
                             isOutOfStock
-                              ? "text-[#E74C3C]"
+                              ? "text-[#EC4899]"
                               : isLowStock
-                                ? "text-[#F5A623]"
+                                ? "text-[#A855F7]"
                                 : "text-[#6F7285]"
                           }`}
                         >
                           {isOutOfStock
                             ? "Out"
                             : isLowStock
-                              ? `Only ${variant.stock}`
-                              : `${variant.stock} left`}
+                              ? `Only ${left}`
+                              : `${left} left`}
                         </span>
                         {isLowStock && !isOutOfStock && (
-                          <AlertTriangle className="absolute top-1 right-1 w-3 h-3 text-[#F5A623]" />
+                          <AlertTriangle className="absolute top-1 right-1 w-3 h-3 text-[#A855F7]" />
                         )}
                       </button>
                     );
@@ -301,7 +320,7 @@ export function SizeSelectionModal({
                 <div className="pt-3 border-t border-white/[0.06]">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[#A1A4B3]">Price</span>
-                    <span className="text-lg font-semibold text-[#C6A15B]">
+                    <span className="text-lg font-semibold text-[#6366F1]">
                       {formatCurrency(displayVariants[0].sellingPrice)}
                     </span>
                   </div>

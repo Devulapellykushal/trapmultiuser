@@ -1,5 +1,5 @@
 """
-Custom User Model for TRAP Inventory System.
+Custom User Model for Quake Inventory System.
 
 Extends Django's AbstractUser with role-based access control.
 """
@@ -14,7 +14,7 @@ class User(AbstractUser):
     
     Roles:
     - ADMIN: Full access to all features
-    - STAFF: POS access, view inventory, no analytics
+    - STAFF: POS access, view inventory, sales summary/trends for dashboard (no deep inventory reports or profit/tax)
     """
     
     class Role(models.TextChoices):

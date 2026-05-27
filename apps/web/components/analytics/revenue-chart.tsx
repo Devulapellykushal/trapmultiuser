@@ -135,7 +135,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <motion.path
             d={generatePath()}
             fill="none"
-            stroke="#C6A15B"
+            stroke="#6366F1"
             strokeWidth="2"
             strokeLinecap="round"
             initial={{ pathLength: 0 }}
@@ -167,8 +167,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
                   cx={x}
                   cy={y}
                   r={isHovered ? 5 : 3}
-                  fill={isHovered ? "#C6A15B" : "#1A1B23"}
-                  stroke="#C6A15B"
+                  fill={isHovered ? "#6366F1" : "#111111"}
+                  stroke="#6366F1"
                   strokeWidth="2"
                   style={{ transition: "r 0.15s" }}
                 />

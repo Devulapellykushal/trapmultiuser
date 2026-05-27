@@ -1,4 +1,4 @@
-# TRAP API Deployment Guide
+# Quake API Deployment Guide
 
 ## Quick Start
 
@@ -51,10 +51,10 @@ gcloud services enable sqladmin.googleapis.com
 ### 3. Create Artifact Registry Repository
 
 ```bash
-gcloud artifacts repositories create trap \
+gcloud artifacts repositories create Quake \
     --repository-format=docker \
     --location=asia-south1 \
-    --description="TRAP Inventory Management System"
+    --description="Quake Inventory Management System"
 ```
 
 ### 4. Build and Push Docker Image
@@ -66,17 +66,17 @@ cd apps/api
 gcloud auth configure-docker asia-south1-docker.pkg.dev
 
 # Build the image
-docker build -t asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/trap/trap-api:latest .
+docker build -t asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/Quake/Quake-api:latest .
 
 # Push the image
-docker push asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/trap/trap-api:latest
+docker push asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/Quake/Quake-api:latest
 ```
 
 ### 5. Deploy to Cloud Run
 
 ```bash
-gcloud run deploy trap-api \
-    --image=asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/trap/trap-api:latest \
+gcloud run deploy Quake-api \
+    --image=asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/Quake/Quake-api:latest \
     --region=asia-south1 \
     --allow-unauthenticated \
     --port=8080 \
@@ -141,7 +141,7 @@ Both return JSON with:
 ```json
 {
   "status": "ok",
-  "service": "TRAP Inventory API",
+  "service": "Quake Inventory API",
   "version": "v1",
   "environment": "production",
   "database": "connected",

@@ -5,9 +5,9 @@
  * Uses CSS custom properties and data-theme attribute.
  */
 
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useEffect } from "react";
 
 export type Theme = "dark" | "light";
 
@@ -33,7 +33,7 @@ export const useThemeStore = create<ThemeState>()(
       },
     }),
     {
-      name: "trap-theme",
+      name: "Quake-theme",
       onRehydrateStorage: () => {
         // This callback is called after rehydration completes
         return (state) => {
