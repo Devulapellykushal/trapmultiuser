@@ -26,7 +26,7 @@ ALLOWED_HOSTS.extend([h.strip() for h in env_hosts if h.strip()])
 # CSRF trusted origins (required for Cloud Run + Vercel)
 # Explicitly trusting the frontend domain
 CSRF_TRUSTED_ORIGINS = [
-    "https://Quake-frontend.vercel.app",
+    "https://trapmultiuser-web.vercel.app",
 ]
 env_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
 CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in env_origins if o.strip()])
