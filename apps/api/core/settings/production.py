@@ -13,13 +13,20 @@ from .db_utils import get_postgres_database_config
 # SECURITY SETTINGS
 # ========================================
 
-# SECURITY: debug must be False in production
-DEBUG = False
+# SECURITY: debug must be False in production unless explicitly enabled via environment variable
+DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ('true', '1', 't')
 
-# Hardened ALLOWED_HOSTS for Cloud Run
-# 1. Allow any subdomain of .run.app (required for revision URLs)
-# 2. Allow specific hosts from env var
-ALLOWED_HOSTS = ['.run.app']
+# Hardened ALLOWED_HOSTS for Cloud Run + Render
+# 1. Allow any subdomain of .run.app and .onrender.com (required for revision and deploy URLs)
+# 2. Allow localhost and 127.0.0.1 for local testing of production settings
+# 3. Allow specific hosts from env var
+ALLOWED_HOSTS = [
+    '.run.app',
+    '.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+]
 env_hosts = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
 ALLOWED_HOSTS.extend([h.strip() for h in env_hosts if h.strip()])
 
@@ -59,6 +66,7 @@ DATABASES = {
 
 # Explicit production CORS configuration
 CORS_ALLOWED_ORIGINS = [
+    "https://trapmultiuser-web.vercel.app",
     "https://Quake-frontend.vercel.app",
 ]
 env_cors = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')

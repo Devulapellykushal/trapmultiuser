@@ -90,19 +90,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port (Cloud Run uses PORT env var)
 EXPOSE ${PORT}
 
-# Start Gunicorn
-# Cloud Run sends SIGTERM, Gunicorn handles graceful shutdown
-CMD exec gunicorn core.wsgi:application \
-    --bind 0.0.0.0:${PORT} \
-    --workers 2 \
-    --threads 4 \
-    --worker-class gthread \
-    --worker-tmp-dir /dev/shm \
-    --timeout 120 \
-    --keep-alive 5 \
-    --max-requests 1000 \
-    --max-requests-jitter 50 \
-    --access-logfile - \
-    --error-logfile - \
-    --capture-output \
-    --enable-stdio-inheritance
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn core.wsgi:application --bind 0.0.0.0:${PORT} --workers 2 --threads 4 --worker-class gthread --worker-tmp-dir /dev/shm --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 --access-logfile - --error-logfile - --capture-output --enable-stdio-inheritance"]
