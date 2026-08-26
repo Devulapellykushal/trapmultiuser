@@ -22,7 +22,9 @@ RBAC:
 - Profit/Audit: Admin only
 """
 
-from datetime import datetime
+from datetime import datetime, time
+from django.conf import settings
+from django.utils import timezone as dj_tz
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -30,21 +32,50 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
-from users.permissions import IsAdmin, IsStaffOrAdmin
+from users.permissions import HasReportsService, IsAdmin, IsStaffOrAdmin
 from . import services
 
 
+def _org_id(request):
+    return getattr(request.user, "organization_id", None)
+
+
+def _aware(dt: datetime) -> datetime:
+    """Attach default timezone when USE_TZ is on and dt is naive."""
+    if getattr(settings, "USE_TZ", False) and dj_tz.is_naive(dt):
+        return dj_tz.make_aware(dt, dj_tz.get_current_timezone())
+    return dt
+
+
 def parse_date(date_str):
-    """Parse ISO date string to datetime."""
+    """Parse ISO date/datetime to datetime (start of day for date-only)."""
     if not date_str:
         return None
     try:
-        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        return _aware(datetime.fromisoformat(date_str.replace('Z', '+00:00')))
     except (ValueError, AttributeError):
         try:
-            return datetime.strptime(date_str, '%Y-%m-%d')
+            return _aware(datetime.strptime(date_str, '%Y-%m-%d'))
         except (ValueError, AttributeError):
             return None
+
+
+def parse_date_to(date_str):
+    """
+    Parse end date. Date-only values include the full calendar day
+    (23:59:59.999999) so \"today\" / range filters stay accurate.
+    """
+    if not date_str:
+        return None
+    raw = str(date_str).strip()
+    dt = parse_date(raw)
+    if dt is None:
+        return None
+    # YYYY-MM-DD (no time component) → end of that day
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        end = datetime.combine(dt.date(), time(23, 59, 59, 999999))
+        return _aware(end)
+    return dt
 
 
 class IsManagerOrAdmin(IsAuthenticated):
@@ -79,7 +110,7 @@ class CurrentStockReportView(APIView):
     
     Derived from SUM(InventoryMovement.quantity) per product/warehouse.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Current Stock Report",
@@ -101,7 +132,8 @@ class CurrentStockReportView(APIView):
             category=request.query_params.get('category'),
             brand=request.query_params.get('brand'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -112,7 +144,7 @@ class StockAgingReportView(APIView):
     
     Buckets products by days since last movement.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Stock Aging Report",
@@ -135,7 +167,7 @@ class StockMovementReportView(APIView):
     
     List all inventory movements with filters.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Stock Movement Report",
@@ -154,7 +186,7 @@ class StockMovementReportView(APIView):
     def get(self, request):
         result = services.get_stock_movement_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             movement_type=request.query_params.get('movement_type'),
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
@@ -174,7 +206,7 @@ class SalesSummaryView(APIView):
     
     Aggregate totals: sales, discount, GST, invoice count.
     """
-    permission_classes = [IsStaffManagerOrAdmin]
+    permission_classes = [IsStaffManagerOrAdmin, HasReportsService]
 
     @extend_schema(
         summary="Sales Summary",
@@ -189,8 +221,9 @@ class SalesSummaryView(APIView):
     def get(self, request):
         result = services.get_sales_summary(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
-            warehouse_id=request.query_params.get('warehouse_id')
+            date_to=parse_date_to(request.query_params.get('date_to')),
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=getattr(request.user, 'organization_id', None),
         )
         return Response(result)
 
@@ -201,7 +234,7 @@ class ProductSalesReportView(APIView):
     
     Sales aggregated per product.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Product Sales Report",
@@ -219,11 +252,12 @@ class ProductSalesReportView(APIView):
     def get(self, request):
         result = services.get_product_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -234,7 +268,7 @@ class SalesTrendsView(APIView):
     
     Daily/monthly sales for charts.
     """
-    permission_classes = [IsStaffManagerOrAdmin]
+    permission_classes = [IsStaffManagerOrAdmin, HasReportsService]
 
     @extend_schema(
         summary="Sales Trends",
@@ -257,9 +291,10 @@ class SalesTrendsView(APIView):
         
         result = services.get_sales_trends(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
-            group_by=group_by
+            group_by=group_by,
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -274,7 +309,7 @@ class ReturnsSummaryView(APIView):
     
     Refund totals and top returned products.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Returns Summary",
@@ -289,7 +324,7 @@ class ReturnsSummaryView(APIView):
     def get(self, request):
         result = services.get_returns_summary(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id')
         )
         return Response(result)
@@ -301,7 +336,7 @@ class AdjustmentsReportView(APIView):
     
     Admin only - shows all stock adjustments.
     """
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasReportsService]
     
     @extend_schema(
         summary="Adjustments Report",
@@ -319,7 +354,7 @@ class AdjustmentsReportView(APIView):
     def get(self, request):
         result = services.get_adjustments_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
@@ -338,7 +373,7 @@ class GrossProfitReportView(APIView):
     
     Admin only - shows profit margins.
     """
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasReportsService]
     
     @extend_schema(
         summary="Gross Profit Report",
@@ -356,7 +391,7 @@ class GrossProfitReportView(APIView):
     def get(self, request):
         result = services.get_gross_profit_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
@@ -371,7 +406,7 @@ class GSTSummaryReportView(APIView):
     
     Admin only - GST collected, refunded, net liability.
     """
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasReportsService]
     
     @extend_schema(
         summary="GST Summary Report",
@@ -386,8 +421,9 @@ class GSTSummaryReportView(APIView):
     def get(self, request):
         result = services.get_gst_summary_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
-            warehouse_id=request.query_params.get('warehouse_id')
+            date_to=parse_date_to(request.query_params.get('date_to')),
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -402,7 +438,7 @@ class CategoryWiseSalesView(APIView):
     
     Sales aggregated by product category.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Category-wise Sales Report",
@@ -419,7 +455,7 @@ class CategoryWiseSalesView(APIView):
     def get(self, request):
         result = services.get_category_wise_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
             page_size=int(request.query_params.get('page_size', 50))
@@ -433,7 +469,7 @@ class BrandWiseSalesView(APIView):
     
     Sales aggregated by product brand.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Brand-wise Sales Report",
@@ -450,7 +486,7 @@ class BrandWiseSalesView(APIView):
     def get(self, request):
         result = services.get_brand_wise_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
             page_size=int(request.query_params.get('page_size', 50))
@@ -464,7 +500,7 @@ class SizeWiseSalesView(APIView):
     
     Sales aggregated by product size.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Size-wise Sales Report",
@@ -481,7 +517,7 @@ class SizeWiseSalesView(APIView):
     def get(self, request):
         result = services.get_size_wise_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
             page_size=int(request.query_params.get('page_size', 50))
@@ -495,7 +531,7 @@ class SupplierWiseReportView(APIView):
     
     Purchases aggregated by supplier.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Supplier-wise Report",
@@ -512,7 +548,7 @@ class SupplierWiseReportView(APIView):
     def get(self, request):
         result = services.get_supplier_wise_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
             page_size=int(request.query_params.get('page_size', 50))
@@ -526,7 +562,7 @@ class WarehouseWiseSalesView(APIView):
     
     Sales aggregated by warehouse/store.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Warehouse-wise Sales Report",
@@ -542,9 +578,10 @@ class WarehouseWiseSalesView(APIView):
     def get(self, request):
         result = services.get_warehouse_wise_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -556,7 +593,7 @@ class SupplierSalesReportView(APIView):
     Shows which suppliers' products are in high demand.
     Aggregates sales by supplier to help identify top performing suppliers.
     """
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin, HasReportsService]
     
     @extend_schema(
         summary="Supplier Sales Report",
@@ -573,7 +610,7 @@ class SupplierSalesReportView(APIView):
     def get(self, request):
         result = services.get_supplier_sales_report(
             date_from=parse_date(request.query_params.get('date_from')),
-            date_to=parse_date(request.query_params.get('date_to')),
+            date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
             page_size=int(request.query_params.get('page_size', 50))

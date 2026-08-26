@@ -43,9 +43,9 @@ export function DashboardFilterBar({
     <div className={`flex items-center gap-3 flex-wrap ${className}`}>
       {/* Filter indicator */}
       {isFiltersApplied && (
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-[#C6A15B]/10 rounded-lg">
-          <Filter className="w-3 h-3 text-[#C6A15B]" />
-          <span className="text-xs text-[#C6A15B] font-medium">
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-[#c4a574]/10 rounded-lg">
+          <Filter className="w-3 h-3 text-[#c4a574]" />
+          <span className="text-xs text-[#c4a574] font-medium">
             Filters active
           </span>
         </div>

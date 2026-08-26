@@ -65,6 +65,7 @@ import { useDashboardFilters, useGrossProfit, useGstSummary } from "@/hooks";
 import { useAuth } from "@/lib/auth";
 import { adminHref } from "@/lib/admin-routes";
 import { ProfitItem } from "@/services";
+import { CHART_SERIES } from "@/lib/brand-colors";
 
 // Format currency
 function formatCurrency(amount: number | string): string {
@@ -93,7 +94,7 @@ function formatShortCurrency(amount: number | string): string {
 }
 
 // GST rate colors
-const GST_COLORS = ["#6366F1", "#A855F7", "#EC4899", "#6366F1", "#A855F7"];
+const GST_COLORS = [...CHART_SERIES];
 
 export default function ProfitTaxReportsPage() {
   const { filters } = useDashboardFilters();
@@ -487,7 +488,7 @@ export default function ProfitTaxReportsPage() {
                     fontWeight: "bold",
                   }}
                 />
-                <Bar dataKey="profit" fill="#6366F1" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="profit" fill="#c4a574" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (

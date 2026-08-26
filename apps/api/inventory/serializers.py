@@ -485,7 +485,7 @@ class ProductSerializer(serializers.ModelSerializer):
         if not reference_date:
             return None
         
-        today = timezone.now().date()
+        today = timezone.localdate()
         days = (today - reference_date).days
         return max(0, days)
     

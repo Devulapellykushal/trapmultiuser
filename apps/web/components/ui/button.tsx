@@ -20,7 +20,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: [
-          "bg-accent-primary text-bg-primary",
+          "bg-accent-primary text-brand-contrast",
           "hover:bg-accent-primary-hover",
           "active:scale-[0.98]",
           "shadow-sm hover:shadow-md",

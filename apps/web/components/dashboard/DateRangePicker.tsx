@@ -6,8 +6,10 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, ChevronDown } from "lucide-react";
+import { localYmd } from "@/lib/local-date";
 
 interface DateRangePickerProps {
   dateFrom: string | null;
@@ -16,7 +18,6 @@ interface DateRangePickerProps {
   className?: string;
 }
 
-// Preset ranges
 const presets = [
   { label: "Today", days: 0 },
   { label: "Last 7 days", days: 7 },
@@ -28,13 +29,12 @@ const presets = [
 
 function getPresetDates(preset: (typeof presets)[number]) {
   const today = new Date();
-  today.setHours(23, 59, 59, 999);
 
   if (preset.type === "month") {
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     return {
-      from: firstDay.toISOString().split("T")[0],
-      to: today.toISOString().split("T")[0],
+      from: localYmd(firstDay),
+      to: localYmd(today),
     };
   }
 
@@ -42,8 +42,8 @@ function getPresetDates(preset: (typeof presets)[number]) {
     const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
     return {
-      from: firstDay.toISOString().split("T")[0],
-      to: lastDay.toISOString().split("T")[0],
+      from: localYmd(firstDay),
+      to: localYmd(lastDay),
     };
   }
 
@@ -51,8 +51,8 @@ function getPresetDates(preset: (typeof presets)[number]) {
   fromDate.setDate(today.getDate() - (preset.days || 0));
 
   return {
-    from: fromDate.toISOString().split("T")[0],
-    to: today.toISOString().split("T")[0],
+    from: localYmd(fromDate),
+    to: localYmd(today),
   };
 }
 
@@ -60,7 +60,7 @@ function formatDateRange(from: string | null, to: string | null): string {
   if (!from && !to) return "Select dates";
 
   const formatDate = (d: string) => {
-    const date = new Date(d);
+    const date = new Date(`${d}T12:00:00`);
     return date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
   };
 
@@ -81,13 +81,40 @@ export function DateRangePicker({
   const [localFrom, setLocalFrom] = React.useState(dateFrom || "");
   const [localTo, setLocalTo] = React.useState(dateTo || "");
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const [panelPos, setPanelPos] = React.useState<{
+    top: number;
+    right: number;
+  } | null>(null);
 
-  // Close on outside click
+  const updatePanelPos = React.useCallback(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    updatePanelPos();
+    window.addEventListener("resize", updatePanelPos);
+    window.addEventListener("scroll", updatePanelPos, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPos);
+      window.removeEventListener("scroll", updatePanelPos, true);
+    };
+  }, [isOpen, updatePanelPos]);
+
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current?.contains(target) &&
+        !panelRef.current?.contains(target)
       ) {
         setIsOpen(false);
       }
@@ -96,7 +123,6 @@ export function DateRangePicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Sync local state
   React.useEffect(() => {
     setLocalFrom(dateFrom || "");
     setLocalTo(dateTo || "");
@@ -118,86 +144,102 @@ export function DateRangePicker({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
+        ref={buttonRef}
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white hover:bg-white/10 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-modal)] border border-[var(--border-default)] rounded-lg text-sm text-[var(--text-primary)] hover:border-[var(--brand)]/40 transition-colors"
       >
-        <Calendar className="w-4 h-4 text-white/40" />
+        <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
         <span>{formatDateRange(dateFrom, dateTo)}</span>
         <ChevronDown
-          className={`w-4 h-4 text-white/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-72 bg-[#1A1B23] border border-white/10 rounded-xl shadow-xl z-50"
-          >
-            {/* Presets */}
-            <div className="p-3 border-b border-white/10">
-              <p className="text-xs text-white/40 mb-2 font-medium">
-                Quick select
-              </p>
-              <div className="grid grid-cols-2 gap-1">
-                {presets.map((preset) => (
-                  <button
-                    key={preset.label}
-                    onClick={() => handlePreset(preset)}
-                    className="px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 rounded transition-colors text-left"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {isOpen && panelPos && (
+              <motion.div
+                ref={panelRef}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="fixed z-[80] w-72 popover-panel rounded-xl overflow-hidden"
+                style={{ top: panelPos.top, right: panelPos.right }}
+                role="dialog"
+                aria-label="Date range"
+              >
+                <div className="p-3 border-b border-[var(--border-default)] bg-[var(--bg-modal)]">
+                  <p className="text-xs text-[var(--text-secondary)] mb-2 font-medium">
+                    Quick select
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => handlePreset(preset)}
+                        className="px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--brand-muted)] hover:text-[var(--brand)] rounded-md transition-colors text-left font-medium"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Custom Date Inputs */}
-            <div className="p-3 space-y-3">
-              <div>
-                <label className="block text-xs text-white/40 mb-1">From</label>
-                <input
-                  type="date"
-                  value={localFrom}
-                  onChange={(e) => setLocalFrom(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/40 mb-1">To</label>
-                <input
-                  type="date"
-                  value={localTo}
-                  onChange={(e) => setLocalTo(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
-                />
-              </div>
+                <div className="p-3 space-y-3 bg-[var(--bg-modal)]">
+                  <div>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={localFrom}
+                      onChange={(e) => setLocalFrom(e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--bg-page)] border border-[var(--border-default)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={localTo}
+                      onChange={(e) => setLocalTo(e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--bg-page)] border border-[var(--border-default)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/50"
+                    />
+                  </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setLocalFrom("");
-                    setLocalTo("");
-                    onChange(null, null);
-                    setIsOpen(false);
-                  }}
-                  className="flex-1 px-3 py-2 text-xs text-white/60 hover:bg-white/5 rounded-lg transition-colors"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleApply}
-                  className="flex-1 px-3 py-2 bg-[#C6A15B] text-black text-xs font-medium rounded-lg hover:bg-[#C6A15B]/90 transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          </motion.div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocalFrom("");
+                        setLocalTo("");
+                        onChange(null, null);
+                        setIsOpen(false);
+                      }}
+                      className="flex-1 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-page)] rounded-lg transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApply}
+                      className="flex-1 px-3 py-2 bg-[var(--brand)] text-[var(--brand-contrast)] text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }

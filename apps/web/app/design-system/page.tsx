@@ -46,12 +46,12 @@ export default function DesignSystemPage() {
       <div className="max-w-6xl mx-auto space-y-16">
         {/* Header */}
         <header className="space-y-4">
-          <h1 className="text-heading-xl text-gradient">
+          <h1 className="font-display text-heading-xl text-gradient">
             Quake Design System
           </h1>
           <p className="text-body-lg text-text-secondary max-w-2xl">
-            A dark enterprise design system for multi-vertical inventory & retail.
-            All components are token-driven, accessible, and production-ready.
+            Premium classic branding — ink surfaces, champagne brass accents, and display serif headlines.
+            All components are token-driven and shared across the app.
           </p>
         </header>
 

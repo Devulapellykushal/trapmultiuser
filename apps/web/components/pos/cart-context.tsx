@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePosCart } from "@/features/pos/store/usePosStore";
+import { usePosCart, usePosStore } from "@/features/pos/store/usePosStore";
 
 export type {
   AppliedDiscount,
@@ -11,8 +11,17 @@ export type {
   ProductPricing,
 } from "@/features/pos/types";
 
-/** Zustand-backed cart; provider kept for layout compatibility (no React context state). */
+/** Ensures POS cart rehydrate completes before UI treats cart as empty. */
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  React.useEffect(() => {
+    const finish = () => usePosStore.getState().setHasHydrated(true);
+    const unsub = usePosStore.persist.onFinishHydration(finish);
+    if (usePosStore.persist.hasHydrated()) {
+      finish();
+    }
+    return unsub;
+  }, []);
+
   return <>{children}</>;
 }
 

@@ -35,6 +35,14 @@ interface InvoiceWarehouse {
   bankIfsc?: string;
 }
 
+interface InvoiceStore {
+  id?: string;
+  name: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+}
+
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -61,6 +69,7 @@ interface Invoice {
   status: "paid" | "cancelled" | "refunded" | "credit";
   cashier?: string;
   warehouse?: InvoiceWarehouse | null;
+  store?: InvoiceStore | null;
 }
 
 const RUPEE = "\u20B9";
@@ -94,9 +103,15 @@ function warehouseAddressLines(address: string | undefined): string[] {
 }
 
 function resolvePrintedSeller(invoice: Invoice) {
+  const store = invoice.store;
   const wh = invoice.warehouse;
+
+  // Shop name once (which counter sold). Address from warehouse/company — not
+  // store city/state junk that repeats the shop name.
+  const storeName = store?.name?.trim();
   const whName = wh?.name?.trim();
-  const sellerTitle = whName || PRINT_LEGAL.legalEntityName;
+  const sellerTitle =
+    storeName || whName || PRINT_LEGAL.legalEntityName;
 
   const whAddr = wh?.address?.trim();
   const addressLines = whAddr
@@ -116,14 +131,20 @@ function resolvePrintedSeller(invoice: Invoice) {
   }
 
   const contactLines: string[] = [];
-  const em = wh?.email?.trim();
-  const ph = wh?.phone?.trim();
+  const em = (store?.email || wh?.email)?.trim();
+  const ph = (store?.phone || wh?.phone)?.trim();
   if (em) contactLines.push(`E-mail : ${em}`);
   if (ph) contactLines.push(`Mobile : ${ph}`);
 
+  // Drop address lines that only repeat the shop/title name
+  const titleL = sellerTitle.toLowerCase();
+  const cleanAddress = addressLines.filter(
+    (line) => line.trim().toLowerCase() !== titleL,
+  );
+
   return {
     sellerTitle,
-    addressLines,
+    addressLines: cleanAddress,
     contactLines,
     sellerImageUrl: wh?.sellerImageUrl?.trim() || undefined,
     gstin: PRINT_LEGAL.gstin,
@@ -424,7 +445,7 @@ export function InvoicePreview({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm print:hidden"
+            className="absolute inset-0 modal-scrim print:hidden"
             onClick={onClose}
           />
 
@@ -436,9 +457,9 @@ export function InvoicePreview({
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="relative z-10 w-full max-w-6xl max-h-[90vh] overflow-auto rounded-2xl shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none"
           >
-            <div className="bg-[#FAFAFA] text-[#1A1B23] print:bg-white">
+            <div className="bg-[#f3eee4] text-[#111318] print:bg-white">
               {/* Header Actions */}
-              <div className="flex items-center justify-between p-4 bg-[#1A1B23] text-white print:hidden">
+              <div className="flex items-center justify-between p-4 bg-[#111318] text-white print:hidden">
                 <h2 className="text-lg font-semibold">Invoice Preview</h2>
                 <div className="flex items-center gap-2">
                   <button
@@ -451,7 +472,7 @@ export function InvoicePreview({
                   <button
                     onClick={handleDownload}
                     disabled={isDownloading}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C6A15B] text-[#111111] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors disabled:opacity-50"
                   >
                     <Download className="w-4 h-4" />
                     {isDownloading ? "Downloading..." : "Download"}
@@ -468,20 +489,21 @@ export function InvoicePreview({
               <div className="p-6 md:p-8 print:p-4">
                 <div
                   id="invoice-print-root"
-                  className="invoice-print-sheet mx-auto w-full max-w-[980px] bg-white border border-[#111111] text-[#111111] [print-color-adjust:exact] print:max-w-none"
+                  className="invoice-print-sheet mx-auto w-full max-w-[980px] bg-white border border-[#0c0d10] text-[#0c0d10] [print-color-adjust:exact] print:max-w-none"
+                  style={{ color: "#0c0d10", backgroundColor: "#ffffff" }}
                 >
-                  <div className="border-b border-[#111111] py-2 text-center text-[13px] font-bold tracking-[0.2em] uppercase text-[#111111]">
+                  <div className="border-b border-[#0c0d10] py-2 text-center text-[13px] font-bold tracking-[0.2em] uppercase text-[#0c0d10]">
                     QUAKE INVENTORY SYSTEM
                   </div>
-                  <div className="border-b border-[#111111] py-1.5 text-center text-sm font-bold tracking-[0.18em] text-[#111111]">
+                  <div className="border-b border-[#0c0d10] py-1.5 text-center text-sm font-bold tracking-[0.18em] text-[#0c0d10]">
                     INVOICE
                   </div>
 
-                  <div className="grid grid-cols-12 border-b border-[#111111]">
-                    <div className="col-span-7 border-r border-[#111111] p-2.5 text-[11px] leading-snug text-[#111111]">
+                  <div className="grid grid-cols-12 border-b border-[#0c0d10]">
+                    <div className="col-span-7 border-r border-[#0c0d10] p-2.5 text-[11px] leading-snug text-[#0c0d10]">
                       <div className="flex flex-row items-start gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="text-[14px] font-bold text-[#111111]">
+                          <div className="text-[14px] font-bold text-[#0c0d10]">
                             {printed.sellerTitle}
                           </div>
                           {printed.addressLines.map((line, i) => (
@@ -501,7 +523,7 @@ export function InvoicePreview({
                         </div>
                         {printed.sellerImageUrl ? (
                           <div className="shrink-0 w-[100px] max-w-[38%] sm:w-[120px]">
-                            <div className="flex max-h-[92px] w-full items-center justify-center overflow-hidden rounded border border-[#cccccc] bg-[#f6f6f6] p-1">
+                            <div className="flex max-h-[92px] w-full items-center justify-center overflow-hidden rounded border border-[#c5c0b5] bg-[#f3eee4] p-1">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={printed.sellerImageUrl}
@@ -515,19 +537,19 @@ export function InvoicePreview({
                     </div>
 
                     <div className="col-span-5">
-                      <table className="w-full border-collapse text-[11px] text-[#111111]">
+                      <table className="w-full border-collapse text-[11px] text-[#0c0d10]">
                         <tbody>
                           <tr>
-                            <td className="w-1/2 border-r border-b border-[#111111] p-2 align-top">
-                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                            <td className="w-1/2 border-r border-b border-[#0c0d10] p-2 align-top">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#0c0d10]">
                                 Invoice No.
                               </div>
                               <div className="mt-0.5 text-[12px] font-bold leading-tight">
                                 {invoice.invoiceNumber || "—"}
                               </div>
                             </td>
-                            <td className="w-1/2 border-b border-[#111111] p-2 align-top">
-                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                            <td className="w-1/2 border-b border-[#0c0d10] p-2 align-top">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#0c0d10]">
                                 Dated (IST)
                               </div>
                               <div className="mt-0.5 text-[12px] font-bold leading-tight">
@@ -537,10 +559,10 @@ export function InvoicePreview({
                           </tr>
                           <tr>
                             <td
-                              className="border-b border-[#111111] p-2 align-top"
+                              className="border-b border-[#0c0d10] p-2 align-top"
                               colSpan={2}
                             >
-                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-[#0c0d10]">
                                 Mode / Terms of Payment
                               </div>
                               <div className="mt-0.5 text-[12px] font-bold">
@@ -553,11 +575,11 @@ export function InvoicePreview({
                     </div>
                   </div>
 
-                  <div className="border-b border-[#111111] p-2.5 text-[11px] leading-snug text-[#111111]">
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                  <div className="border-b border-[#0c0d10] p-2.5 text-[11px] leading-snug text-[#0c0d10]">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#0c0d10]">
                       Buyer (Bill to)
                     </div>
-                    <div className="text-[12px] font-bold mt-1 text-[#111111]">
+                    <div className="text-[12px] font-bold mt-1 text-[#0c0d10]">
                       {customerLine || "Walk-in Customer"}
                     </div>
                     {invoice.customer.email ? (
@@ -569,38 +591,38 @@ export function InvoicePreview({
                     {invoice.customer.gstin ? (
                       <div>GSTIN : {invoice.customer.gstin}</div>
                     ) : null}
-                    <div className="mt-1 font-semibold text-[#111111]">
+                    <div className="mt-1 font-semibold text-[#0c0d10]">
                       State Name : Telangana
                     </div>
                   </div>
 
-                  <table className="w-full border-collapse text-[11px] text-[#111111]">
+                  <table className="w-full border-collapse text-[11px] text-[#0c0d10]">
                     <thead>
                       <tr>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-left font-bold w-[5%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-left font-bold w-[5%] text-[#0c0d10]">
                           Sl
                           <br />
                           No.
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-left font-bold w-[40%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-left font-bold w-[40%] text-[#0c0d10]">
                           Description of Goods
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#0c0d10]">
                           HSN/SAC
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center font-bold w-[10%] text-[#0c0d10]">
                           Quantity
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-bold w-[11%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-bold w-[11%] text-[#0c0d10]">
                           Rate
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[6%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center font-bold w-[6%] text-[#0c0d10]">
                           per
                         </th>
-                        <th className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold w-[8%] text-[#111111]">
+                        <th className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center font-bold w-[8%] text-[#0c0d10]">
                           Disc. %
                         </th>
-                        <th className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold w-[10%] text-[#111111]">
+                        <th className="border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-bold w-[10%] text-[#0c0d10]">
                           Amount
                         </th>
                       </tr>
@@ -614,37 +636,37 @@ export function InvoicePreview({
 
                         return (
                           <tr key={`${item.productId}-${index}`}>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center align-top font-medium">
                               {index + 1}
                             </td>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 align-top">
-                              <div className="font-bold leading-tight text-[#111111]">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 align-top">
+                              <div className="font-bold leading-tight text-[#0c0d10]">
                                 {(item.name || "").trim() ||
                                   item.sku ||
                                   "Unknown Product"}
                               </div>
                               {item.sku || item.variantDetails ? (
-                                <div className="text-[10px] font-medium text-[#3d3d3d] mt-0.5 leading-tight">
+                                <div className="text-[10px] font-medium text-[#1c1d22] mt-0.5 leading-tight">
                                   {item.sku ? `SKU: ${item.sku}` : ""}
                                   {item.sku && item.variantDetails ? " | " : ""}
                                   {item.variantDetails || ""}
                                 </div>
                               ) : null}
                             </td>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top" />
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-bold">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center align-top" />
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center align-top font-bold">
                               {qty} Nos
                             </td>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right align-top font-medium">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-right align-top font-medium">
                               {formatAmount(rate)}
                             </td>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center align-top font-medium">
                               Nos
                             </td>
-                            <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center align-top font-medium">
+                            <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center align-top font-medium">
                               -
                             </td>
-                            <td className="border-b border-[#111111] px-1.5 py-1.5 text-right align-top font-bold">
+                            <td className="border-b border-[#0c0d10] px-1.5 py-1.5 text-right align-top font-bold">
                               {formatAmount(item.total || 0)}
                             </td>
                           </tr>
@@ -654,49 +676,49 @@ export function InvoicePreview({
                       {isDiscountApplied ? (
                         <tr>
                           <td
-                            className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-medium"
+                            className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-medium"
                             colSpan={7}
                           >
                             {discountLabel}
                           </td>
-                          <td className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
+                          <td className="border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-bold">
                             - {formatCurrency(invoice.discount || 0)}
                           </td>
                         </tr>
                       ) : null}
 
                       <tr>
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-bold">
                           Total
                         </td>
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5 text-center font-bold">
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5 text-center font-bold">
                           {totalQuantity} Nos
                         </td>
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
-                        <td className="border-r border-b border-[#111111] px-1.5 py-1.5" />
-                        <td className="border-b border-[#111111] px-1.5 py-1.5 text-right font-bold">
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5" />
+                        <td className="border-r border-b border-[#0c0d10] px-1.5 py-1.5" />
+                        <td className="border-b border-[#0c0d10] px-1.5 py-1.5 text-right font-bold">
                           {formatCurrency(invoice.total || 0)}
                         </td>
                       </tr>
 
                       <tr>
                         <td
-                          className="border-r border-[#111111] px-1.5 py-1.5"
+                          className="border-r border-[#0c0d10] px-1.5 py-1.5"
                           colSpan={7}
                         >
-                          <div className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
+                          <div className="text-[10px] font-bold uppercase tracking-wide text-[#0c0d10]">
                             Amount Chargeable (in words)
                           </div>
-                          <div className="text-[12px] font-bold mt-0.5 text-[#111111]">
+                          <div className="text-[12px] font-bold mt-0.5 text-[#0c0d10]">
                             {amountWords}
                           </div>
                         </td>
-                        <td className="px-1.5 py-1.5 text-right text-[10px] align-top text-[#111111]">
+                        <td className="px-1.5 py-1.5 text-right text-[10px] align-top text-[#0c0d10]">
                           <div className="font-medium italic">E. &amp; O.E.</div>
-                          <div className="text-[8px] font-normal not-italic leading-tight mt-0.5 text-[#333333]">
+                          <div className="text-[8px] font-normal not-italic leading-tight mt-0.5 text-[#1c1d22]">
                             Errors &amp; omissions excepted
                           </div>
                         </td>
@@ -704,8 +726,8 @@ export function InvoicePreview({
                     </tbody>
                   </table>
 
-                  <div className="grid grid-cols-12 border-t border-[#111111]">
-                    <div className="col-span-7 border-r border-[#111111] p-2.5 text-[11px] leading-snug flex flex-col justify-end min-h-[72px] text-[#111111]">
+                  <div className="grid grid-cols-12 border-t border-[#0c0d10]">
+                    <div className="col-span-7 border-r border-[#0c0d10] p-2.5 text-[11px] leading-snug flex flex-col justify-end min-h-[72px] text-[#0c0d10]">
                       <div className="mb-1 font-bold">Declaration</div>
                       <div className="font-medium">
                         1) Prices are inclusive of taxes. 2) Subject to
@@ -714,7 +736,7 @@ export function InvoicePreview({
                       </div>
                     </div>
 
-                    <div className="col-span-5 p-2.5 text-[11px] leading-snug min-h-[72px] text-[#111111]">
+                    <div className="col-span-5 p-2.5 text-[11px] leading-snug min-h-[72px] text-[#0c0d10]">
                       <div className="text-center text-[12px] mb-1 font-bold">
                         Company&apos;s Bank Details
                       </div>
@@ -743,16 +765,16 @@ export function InvoicePreview({
                           </tr>
                         </tbody>
                       </table>
-                      <div className="text-right font-bold mb-4 text-[#111111]">
+                      <div className="text-right font-bold mb-4 text-[#0c0d10]">
                         for {printed.signatoryName}
                       </div>
-                      <div className="text-right font-semibold text-[#111111]">
+                      <div className="text-right font-semibold text-[#0c0d10]">
                         Authorised Signatory
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-[#111111] py-1.5 text-center text-[11px] font-semibold text-[#111111]">
+                  <div className="border-t border-[#0c0d10] py-1.5 text-center text-[11px] font-semibold text-[#0c0d10]">
   This is a Computer Generated Invoice - Handled by p4ai.in
 </div>
 

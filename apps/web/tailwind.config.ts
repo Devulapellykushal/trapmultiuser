@@ -1,5 +1,27 @@
 import type { Config } from "tailwindcss";
 
+/** rgb(var(--x) / <alpha-value>) — lets opacity modifiers use brand tokens only */
+const alpha = (cssVar: string) => `rgb(var(${cssVar}) / <alpha-value>)`;
+
+const scale = (cssVar: string) => ({
+  50: alpha(cssVar),
+  100: alpha(cssVar),
+  200: alpha(cssVar),
+  300: alpha(cssVar),
+  400: alpha(cssVar),
+  500: alpha(cssVar),
+  600: alpha(cssVar),
+  700: alpha(cssVar),
+  800: alpha(cssVar),
+  900: alpha(cssVar),
+  950: alpha(cssVar),
+});
+
+const brandScale = scale("--brand-rgb");
+const successScale = scale("--success-rgb");
+const warningScale = scale("--warning-rgb");
+const dangerScale = scale("--danger-rgb");
+
 const config: Config = {
   darkMode: "class",
   content: [
@@ -11,48 +33,140 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Background
         bg: {
           primary: "var(--bg-primary)",
           surface: "var(--bg-surface)",
           elevated: "var(--bg-elevated)",
           overlay: "var(--bg-overlay)",
         },
-        // Text
         text: {
           primary: "var(--text-primary)",
           secondary: "var(--text-secondary)",
           muted: "var(--text-muted)",
         },
-        // Accent
         accent: {
           primary: "var(--accent-primary)",
           "primary-hover": "var(--accent-primary-hover)",
           secondary: "var(--accent-secondary)",
           "secondary-hover": "var(--accent-secondary-hover)",
         },
-        // Semantic
+        brand: {
+          DEFAULT: "var(--brand)",
+          hover: "var(--brand-hover)",
+          deep: "var(--brand-deep)",
+          muted: "var(--brand-muted)",
+          contrast: "var(--brand-contrast)",
+        },
         success: {
           DEFAULT: "var(--success)",
           muted: "var(--success-muted)",
+          ...successScale,
         },
         warning: {
           DEFAULT: "var(--warning)",
           muted: "var(--warning-muted)",
+          ...warningScale,
         },
         danger: {
           DEFAULT: "var(--danger)",
           muted: "var(--danger-muted)",
+          ...dangerScale,
         },
-        // Border
         border: {
           DEFAULT: "var(--border-default)",
           hover: "var(--border-hover)",
           focus: "var(--border-focus)",
         },
+
+        /* —— Hard lock: every Tailwind hue → brand palette only —— */
+        emerald: successScale,
+        green: successScale,
+        lime: successScale,
+        teal: successScale,
+        amber: warningScale,
+        yellow: warningScale,
+        orange: warningScale,
+        red: dangerScale,
+        rose: dangerScale,
+        blue: brandScale,
+        indigo: brandScale,
+        violet: brandScale,
+        purple: brandScale,
+        fuchsia: brandScale,
+        pink: brandScale,
+        cyan: brandScale,
+        sky: brandScale,
+
+        /* Neutrals → ink / ivory */
+        zinc: {
+          50: alpha("--text-rgb"),
+          100: alpha("--text-rgb"),
+          200: alpha("--text-rgb"),
+          300: alpha("--text-rgb"),
+          400: alpha("--text-rgb"),
+          500: alpha("--text-rgb"),
+          600: alpha("--elevated-rgb"),
+          700: alpha("--elevated-rgb"),
+          800: alpha("--page-rgb"),
+          900: alpha("--ink-rgb"),
+          950: alpha("--ink-rgb"),
+        },
+        slate: {
+          50: alpha("--text-rgb"),
+          100: alpha("--text-rgb"),
+          200: alpha("--text-rgb"),
+          300: alpha("--text-rgb"),
+          400: alpha("--text-rgb"),
+          500: alpha("--text-rgb"),
+          600: alpha("--elevated-rgb"),
+          700: alpha("--elevated-rgb"),
+          800: alpha("--page-rgb"),
+          900: alpha("--ink-rgb"),
+          950: alpha("--ink-rgb"),
+        },
+        gray: {
+          50: alpha("--text-rgb"),
+          100: alpha("--text-rgb"),
+          200: alpha("--text-rgb"),
+          300: alpha("--text-rgb"),
+          400: alpha("--text-rgb"),
+          500: alpha("--text-rgb"),
+          600: alpha("--elevated-rgb"),
+          700: alpha("--elevated-rgb"),
+          800: alpha("--page-rgb"),
+          900: alpha("--ink-rgb"),
+          950: alpha("--ink-rgb"),
+        },
+        neutral: {
+          50: alpha("--text-rgb"),
+          100: alpha("--text-rgb"),
+          200: alpha("--text-rgb"),
+          300: alpha("--text-rgb"),
+          400: alpha("--text-rgb"),
+          500: alpha("--text-rgb"),
+          600: alpha("--elevated-rgb"),
+          700: alpha("--elevated-rgb"),
+          800: alpha("--page-rgb"),
+          900: alpha("--ink-rgb"),
+          950: alpha("--ink-rgb"),
+        },
+        stone: {
+          50: alpha("--text-rgb"),
+          100: alpha("--text-rgb"),
+          200: alpha("--text-rgb"),
+          300: alpha("--text-rgb"),
+          400: alpha("--text-rgb"),
+          500: alpha("--text-rgb"),
+          600: alpha("--elevated-rgb"),
+          700: alpha("--elevated-rgb"),
+          800: alpha("--page-rgb"),
+          900: alpha("--ink-rgb"),
+          950: alpha("--ink-rgb"),
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
+        display: ["var(--font-display)"],
         mono: ["var(--font-mono)"],
       },
       fontSize: {

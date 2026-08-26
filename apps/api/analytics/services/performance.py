@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from sales.models import Sale
 from inventory.models import StockLedger, StockSnapshot
+from analytics.org_scope import scope_by_org
 
 
 def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = None) -> tuple:
@@ -25,7 +26,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
     if end_date:
         end = date.fromisoformat(end_date)
     else:
-        end = timezone.now().date()
+        end = timezone.localdate()
     
     if start_date:
         start = date.fromisoformat(start_date)
@@ -38,7 +39,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
 def get_performance_overview(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Get operational performance metrics.
@@ -58,6 +59,7 @@ def get_performance_overview(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    sales = scope_by_org(sales, organization_id)
     
     if warehouse_id:
         sales = sales.filter(warehouse_id=warehouse_id)
@@ -77,7 +79,9 @@ def get_performance_overview(
     avg_transaction = aggregates['total_revenue'] / total_sales if total_sales > 0 else Decimal('0.00')
     
     # Peak hours
-    peak_hours = get_peak_selling_hours(start_date, end_date, warehouse_id)
+    peak_hours = get_peak_selling_hours(
+        start_date, end_date, warehouse_id, organization_id=organization_id
+    )
     
     return {
         'period': {
@@ -100,7 +104,8 @@ def get_peak_selling_hours(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     warehouse_id: Optional[str] = None,
-    limit: int = 5
+    limit: int = 5,
+    organization_id=None,
 ) -> list:
     """
     Get peak selling hours.
@@ -112,6 +117,7 @@ def get_peak_selling_hours(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    sales = scope_by_org(sales, organization_id)
     
     if warehouse_id:
         sales = sales.filter(warehouse_id=warehouse_id)
@@ -139,7 +145,7 @@ def get_peak_selling_hours(
 def get_daily_performance(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Get daily sales performance breakdown.
@@ -151,6 +157,7 @@ def get_daily_performance(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    sales = scope_by_org(sales, organization_id)
     
     if warehouse_id:
         sales = sales.filter(warehouse_id=warehouse_id)
@@ -191,7 +198,7 @@ def get_daily_performance(
 def get_stock_turnover(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Calculate stock turnover rate.
@@ -244,7 +251,7 @@ def get_stock_turnover(
 def get_dashboard_overview(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Get unified dashboard metrics matching frontend PerformanceOverview interface.
@@ -268,6 +275,7 @@ def get_dashboard_overview(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    current_sales = scope_by_org(current_sales, organization_id)
     if warehouse_id:
         current_sales = current_sales.filter(warehouse_id=warehouse_id)
     
@@ -285,6 +293,7 @@ def get_dashboard_overview(
         created_at__date__gte=prev_start,
         created_at__date__lte=prev_end
     )
+    prev_sales = scope_by_org(prev_sales, organization_id)
     if warehouse_id:
         prev_sales = prev_sales.filter(warehouse_id=warehouse_id)
     
@@ -306,10 +315,14 @@ def get_dashboard_overview(
     prev_profit = prev_revenue * 0.30
     
     # Inventory health
-    inv_data = inventory.get_inventory_overview(warehouse_id=warehouse_id)
+    inv_data = inventory.get_inventory_overview(
+        warehouse_id=warehouse_id, organization_id=organization_id
+    )
     
     # Top products
-    top_prods = sales.get_top_selling_products(start_date, end_date, warehouse_id, limit=5)
+    top_prods = sales.get_top_selling_products(
+        start_date, end_date, warehouse_id, limit=5, organization_id=organization_id
+    )
     top_products = [
         {
             'id': p.get('variant_id', 0),
@@ -322,7 +335,9 @@ def get_dashboard_overview(
     ]
     
     # Low performers (bottom 5)
-    low_prods = sales.get_low_performers(start_date, end_date, warehouse_id, limit=5)
+    low_prods = sales.get_low_performers(
+        start_date, end_date, warehouse_id, limit=5, organization_id=organization_id
+    )
     low_performers = [
         {
             'id': p.get('variant_id', 0),
@@ -335,7 +350,9 @@ def get_dashboard_overview(
     ]
     
     # Discount metrics from discounts service
-    disc_data = discounts.get_discount_overview(start_date, end_date, warehouse_id)
+    disc_data = discounts.get_discount_overview(
+        start_date, end_date, warehouse_id, organization_id=organization_id
+    )
     
     return {
         'kpis': {

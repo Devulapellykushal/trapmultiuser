@@ -174,7 +174,7 @@ export function SizeSelectionModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 modal-scrim z-50"
             onClick={onClose}
           />
 
@@ -184,19 +184,19 @@ export function SizeSelectionModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[var(--bg-elevated)] border border-white/[0.08] rounded-2xl shadow-2xl z-50 overflow-hidden"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md modal-panel rounded-2xl z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#6366F1]/10">
-                  <Package className="w-5 h-5 text-[#6366F1]" />
+                <div className="p-2 rounded-lg bg-[#c4a574]/10">
+                  <Package className="w-5 h-5 text-[#c4a574]" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                     Select {hasSize ? "Size" : "Variant"}
                   </h2>
-                  <p className="text-sm text-[#6F7285]">
+                  <p className="text-sm text-[#8a867c]">
                     {brand} - {productName}
                   </p>
                 </div>
@@ -205,7 +205,7 @@ export function SizeSelectionModal({
                 onClick={onClose}
                 className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
               >
-                <X className="w-5 h-5 text-[#6F7285]" />
+                <X className="w-5 h-5 text-[#8a867c]" />
               </button>
             </div>
 
@@ -214,7 +214,7 @@ export function SizeSelectionModal({
               {/* Color Selection (if multiple colors) */}
               {hasMultipleColors && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-[#A1A4B3]">
+                  <label className="text-sm font-medium text-[#c5c0b5]">
                     Color
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -238,10 +238,10 @@ export function SizeSelectionModal({
                             px-4 py-2 rounded-lg text-sm font-medium transition-all
                             ${
                               isSelected
-                                ? "bg-[#6366F1] text-white"
+                                ? "bg-[var(--brand)] text-[var(--brand-contrast)]"
                                 : isOutOfStock
-                                  ? "bg-white/[0.02] text-[#6F7285] cursor-not-allowed line-through"
-                                  : "bg-white/[0.05] text-[var(--text-primary)] hover:bg-white/[0.08]"
+                                  ? "bg-[var(--bg-card-fill)] text-[var(--text-muted)] cursor-not-allowed line-through"
+                                  : "bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--brand-muted)]"
                             }
                           `}
                         >
@@ -256,7 +256,7 @@ export function SizeSelectionModal({
               {/* Size Selection */}
               <div className="space-y-2">
                 {hasSize && (
-                  <label className="text-sm font-medium text-[#A1A4B3]">
+                  <label className="text-sm font-medium text-[#c5c0b5]">
                     Size
                   </label>
                 )}
@@ -278,14 +278,14 @@ export function SizeSelectionModal({
                           ${
                             isOutOfStock
                               ? "bg-white/[0.02] border-white/[0.04] opacity-50 cursor-not-allowed"
-                              : "bg-white/[0.03] border-white/[0.08] hover:border-[#6366F1]/50 hover:bg-[#6366F1]/10 cursor-pointer"
+                              : "bg-white/[0.03] border-white/[0.08] hover:border-[#c4a574]/50 hover:bg-[#c4a574]/10 cursor-pointer"
                           }
                         `}
                       >
                         <span
                           className={`text-base font-semibold ${
                             isOutOfStock
-                              ? "text-[#6F7285] line-through"
+                              ? "text-[#8a867c] line-through"
                               : "text-[var(--text-primary)]"
                           }`}
                         >
@@ -294,10 +294,10 @@ export function SizeSelectionModal({
                         <span
                           className={`text-xs mt-1 ${
                             isOutOfStock
-                              ? "text-[#EC4899]"
+                              ? "text-[#c45c5c]"
                               : isLowStock
-                                ? "text-[#A855F7]"
-                                : "text-[#6F7285]"
+                                ? "text-[#d4b88a]"
+                                : "text-[#8a867c]"
                           }`}
                         >
                           {isOutOfStock
@@ -307,7 +307,7 @@ export function SizeSelectionModal({
                               : `${left} left`}
                         </span>
                         {isLowStock && !isOutOfStock && (
-                          <AlertTriangle className="absolute top-1 right-1 w-3 h-3 text-[#A855F7]" />
+                          <AlertTriangle className="absolute top-1 right-1 w-3 h-3 text-[#d4b88a]" />
                         )}
                       </button>
                     );
@@ -319,8 +319,8 @@ export function SizeSelectionModal({
               {displayVariants.length > 0 && (
                 <div className="pt-3 border-t border-white/[0.06]">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-[#A1A4B3]">Price</span>
-                    <span className="text-lg font-semibold text-[#6366F1]">
+                    <span className="text-sm text-[#c5c0b5]">Price</span>
+                    <span className="text-lg font-semibold text-[#c4a574]">
                       {formatCurrency(displayVariants[0].sellingPrice)}
                     </span>
                   </div>
@@ -330,7 +330,7 @@ export function SizeSelectionModal({
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.02]">
-              <p className="text-xs text-[#6F7285] text-center">
+              <p className="text-xs text-[#8a867c] text-center">
                 Tap a size to add to cart
               </p>
             </div>

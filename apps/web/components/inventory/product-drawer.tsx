@@ -14,8 +14,10 @@ import {
   Pencil,
   ChevronDown,
   Check,
+  SlidersHorizontal,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useDeactivateProduct, useWarehouses } from "@/hooks";
 import { useAuth } from "@/lib/auth";
 import { EditProductModal } from "./edit-product-modal";
@@ -33,13 +35,13 @@ function formatCurrency(amount: number): string {
 function getStockColor(status: string): string {
   switch (status) {
     case "in_stock":
-      return "#2ECC71";
+      return "#3f9d7a";
     case "low_stock":
-      return "#F5A623";
+      return "#d4a054";
     case "out_of_stock":
-      return "#E74C3C";
+      return "#c45c5c";
     default:
-      return "#6F7285";
+      return "#8a867c";
   }
 }
 
@@ -98,6 +100,8 @@ interface ProductDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onDeleted?: () => void;
+  /** Admin: open stock add/remove for this product */
+  onAdjustStock?: (product: InventoryProduct) => void;
 }
 
 export function ProductDrawer({
@@ -105,6 +109,7 @@ export function ProductDrawer({
   isOpen,
   onClose,
   onDeleted,
+  onAdjustStock,
 }: ProductDrawerProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
@@ -257,41 +262,48 @@ export function ProductDrawer({
   const statusColor = getStockColor(product.status);
   const statusLabel = getStockLabel(product.status);
 
-  return (
+  const drawer = (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — portaled so it is not offset by dashboard layout */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-40 modal-scrim"
             onClick={onClose}
             aria-hidden="true"
           />
 
-          {/* Drawer */}
+          {/* Drawer — flush to viewport top/bottom */}
           <motion.div
             initial={{ x: "100%" }}
-            animate={{ x: 0 }}
+            animate={{ x: 0, y: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed top-0 right-0 z-50 w-full max-w-md h-full bg-[#1A1B23] border-l border-white/[0.08] shadow-2xl overflow-hidden"
+            className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md h-dvh bg-[var(--bg-modal)] border-l border-[var(--border-default)] shadow-2xl overflow-hidden"
+            style={{ top: 0, right: 0, bottom: 0, height: "100dvh" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-drawer-title"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/[0.08]">
-                <h2 className="text-lg font-semibold text-[#F5F6FA]">
+              <div className="flex items-center justify-between p-4 border-b border-[var(--border-default)] shrink-0">
+                <h2
+                  id="product-drawer-title"
+                  className="text-lg font-semibold text-[var(--text-primary)]"
+                >
                   Product Details
                 </h2>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
+                  className="p-2 rounded-lg hover:bg-[var(--bg-surface)] transition-colors"
                   aria-label="Close drawer"
                 >
-                  <X className="w-5 h-5 text-[#A1A4B3]" />
+                  <X className="w-5 h-5 text-[var(--text-secondary)]" />
                 </button>
               </div>
 
@@ -299,13 +311,13 @@ export function ProductDrawer({
               <div className="flex-1 overflow-auto p-4 space-y-6">
                 {/* Product Image Placeholder */}
                 <div className="aspect-square max-w-[200px] mx-auto rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                  <Package className="w-16 h-16 text-[#6F7285] stroke-[1]" />
+                  <Package className="w-16 h-16 text-[#8a867c] stroke-[1]" />
                 </div>
 
                 {/* Basic Info */}
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-xl font-semibold text-[#F5F6FA] mb-2">
+                    <h3 className="text-xl font-semibold text-[#f3eee4] mb-2">
                       {product.name}
                     </h3>
                     <span
@@ -322,7 +334,7 @@ export function ProductDrawer({
                       {statusLabel}
                     </span>
                     {product.isDeleted && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-[#E74C3C]/20 text-[#E74C3C] ml-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-[#c45c5c]/20 text-[#c45c5c] ml-2">
                         <Trash2 className="w-3 h-3" />
                         Deleted
                       </span>
@@ -349,7 +361,7 @@ export function ProductDrawer({
 
                 {/* Warehouse Selection Dropdown */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide">
+                  <h4 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide">
                     Select Warehouse
                   </h4>
                   <div className="relative" ref={dropdownRef}>
@@ -358,11 +370,11 @@ export function ProductDrawer({
                       onClick={() =>
                         setIsWarehouseDropdownOpen(!isWarehouseDropdownOpen)
                       }
-                      className="w-full flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#F5F6FA] hover:bg-white/[0.05] transition-colors"
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#f3eee4] hover:bg-white/[0.05] transition-colors"
                       disabled={isLoadingWarehouses}
                     >
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-[#6F7285]" />
+                        <MapPin className="w-4 h-4 text-[#8a867c]" />
                         <span className="text-sm">
                           {isLoadingWarehouses
                             ? "Loading warehouses..."
@@ -372,7 +384,7 @@ export function ProductDrawer({
                         </span>
                       </div>
                       <ChevronDown
-                        className={`w-4 h-4 text-[#6F7285] transition-transform ${
+                        className={`w-4 h-4 text-[#8a867c] transition-transform ${
                           isWarehouseDropdownOpen ? "rotate-180" : ""
                         }`}
                       />
@@ -386,10 +398,10 @@ export function ProductDrawer({
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -8 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-[#23242F] border border-white/[0.08] shadow-xl max-h-48 overflow-auto"
+                          className="absolute z-[80] w-full mt-1 py-1 rounded-lg popover-panel max-h-48 overflow-auto"
                         >
                           {warehouses.length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-[#6F7285]">
+                            <div className="px-3 py-2 text-sm text-[#8a867c]">
                               No warehouses available
                             </div>
                           ) : (
@@ -410,13 +422,13 @@ export function ProductDrawer({
                                   }}
                                   className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/[0.05] transition-colors ${
                                     selectedWarehouseId === warehouse.id
-                                      ? "bg-[#C6A15B]/10"
+                                      ? "bg-[#c4a574]/10"
                                       : ""
                                   }`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-[#6F7285]" />
-                                    <span className="text-sm text-[#F5F6FA]">
+                                    <MapPin className="w-4 h-4 text-[#8a867c]" />
+                                    <span className="text-sm text-[#f3eee4]">
                                       {warehouse.name}
                                     </span>
                                   </div>
@@ -424,16 +436,16 @@ export function ProductDrawer({
                                     <span
                                       className={`text-xs font-medium tabular-nums ${
                                         stockQty === 0
-                                          ? "text-[#E74C3C]"
+                                          ? "text-[#c45c5c]"
                                           : stockQty <= 5
-                                            ? "text-[#F5A623]"
-                                            : "text-[#2ECC71]"
+                                            ? "text-[#d4a054]"
+                                            : "text-[#3f9d7a]"
                                       }`}
                                     >
                                       {stockQty} units
                                     </span>
                                     {selectedWarehouseId === warehouse.id && (
-                                      <Check className="w-4 h-4 text-[#C6A15B]" />
+                                      <Check className="w-4 h-4 text-[#c4a574]" />
                                     )}
                                   </div>
                                 </button>
@@ -447,32 +459,32 @@ export function ProductDrawer({
 
                   {/* Selected Warehouse Stock Info */}
                   {selectedWarehouse && (
-                    <div className="rounded-lg border border-[#C6A15B]/30 bg-[#1E1F2A] p-3">
+                    <div className="rounded-lg border border-[#c4a574]/30 bg-[#1c1d22] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#A1A4B3]">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#c5c0b5]">
                             Stock at this warehouse
                           </p>
-                          <p className="mt-0.5 truncate text-sm font-semibold text-[#F5F6FA]">
+                          <p className="mt-0.5 truncate text-sm font-semibold text-[#f3eee4]">
                             {selectedWarehouse.name}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#A1A4B3]">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[#c5c0b5]">
                             On hand
                           </p>
                           <p
                             className={`mt-0.5 text-xl font-bold tabular-nums ${
                               selectedWarehouseStock === 0
-                                ? "text-[#E74C3C]"
+                                ? "text-[#c45c5c]"
                                 : selectedWarehouseStock !== null &&
                                     selectedWarehouseStock <= 5
-                                  ? "text-[#F5A623]"
-                                  : "text-[#F5F6FA]"
+                                  ? "text-[#d4a054]"
+                                  : "text-[#f3eee4]"
                             }`}
                           >
                             {selectedWarehouseStock ?? 0}
-                            <span className="text-sm font-semibold text-[#A1A4B3]">
+                            <span className="text-sm font-semibold text-[#c5c0b5]">
                               {" "}
                               units
                             </span>
@@ -486,7 +498,7 @@ export function ProductDrawer({
                 {/* Barcode Section */}
                 {product.barcode && (
                   <div className="space-y-3">
-                    <h4 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide">
+                    <h4 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide">
                       Barcode
                     </h4>
                     <div className="p-4 rounded-lg bg-white border border-white/[0.08] text-center">
@@ -511,14 +523,14 @@ export function ProductDrawer({
                     <div className="flex gap-2">
                       <button
                         onClick={handleViewBarcode}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] font-medium hover:bg-white/[0.08] transition-colors"
                       >
                         <Barcode className="w-4 h-4" />
                         View Label
                       </button>
                       <button
                         onClick={() => handlePrintBarcode(product)}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#C6A15B]/10 border border-[#C6A15B]/20 text-[#C6A15B] font-medium hover:bg-[#C6A15B]/20 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#c4a574]/10 border border-[#c4a574]/20 text-[#c4a574] font-medium hover:bg-[#c4a574]/20 transition-colors"
                       >
                         <Printer className="w-4 h-4" />
                         Print
@@ -529,7 +541,7 @@ export function ProductDrawer({
 
                 {/* Stock by Warehouse */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide">
+                  <h4 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide">
                     Stock by Warehouse
                   </h4>
                   <div className="space-y-2">
@@ -541,18 +553,18 @@ export function ProductDrawer({
                           className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                         >
                           <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-[#6F7285]" />
-                            <span className="text-sm text-[#F5F6FA]">
+                            <MapPin className="w-4 h-4 text-[#8a867c]" />
+                            <span className="text-sm text-[#f3eee4]">
                               {wh.warehouseName}
                             </span>
                           </div>
                           <span
                             className={`text-sm font-semibold tabular-nums ${
                               wh.quantity === 0
-                                ? "text-[#E74C3C]"
+                                ? "text-[#c45c5c]"
                                 : wh.quantity <= 5
-                                  ? "text-[#F5A623]"
-                                  : "text-[#F5F6FA]"
+                                  ? "text-[#d4a054]"
+                                  : "text-[#f3eee4]"
                             }`}
                           >
                             {wh.quantity} units
@@ -560,11 +572,11 @@ export function ProductDrawer({
                         </div>
                       ))
                     ) : (
-                      <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-sm leading-relaxed text-[#A1A4B3]">
-                        <p className="font-medium text-[#F5F6FA]">
+                      <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-sm leading-relaxed text-[#c5c0b5]">
+                        <p className="font-medium text-[#f3eee4]">
                           No breakdown by warehouse
                         </p>
-                        <p className="mt-1 text-[#6F7285]">
+                        <p className="mt-1 text-[#8a867c]">
                           Receipts or stock transfers will populate per-location
                           quantities. Total below is still the sum across
                           warehouses.
@@ -572,14 +584,14 @@ export function ProductDrawer({
                       </div>
                     )}
                   </div>
-                  <div className="rounded-lg border border-white/[0.1] bg-[#1E1F2A] p-3">
+                  <div className="rounded-lg border border-white/[0.1] bg-[#1c1d22] p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-[#A1A4B3]">
+                      <span className="text-sm font-medium text-[#c5c0b5]">
                         Total stock (all locations)
                       </span>
-                      <span className="text-lg font-bold text-[#F5F6FA] tabular-nums">
+                      <span className="text-lg font-bold text-[#f3eee4] tabular-nums">
                         {product.stock.total}
-                        <span className="text-sm font-semibold text-[#A1A4B3] ml-1">
+                        <span className="text-sm font-semibold text-[#c5c0b5] ml-1">
                           units
                         </span>
                       </span>
@@ -589,31 +601,31 @@ export function ProductDrawer({
 
                 {/* Pricing */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide">
+                  <h4 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide">
                     Pricing
                   </h4>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                      <p className="text-xs text-[#6F7285] mb-1">Cost</p>
-                      <p className="text-lg font-semibold text-[#F5F6FA] tabular-nums">
+                      <p className="text-xs text-[#8a867c] mb-1">Cost</p>
+                      <p className="text-lg font-semibold text-[#f3eee4] tabular-nums">
                         {formatCurrency(product.costPrice || 0)}
                       </p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                      <p className="text-xs text-[#6F7285] mb-1">MRP</p>
-                      <p className="text-lg font-semibold text-[#A1A4B3] tabular-nums">
+                      <p className="text-xs text-[#8a867c] mb-1">MRP</p>
+                      <p className="text-lg font-semibold text-[#c5c0b5] tabular-nums">
                         {formatCurrency(product.mrp || product.sellingPrice)}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[#C6A15B]/35 bg-[#1E1F2A] p-3">
-                      <p className="text-xs font-medium uppercase tracking-wide text-[#A1A4B3] mb-1">
+                    <div className="rounded-lg border border-[#c4a574]/35 bg-[#1c1d22] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[#c5c0b5] mb-1">
                         Selling price
                       </p>
-                      <p className="text-lg font-semibold text-[#F5F6FA] tabular-nums">
+                      <p className="text-lg font-semibold text-[#f3eee4] tabular-nums">
                         {formatCurrency(product.sellingPrice)}
                       </p>
                       {product.sellingPrice <= 0 && (
-                        <p className="mt-2 text-[11px] leading-snug text-[#F5A623]">
+                        <p className="mt-2 text-[11px] leading-snug text-[#d4a054]">
                           Not set — use Edit to add a selling price (POS uses
                           this amount).
                         </p>
@@ -623,7 +635,7 @@ export function ProductDrawer({
                   <div
                     className={`rounded-lg border p-3 ${
                       product.costPrice && product.costPrice > 0
-                        ? "border-[#2ECC71]/30 bg-[#1E1F2A]"
+                        ? "border-[#3f9d7a]/30 bg-[#1c1d22]"
                         : "border-white/[0.08] bg-white/[0.02]"
                     }`}
                   >
@@ -631,14 +643,14 @@ export function ProductDrawer({
                       <span
                         className={`text-sm ${
                           product.costPrice && product.costPrice > 0
-                            ? "text-[#2ECC71]"
-                            : "text-[#6F7285]"
+                            ? "text-[#3f9d7a]"
+                            : "text-[#8a867c]"
                         }`}
                       >
                         Profit margin
                       </span>
                       {product.costPrice && product.costPrice > 0 ? (
-                        <span className="text-sm font-semibold text-[#2ECC71] tabular-nums">
+                        <span className="text-sm font-semibold text-[#3f9d7a] tabular-nums">
                           {Math.round(
                             ((product.sellingPrice - product.costPrice) /
                               product.costPrice) *
@@ -647,7 +659,7 @@ export function ProductDrawer({
                           %
                         </span>
                       ) : (
-                        <span className="text-xs text-right leading-snug text-[#A1A4B3]">
+                        <span className="text-xs text-right leading-snug text-[#c5c0b5]">
                           Add cost price to calculate margin
                         </span>
                       )}
@@ -660,8 +672,8 @@ export function ProductDrawer({
               <div className="p-4 border-t border-white/[0.08] space-y-3">
                 {/* Delete Confirmation */}
                 {showDeleteConfirm ? (
-                  <div className="p-3 rounded-lg bg-[#E74C3C]/10 border border-[#E74C3C]/30">
-                    <p className="text-sm text-[#E74C3C] mb-3">
+                  <div className="p-3 rounded-lg bg-[#c45c5c]/10 border border-[#c45c5c]/30">
+                    <p className="text-sm text-[#c45c5c] mb-3">
                       Are you sure you want to deactivate this product? It will
                       be hidden from inventory and POS.
                     </p>
@@ -669,14 +681,14 @@ export function ProductDrawer({
                       <button
                         onClick={() => setShowDeleteConfirm(false)}
                         disabled={deactivateMutation.isPending}
-                        className="flex-1 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] text-sm font-medium hover:bg-white/[0.08] transition-colors"
+                        className="flex-1 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] text-sm font-medium hover:bg-white/[0.08] transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleDelete}
                         disabled={deactivateMutation.isPending}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#E74C3C] text-white text-sm font-medium hover:bg-[#C0392B] transition-colors disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#c45c5c] text-white text-sm font-medium hover:bg-[#c45c5c] transition-colors disabled:opacity-50"
                       >
                         {deactivateMutation.isPending ? (
                           <>
@@ -691,12 +703,23 @@ export function ProductDrawer({
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-3">
+                    {/* Update stock - Admin only */}
+                    {isAdmin && !product.isDeleted && onAdjustStock && (
+                      <button
+                        type="button"
+                        onClick={() => onAdjustStock(product)}
+                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#c4a574]/15 border-2 border-[#c4a574]/45 text-[#d4b88a] text-sm font-semibold hover:bg-[#c4a574]/25 hover:border-[#c4a574]/70 transition-colors shadow-sm"
+                      >
+                        <SlidersHorizontal className="w-4 h-4 shrink-0" aria-hidden />
+                        <span>Update stock</span>
+                      </button>
+                    )}
                     {/* Edit button */}
                     {!product.isDeleted && (
                       <button
                         type="button"
                         onClick={() => setShowEditModal(true)}
-                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0E0F13] border-2 border-[#C6A15B]/60 text-[#F7EED6] text-sm font-semibold hover:bg-[#C6A15B]/15 hover:border-[#C6A15B] transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0c0d10] border-2 border-[#c4a574]/60 text-[#e0cba0] text-sm font-semibold hover:bg-[#c4a574]/15 hover:border-[#c4a574] transition-colors shadow-sm"
                       >
                         <Pencil className="w-4 h-4 shrink-0" aria-hidden />
                         <span>Edit product</span>
@@ -707,7 +730,7 @@ export function ProductDrawer({
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0E0F13] border-2 border-red-500/55 text-red-200 text-sm font-semibold hover:bg-red-500/15 hover:border-red-400 transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-lg bg-[#0c0d10] border-2 border-red-500/55 text-red-200 text-sm font-semibold hover:bg-red-500/15 hover:border-red-400 transition-colors shadow-sm"
                       >
                         <Trash2 className="w-4 h-4 shrink-0" aria-hidden />
                         <span>Deactivate</span>
@@ -715,7 +738,7 @@ export function ProductDrawer({
                     )}
                     <button
                       onClick={onClose}
-                      className="flex-1 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
+                      className="flex-1 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] font-medium hover:bg-white/[0.08] transition-colors"
                     >
                       Close
                     </button>
@@ -733,7 +756,7 @@ export function ProductDrawer({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
+                  className="fixed inset-0 z-[60] modal-scrim"
                   onClick={() => setShowBarcodePreview(false)}
                   aria-hidden="true"
                 />
@@ -744,13 +767,13 @@ export function ProductDrawer({
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   className="fixed inset-0 z-[70] flex items-center justify-center p-4"
                 >
-                  <div className="bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl w-full max-w-sm overflow-hidden">
+                  <div className="bg-[#111318] rounded-2xl border border-white/[0.08] shadow-2xl w-full max-w-sm overflow-hidden">
                     <div className="flex items-center justify-between p-4 border-b border-white/[0.08]">
                       <div>
-                        <h3 className="text-base font-semibold text-[#F5F6FA]">
+                        <h3 className="text-base font-semibold text-[#f3eee4]">
                           Barcode Label Preview
                         </h3>
-                        <p className="text-xs text-[#6F7285] mt-0.5">
+                        <p className="text-xs text-[#8a867c] mt-0.5">
                           50mm × 25mm — TVS LP-46 (1:2 ratio)
                         </p>
                       </div>
@@ -758,14 +781,14 @@ export function ProductDrawer({
                         onClick={() => setShowBarcodePreview(false)}
                         className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
                       >
-                        <X className="w-4 h-4 text-[#A1A4B3]" />
+                        <X className="w-4 h-4 text-[#c5c0b5]" />
                       </button>
                     </div>
 
                     {/* Label preview — iframe renders exact print HTML at 3× scale */}
                     <div className="p-6 flex flex-col items-center gap-4">
                       <div
-                        className="relative rounded border border-dashed border-[#6F7285]"
+                        className="relative rounded border border-dashed border-[#8a867c]"
                         style={{ width: "300px", height: "150px" }}
                       >
                         <iframe
@@ -781,7 +804,7 @@ export function ProductDrawer({
                           sandbox="allow-same-origin"
                         />
                       </div>
-                      <p className="text-xs text-[#6F7285] text-center">
+                      <p className="text-xs text-[#8a867c] text-center">
                         Preview shown at 3× actual size
                       </p>
                     </div>
@@ -789,7 +812,7 @@ export function ProductDrawer({
                     <div className="flex gap-3 p-4 border-t border-white/[0.08]">
                       <button
                         onClick={() => setShowBarcodePreview(false)}
-                        className="flex-1 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] text-sm font-medium hover:bg-white/[0.08] transition-colors"
+                        className="flex-1 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] text-sm font-medium hover:bg-white/[0.08] transition-colors"
                       >
                         Close
                       </button>
@@ -798,7 +821,7 @@ export function ProductDrawer({
                           setShowBarcodePreview(false);
                           handlePrintBarcode(product);
                         }}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
                       >
                         <Printer className="w-4 h-4" />
                         Print
@@ -836,6 +859,9 @@ export function ProductDrawer({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(drawer, document.body);
 }
 
 function InfoCard({
@@ -850,10 +876,10 @@ function InfoCard({
   return (
     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="w-4 h-4 text-[#6F7285]" />
-        <span className="text-xs text-[#6F7285]">{label}</span>
+        <Icon className="w-4 h-4 text-[#8a867c]" />
+        <span className="text-xs text-[#8a867c]">{label}</span>
       </div>
-      <p className="text-sm font-medium text-[#F5F6FA]">{value}</p>
+      <p className="text-sm font-medium text-[#f3eee4]">{value}</p>
     </div>
   );
 }

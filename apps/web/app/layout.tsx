@@ -1,14 +1,22 @@
 import { QueryProvider } from "@/lib/api";
+import { AuthBootstrap } from "@/components/auth";
 import "@/styles/globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Quake Inventory System",
+  title: "Quake Inventory",
   description:
-    "Inventory, warehouse, POS, and reporting for retail, wholesale, and distribution across any product category.",
+    "Premium inventory, godown, POS, and reporting for retail and wholesale.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/assets/2d/Quake_Logo.png", type: "image/png", sizes: "any" },
+    ],
+    shortcut: "/favicon.png",
+    apple: [{ url: "/assets/2d/Quake_Logo.png", type: "image/png" }],
+  },
 };
 
-// Script to apply theme before React hydrates to prevent flash
 const themeScript = `
   (function() {
     try {
@@ -21,7 +29,6 @@ const themeScript = `
             theme = parsed.state.theme;
           }
         } catch (e) {
-          // Fallback if not JSON
           if (stored === 'light') theme = 'light';
         }
       }
@@ -48,12 +55,15 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-bg-primary text-text-primary antialiased">
-        <QueryProvider>{children}</QueryProvider>
+      <body className="min-h-screen bg-bg-primary text-text-primary antialiased font-sans">
+        <QueryProvider>
+          <AuthBootstrap />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

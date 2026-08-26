@@ -13,7 +13,7 @@ from sales.models import Sale
 from invoices.models import Invoice
 
 
-def get_analytics_summary(warehouse_id=None):
+def get_analytics_summary(warehouse_id=None, organization_id=None):
     """
     Get aggregated analytics summary for dashboard.
     
@@ -35,14 +35,23 @@ def get_analytics_summary(warehouse_id=None):
             }
         }
     """
-    today = timezone.now().date()
+    today = timezone.localdate()
     start_of_month = today.replace(day=1)
     start_of_last_month = (start_of_month - timedelta(days=1)).replace(day=1)
     
-    # Base querysets
+    # Base querysets — always scoped to caller's organization when provided
     products_qs = Product.objects.filter(is_active=True)
     sales_qs = Sale.objects.filter(status='COMPLETED')
     invoices_qs = Invoice.objects.all()
+
+    if organization_id is not None:
+        products_qs = products_qs.filter(organization_id=organization_id)
+        sales_qs = sales_qs.filter(organization_id=organization_id)
+        invoices_qs = invoices_qs.filter(sale__organization_id=organization_id)
+    else:
+        products_qs = products_qs.none()
+        sales_qs = sales_qs.none()
+        invoices_qs = invoices_qs.none()
     
     if warehouse_id:
         sales_qs = sales_qs.filter(warehouse_id=warehouse_id)

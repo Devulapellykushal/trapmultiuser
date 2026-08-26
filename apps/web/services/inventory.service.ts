@@ -565,12 +565,29 @@ export const inventoryService = {
     quantity: number;
   }) => api.post("/inventory/stock/purchase/", data),
 
+  /**
+   * Admin stock correction via ledger (Phase 15).
+   * Positive quantity adds stock; negative subtracts (never below zero).
+   */
   adjustStock: (data: {
     product_id: string;
     warehouse_id: string;
     quantity: number;
     reason: string;
-  }) => api.post("/inventory/stock/adjust/", data),
+  }) =>
+    api.post<{
+      success: boolean;
+      movementId?: string;
+      movement_id?: string;
+      productName?: string;
+      product_name?: string;
+      warehouseName?: string;
+      warehouse_name?: string;
+      quantity: number;
+      newStock?: number;
+      new_stock?: number;
+      message: string;
+    }>("/sales/adjustments/", data),
 
   // -------------------------------------------------------------------------
   // POS Products
@@ -591,6 +608,7 @@ export const inventoryService = {
 // POS Product type - flattened variant for POS grid
 export interface POSProduct {
   id: string;
+  productId?: string;
   name: string;
   productName: string;
   brand: string;
@@ -608,6 +626,8 @@ export interface POSProduct {
   stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   reorderThreshold: number;
   barcodeImageUrl: string | null;
+  /** Primary product photo for POS grid */
+  imageUrl?: string | null;
   // Supplier tracking
   supplierId: string | null;
   supplierName: string | null;

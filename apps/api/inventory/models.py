@@ -75,8 +75,16 @@ class Warehouse(models.Model):
     - No deletes (only deactivate via is_active=False)
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100, unique=True)
-    code = models.CharField(max_length=20, unique=True)
+    organization = models.ForeignKey(
+        'users.Organization',
+        on_delete=models.PROTECT,
+        related_name='warehouses',
+        null=True,
+        blank=True,
+        help_text='Business workspace that owns this warehouse/shop location',
+    )
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20)
     address = models.TextField(blank=True)
     email = models.EmailField(blank=True, default="")
     phone = models.CharField(max_length=32, blank=True, default="")
@@ -96,6 +104,16 @@ class Warehouse(models.Model):
     class Meta:
         ordering = ['name']
         verbose_name_plural = 'Warehouses'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['organization', 'name'],
+                name='warehouse_org_name_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=['organization', 'code'],
+                name='warehouse_org_code_uniq',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.code})"
@@ -179,6 +197,14 @@ class Product(models.Model):
         KIDS = 'KIDS', 'Kids'
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'users.Organization',
+        on_delete=models.PROTECT,
+        related_name='products',
+        null=True,
+        blank=True,
+        help_text='Business workspace that owns this product',
+    )
     name = models.CharField(max_length=255)
     
     # Phase 10A: SKU and Barcode at product level
@@ -325,20 +351,29 @@ class Product(models.Model):
             except Product.DoesNotExist:
                 pass
         
-        # Auto-generate barcode on creation if not provided
-        # Use supplier name prefix if supplier is set
+        # Auto-generate barcode on creation if not provided — only when barcodes are enabled
         if is_new and not self.barcode_value:
-            supplier_name = self.supplier.name if self.supplier_id else None
-            self.barcode_value = generate_barcode_value(supplier_name=supplier_name)
-            # Ensure uniqueness
-            while Product.objects.filter(barcode_value=self.barcode_value).exists():
-                self.barcode_value = generate_barcode_value(supplier_name=supplier_name)
-            
-            # Generate barcode SVG image
+            barcodes_on = True
             try:
-                self.barcode_image_url = generate_barcode_svg(self.barcode_value)
+                from invoices.models import BusinessSettings
+                barcodes_on = bool(
+                    BusinessSettings.get_settings().barcode_enabled
+                )
             except Exception:
-                pass  # Barcode image generation is optional
+                barcodes_on = True
+
+            if barcodes_on:
+                supplier_name = self.supplier.name if self.supplier_id else None
+                self.barcode_value = generate_barcode_value(supplier_name=supplier_name)
+                # Ensure uniqueness
+                while Product.objects.filter(barcode_value=self.barcode_value).exists():
+                    self.barcode_value = generate_barcode_value(supplier_name=supplier_name)
+
+                # Generate barcode SVG image
+                try:
+                    self.barcode_image_url = generate_barcode_svg(self.barcode_value)
+                except Exception:
+                    pass  # Barcode image generation is optional
         
         # Prevent barcode modification after creation
         elif not is_new:
@@ -1089,16 +1124,23 @@ class Store(models.Model):
     """
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
+
+    organization = models.ForeignKey(
+        'users.Organization',
+        on_delete=models.PROTECT,
+        related_name='stores',
+        null=True,
+        blank=True,
+        help_text='Business workspace that owns this store',
+    )
+
     name = models.CharField(
         max_length=150,
-        unique=True,
         help_text="Store name"
     )
     
     code = models.CharField(
         max_length=20,
-        unique=True,
         blank=True,
         help_text="Short code for store (auto-generated if blank)"
     )
@@ -1170,6 +1212,16 @@ class Store(models.Model):
             models.Index(fields=['code']),
             models.Index(fields=['city']),
             models.Index(fields=['is_active']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['organization', 'name'],
+                name='store_org_name_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=['organization', 'code'],
+                name='store_org_code_uniq',
+            ),
         ]
 
     def __str__(self):

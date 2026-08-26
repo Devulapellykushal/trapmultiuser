@@ -112,6 +112,32 @@ export type {
   StoreListParams,
 } from "./stores.service";
 
+export { businessSetupService } from "./business-setup.service";
+export type { BusinessSetup } from "./business-setup.service";
+
+export { customersService } from "./customers.service";
+export type {
+  Customer,
+  CustomerListParams,
+  CustomerListMeta,
+  CustomerListResponse,
+  CustomerWritePayload,
+  CustomerUpdatePayload,
+  CustomerUpsertPayload,
+  CustomerSale,
+  CustomerSegmentCounts,
+  CustomerHubSummary,
+} from "./customers.service";
+
+export { superadminService } from "./superadmin.service";
+export type {
+  SuperadminOrgListItem,
+  SuperadminOrgDetail,
+  SuperadminOrgMember,
+  SuperadminOrgListResponse,
+  SuperadminUserListResponse,
+} from "./superadmin.service";
+
 export { debitCreditNotesService } from "./debit-credit-notes.service";
 export type {
   CreditNote,

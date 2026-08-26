@@ -12,6 +12,7 @@
 
 import * as React from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { localYmd } from "@/lib/local-date";
 
 export interface DashboardFilters {
   dateFrom: string | null;
@@ -29,15 +30,15 @@ interface DashboardFilterContextValue {
 
 const DashboardFilterContext = React.createContext<DashboardFilterContextValue | null>(null);
 
-// Default date range: Last 30 days
+// Default date range: Last 30 days (local calendar)
 function getDefaultDateRange() {
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(today.getDate() - 30);
-  
+
   return {
-    from: thirtyDaysAgo.toISOString().split('T')[0],
-    to: today.toISOString().split('T')[0],
+    from: localYmd(thirtyDaysAgo),
+    to: localYmd(today),
   };
 }
 

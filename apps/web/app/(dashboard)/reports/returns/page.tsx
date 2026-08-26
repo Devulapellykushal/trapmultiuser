@@ -405,7 +405,7 @@ export default function ReturnsReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey="returned" fill="#EC4899" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="returned" fill="#c45c5c" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

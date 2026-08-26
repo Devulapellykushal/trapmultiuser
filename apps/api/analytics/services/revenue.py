@@ -16,6 +16,7 @@ from django.db.models import Sum, Count, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
+from analytics.org_scope import scope_by_org
 from invoices.models import Invoice, InvoiceItem
 
 
@@ -24,7 +25,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
     if end_date:
         end = date.fromisoformat(end_date)
     else:
-        end = timezone.now().date()
+        end = timezone.localdate()
     
     if start_date:
         start = date.fromisoformat(start_date)
@@ -37,7 +38,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
 def get_revenue_overview(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Get revenue overview for dashboard.
@@ -55,6 +56,7 @@ def get_revenue_overview(
         invoice_date__gte=start,
         invoice_date__lte=end
     )
+    invoices = scope_by_org(invoices, organization_id, field="sale__organization_id")
     
     if warehouse_id:
         invoices = invoices.filter(warehouse_id=warehouse_id)
@@ -86,7 +88,7 @@ def get_revenue_by_product(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     warehouse_id: Optional[str] = None,
-    limit: int = 10
+    limit: int = 10, organization_id=None
 ) -> List[Dict[str, Any]]:
     """
     Get revenue breakdown by product.
@@ -97,6 +99,7 @@ def get_revenue_by_product(
         invoice__invoice_date__gte=start,
         invoice__invoice_date__lte=end
     )
+    items = scope_by_org(items, organization_id, field="invoice__sale__organization_id")
     
     if warehouse_id:
         items = items.filter(invoice__warehouse_id=warehouse_id)
@@ -122,17 +125,21 @@ def get_revenue_by_product(
 
 def get_revenue_by_warehouse(
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Get revenue breakdown by warehouse.
     """
     start, end = get_date_range(start_date, end_date)
     
-    warehouses = Invoice.objects.filter(
+    invoices = Invoice.objects.filter(
         invoice_date__gte=start,
         invoice_date__lte=end
-    ).values(
+    )
+    invoices = scope_by_org(invoices, organization_id, field="sale__organization_id")
+
+    warehouses = invoices.values(
         'warehouse__id',
         'warehouse__name',
         'warehouse__code'

@@ -7,12 +7,21 @@ import {
     useDeleteCategory,
     useWarehouses,
 } from "@/hooks/use-inventory";
+import {
+    useLocationLabels,
+    useUpdateBusinessSetup,
+} from "@/hooks/use-business-setup";
 import { useProfile, useUpdateProfile } from "@/hooks/use-users";
 import { useAuthStore } from "@/lib/auth";
 import { Category, Warehouse } from "@/services";
 import { adminHref } from "@/lib/admin-routes";
+import type {
+  InventoryLocationMode,
+  ShopStockMode,
+} from "@/lib/business-location";
 import { UpdateProfilePayload } from "@/services/users.service";
 import {
+    Barcode,
     Building2,
     Check,
     Loader2,
@@ -20,9 +29,11 @@ import {
     Moon,
     Palette,
     Plus,
+    Store,
     Sun,
     Tag,
     Trash2,
+    Truck,
     User,
     X,
 } from "lucide-react";
@@ -40,6 +51,11 @@ export default function SettingsPage() {
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
   const updateProfile = useUpdateProfile();
+  const { mode, shopStockMode, barcodeEnabled, labels, isSingleShop, isGodownAndShops } =
+    useLocationLabels();
+  const updateSetup = useUpdateBusinessSetup();
+  const [pendingLocationMode, setPendingLocationMode] =
+    useState<InventoryLocationMode | null>(null);
 
   // Category form state
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -159,24 +175,346 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-4xl">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-[#F5F6FA] flex items-center gap-2">
-            <Palette className="w-6 h-6 text-[#6366F1]" />
+          <h1 className="text-2xl font-semibold text-[#f3eee4] flex items-center gap-2">
+            <Palette className="w-6 h-6 text-[#c4a574]" />
             Settings
           </h1>
-          <p className="text-sm text-[#6F7285] mt-1">
+          <p className="text-sm text-[#8a867c] mt-1">
             Manage your account and preferences
           </p>
         </div>
 
+        {/* Stock layout — admin only, plain language */}
+        {authUser?.role === "ADMIN" && (
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.08]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">
+                How do you keep stock?
+              </h2>
+              <p className="text-sm text-[#8a867c] mt-1">
+                Pick once. The app hides extra screens so staff stay focused.
+              </p>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(
+                [
+                  {
+                    value: "SINGLE_SHOP" as InventoryLocationMode,
+                    title: "One shop only",
+                    body: "You sell from one place. No godown, no transfers. Easiest.",
+                    icon: Store,
+                  },
+                  {
+                    value: "GODOWN_AND_SHOPS" as InventoryLocationMode,
+                    title: "Godown + shops",
+                    body: "One godown, many shop counters. Choose how shops take stock below.",
+                    icon: Building2,
+                  },
+                ] as const
+              ).map((option) => {
+                const selected = mode === option.value;
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={updateSetup.isPending}
+                    onClick={() => {
+                      if (selected) return;
+                      // Confirm when leaving Godown + shops → One shop only
+                      if (
+                        option.value === "SINGLE_SHOP" &&
+                        mode === "GODOWN_AND_SHOPS"
+                      ) {
+                        setPendingLocationMode("SINGLE_SHOP");
+                        return;
+                      }
+                      updateSetup.mutate({
+                        inventory_location_mode: option.value,
+                        ...(option.value === "SINGLE_SHOP"
+                          ? { shop_stock_mode: "TRANSFER" as ShopStockMode }
+                          : {}),
+                      });
+                    }}
+                    className={`text-left p-5 rounded-xl border-2 transition-all ${
+                      selected
+                        ? "border-[#c4a574] bg-[#c4a574]/10"
+                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16]"
+                    } disabled:opacity-60`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-lg ${
+                            selected ? "bg-[#c4a574]" : "bg-white/[0.06]"
+                          }`}
+                        >
+                          <Icon
+                            className={`w-5 h-5 ${
+                              selected ? "text-white" : "text-[#c5c0b5]"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-base font-semibold text-[#f3eee4]">
+                            {option.title}
+                          </p>
+                          <p className="text-sm text-[#8a867c] mt-1 leading-snug">
+                            {option.body}
+                          </p>
+                        </div>
+                      </div>
+                      {selected && (
+                        <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-[#d4b88a]">
+                          <Check className="w-4 h-4" />
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Toggle: transfer vs shared godown — only when Godown + shops */}
+            {isGodownAndShops && (
+              <div className="px-6 pb-6 space-y-3">
+                <div className="border-t border-white/[0.06] pt-5">
+                  <h3 className="text-sm font-semibold text-[#f3eee4]">
+                    How do shops use godown stock?
+                  </h3>
+                  <p className="text-xs text-[#8a867c] mt-1">
+                    Current way sends stock to each shop. Or every shop sells
+                    from the same godown (sale +/− on godown).
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {(
+                    [
+                      {
+                        value: "TRANSFER" as ShopStockMode,
+                        title: labels.shopStockTransferTitle,
+                        body: labels.shopStockTransferBody,
+                      },
+                      {
+                        value: "SHARED_GODOWN" as ShopStockMode,
+                        title: labels.shopStockSharedTitle,
+                        body: labels.shopStockSharedBody,
+                      },
+                    ] as const
+                  ).map((option) => {
+                    const selected = shopStockMode === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={updateSetup.isPending}
+                        onClick={() => {
+                          if (selected) return;
+                          updateSetup.mutate({
+                            shop_stock_mode: option.value,
+                          });
+                        }}
+                        className={`text-left p-4 rounded-xl border-2 transition-all ${
+                          selected
+                            ? "border-emerald-500/50 bg-emerald-500/10"
+                            : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.14]"
+                        } disabled:opacity-60`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-[#f3eee4]">
+                              {option.title}
+                            </p>
+                            <p className="text-xs text-[#8a867c] mt-1 leading-snug">
+                              {option.body}
+                            </p>
+                          </div>
+                          {selected && (
+                            <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-emerald-300">
+                              <Check className="w-3.5 h-3.5" />
+                              On
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="px-6 pb-5 text-xs text-[#8a867c]">
+              Now using:{" "}
+              <span className="text-[#c5c0b5]">{labels.setupTitle}</span>
+              {" — "}
+              {labels.setupHint}
+            </div>
+          </div>
+        )}
+
+        {/* Confirm: Godown + shops → One shop only */}
+        {pendingLocationMode === "SINGLE_SHOP" && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-scrim">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="single-shop-confirm-title"
+              className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-[#111318] p-6 shadow-xl"
+            >
+              <h3
+                id="single-shop-confirm-title"
+                className="text-lg font-semibold text-[#f3eee4]"
+              >
+                Switch to one shop only?
+              </h3>
+              <div className="mt-3 space-y-2 text-sm text-[#c5c0b5] leading-relaxed">
+                <p>
+                  Stock is <span className="text-[#f3eee4]">not split</span>{" "}
+                  across shops.
+                </p>
+                <ul className="list-disc pl-5 space-y-1.5">
+                  <li>
+                    Your main godown becomes <strong className="text-[#f3eee4]">My shop</strong>{" "}
+                    — godown stock stays there.
+                  </li>
+                  <li>
+                    Any stock sitting in shop counters is{" "}
+                    <strong className="text-[#f3eee4]">pulled back</strong> into
+                    that one place.
+                  </li>
+                  <li>
+                    With 2+ shops: nothing is shared out — everything gathers
+                    into the main stock location.
+                  </li>
+                  <li>Shop screens are hidden; history stays in the database.</li>
+                </ul>
+              </div>
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-sm text-[#c5c0b5] hover:bg-white/[0.06]"
+                  onClick={() => setPendingLocationMode(null)}
+                  disabled={updateSetup.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-[#c4a574] text-white hover:bg-[#d4b88a] disabled:opacity-60"
+                  disabled={updateSetup.isPending}
+                  onClick={() => {
+                    updateSetup.mutate(
+                      {
+                        inventory_location_mode: "SINGLE_SHOP",
+                        shop_stock_mode: "TRANSFER" as ShopStockMode,
+                      },
+                      {
+                        onSettled: () => setPendingLocationMode(null),
+                      },
+                    );
+                  }}
+                >
+                  {updateSetup.isPending ? "Switching…" : "Switch to one shop"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Barcodes — admin only */}
+        {authUser?.role === "ADMIN" && (
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.08]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">
+                Do you use barcodes?
+              </h2>
+              <p className="text-sm text-[#8a867c] mt-1">
+                Turn off if you sell by search or tap only. You can turn on later.
+              </p>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(
+                [
+                  {
+                    value: true,
+                    title: "Use barcodes",
+                    body: "Every tyre gets a barcode. Scan at POS. Best if you print labels.",
+                  },
+                  {
+                    value: false,
+                    title: "No barcodes needed",
+                    body: "Skip barcodes. Find tyres by name/search and tap to sell.",
+                  },
+                ] as const
+              ).map((option) => {
+                const selected = barcodeEnabled === option.value;
+                return (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    disabled={updateSetup.isPending}
+                    onClick={() => {
+                      if (selected) return;
+                      updateSetup.mutate({ barcode_enabled: option.value });
+                    }}
+                    className={`text-left p-5 rounded-xl border-2 transition-all ${
+                      selected
+                        ? "border-[#c4a574] bg-[#c4a574]/10"
+                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16]"
+                    } disabled:opacity-60`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-lg ${
+                            selected ? "bg-[#c4a574]" : "bg-white/[0.06]"
+                          }`}
+                        >
+                          <Barcode
+                            className={`w-5 h-5 ${
+                              selected ? "text-white" : "text-[#c5c0b5]"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-base font-semibold text-[#f3eee4]">
+                            {option.title}
+                          </p>
+                          <p className="text-sm text-[#8a867c] mt-1 leading-snug">
+                            {option.body}
+                          </p>
+                        </div>
+                      </div>
+                      {selected && (
+                        <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-[#d4b88a]">
+                          <Check className="w-4 h-4" />
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-6 pb-5 text-xs text-[#8a867c]">
+              Now using:{" "}
+              <span className="text-[#c5c0b5]">
+                {barcodeEnabled ? "Use barcodes" : "No barcodes needed"}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Profile Settings */}
-        <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+        <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
           <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+            <div className="p-2 rounded-lg bg-[#c4a574] shadow-sm">
               <User className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-[#F5F6FA]">Profile</h2>
-              <p className="text-sm text-[#6F7285]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">Profile</h2>
+              <p className="text-sm text-[#8a867c]">
                 Update your personal information
               </p>
             </div>
@@ -184,14 +522,14 @@ export default function SettingsPage() {
           <form onSubmit={handleProfileSubmit} className="p-6">
             {profileLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-[#C6A15B] animate-spin" />
+                <Loader2 className="w-6 h-6 text-[#c4a574] animate-spin" />
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {/* Name */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#A1A4B3]">
+                    <label className="text-sm font-medium text-[#c5c0b5]">
                       Full Name
                     </label>
                     <input
@@ -200,13 +538,13 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setProfileForm({ ...profileForm, name: e.target.value })
                       }
-                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
                     />
                   </div>
 
                   {/* Email */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#A1A4B3]">
+                    <label className="text-sm font-medium text-[#c5c0b5]">
                       Email
                     </label>
                     <input
@@ -218,45 +556,45 @@ export default function SettingsPage() {
                           email: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
                     />
                   </div>
 
                   {/* Role (read-only) */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#A1A4B3]">
+                    <label className="text-sm font-medium text-[#c5c0b5]">
                       Role
                     </label>
                     <input
                       type="text"
                       value={authUser?.role || ""}
                       disabled
-                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#6F7285] cursor-not-allowed"
+                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#8a867c] cursor-not-allowed"
                     />
                   </div>
 
                   {/* Username (read-only) */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#A1A4B3]">
+                    <label className="text-sm font-medium text-[#c5c0b5]">
                       Username
                     </label>
                     <input
                       type="text"
                       value={profile?.username || ""}
                       disabled
-                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#6F7285] cursor-not-allowed"
+                      className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#8a867c] cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 {/* Password Change Section */}
                 <div className="mt-6 pt-6 border-t border-white/[0.08]">
-                  <h3 className="text-sm font-semibold text-[#F5F6FA] mb-4">
+                  <h3 className="text-sm font-semibold text-[#f3eee4] mb-4">
                     Change Password
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#A1A4B3]">
+                      <label className="text-sm font-medium text-[#c5c0b5]">
                         Current Password
                       </label>
                       <input
@@ -269,11 +607,11 @@ export default function SettingsPage() {
                           })
                         }
                         placeholder="••••••••"
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#A1A4B3]">
+                      <label className="text-sm font-medium text-[#c5c0b5]">
                         New Password
                       </label>
                       <input
@@ -286,11 +624,11 @@ export default function SettingsPage() {
                           })
                         }
                         placeholder="Min. 8 characters"
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#A1A4B3]">
+                      <label className="text-sm font-medium text-[#c5c0b5]">
                         Confirm Password
                       </label>
                       <input
@@ -303,7 +641,7 @@ export default function SettingsPage() {
                           })
                         }
                         placeholder="••••••••"
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
                       />
                     </div>
                   </div>
@@ -314,7 +652,7 @@ export default function SettingsPage() {
                   <button
                     type="submit"
                     disabled={updateProfile.isPending}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors disabled:opacity-50"
                   >
                     {updateProfile.isPending ? (
                       <>
@@ -335,21 +673,21 @@ export default function SettingsPage() {
         </div>
 
         {/* Appearance Settings */}
-        <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+        <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
           <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#A855F7] shadow-sm">
+            <div className="p-2 rounded-lg bg-[#d4b88a] shadow-sm">
               <Palette className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-[#F5F6FA]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">
                 Appearance
               </h2>
-              <p className="text-sm text-[#6F7285]">Customize how Quake looks</p>
+              <p className="text-sm text-[#8a867c]">Customize how Quake looks</p>
             </div>
           </div>
           <div className="p-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#A1A4B3]">
+              <label className="text-sm font-medium text-[#c5c0b5]">
                 Theme
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -366,14 +704,14 @@ export default function SettingsPage() {
                     onClick={() => handleThemeChange(option.value)}
                     className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
                       theme === option.value
-                        ? "bg-[#6366F1]/15 border-[#6366F1] text-[#F5F6FA] shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
-                        : "bg-white/[0.05] border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08] hover:text-[#F5F6FA]"
+                        ? "bg-[#c4a574]/15 border-[#c4a574] text-[#f3eee4] shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                        : "bg-white/[0.05] border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08] hover:text-[#f3eee4]"
                     }`}
                   >
                     <option.icon
                       className={`w-4 h-4 shrink-0 ${
                         theme === option.value
-                          ? "text-[#C7D2FE]"
+                          ? "text-[#d4b88a]"
                           : "text-current opacity-75"
                       }`}
                     />
@@ -385,26 +723,26 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Warehouses (Admin only) */}
+        {/* Warehouses / My shop (Admin only) */}
         {authUser?.role === "ADMIN" && (
-          <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
             <div className="px-6 py-5 border-b border-white/[0.08] flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+              <div className="p-2 rounded-lg bg-[#c4a574] shadow-sm">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[#F5F6FA]">
-                  Warehouses
+                <h2 className="text-lg font-semibold text-[#f3eee4]">
+                  {labels.warehousePluralTitle}
                 </h2>
-                <p className="text-sm text-[#6F7285]">
-                  Manage warehouse locations
+                <p className="text-sm text-[#8a867c]">
+                  {labels.warehousePageSubtitle}
                 </p>
               </div>
             </div>
             <div className="p-6">
               {warehousesLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-[#C6A15B] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#c4a574] animate-spin" />
                 </div>
               ) : warehouses && warehouses.length > 0 ? (
                 <div className="space-y-3">
@@ -414,14 +752,14 @@ export default function SettingsPage() {
                       className="flex items-center justify-between p-4 rounded-lg bg-white/[0.02] border border-white/[0.05]"
                     >
                       <div>
-                        <p className="text-sm font-medium text-[#F5F6FA]">
+                        <p className="text-sm font-medium text-[#f3eee4]">
                           {warehouse.name}
                         </p>
-                        <p className="text-xs text-[#6F7285]">
+                        <p className="text-xs text-[#8a867c]">
                           Code: {warehouse.code}
                         </p>
                       </div>
-                      <span className="text-xs text-[#6F7285]">
+                      <span className="text-xs text-[#8a867c]">
                         {warehouse.address || "No address"}
                       </span>
                     </div>
@@ -429,21 +767,27 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Building2 className="w-12 h-12 text-[#6F7285] mx-auto mb-4" />
-                  <p className="text-sm text-[#A1A4B3]">
-                    No warehouses configured
+                  <Building2 className="w-12 h-12 text-[#8a867c] mx-auto mb-4" />
+                  <p className="text-sm text-[#c5c0b5]">
+                    No {labels.warehouseSingular} set up yet
                   </p>
-                  <p className="text-xs text-[#6F7285] mt-1">
-                    Admins can add storage places from{" "}
+                  <p className="text-xs text-[#8a867c] mt-1">
+                    Add it from{" "}
                     <Link
                       href={adminHref("/warehouses")}
-                      className="text-[#C6A15B] hover:underline"
+                      className="text-[#c4a574] hover:underline"
                     >
-                      Warehouses
+                      {labels.warehouseNav}
                     </Link>{" "}
-                    in the sidebar.
+                    in the menu.
                   </p>
                 </div>
+              )}
+              {isSingleShop && warehouses && warehouses.length > 1 && (
+                <p className="text-xs text-amber-200/80 mt-4 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  Tip: You chose “One shop only” but have more than one location
+                  listed. Keep one active shop, or switch to “Godown + shops”.
+                </p>
               )}
             </div>
           </div>
@@ -451,24 +795,24 @@ export default function SettingsPage() {
 
         {/* Categories (Admin only) */}
         {authUser?.role === "ADMIN" && (
-          <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
             <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#EC4899] shadow-sm">
+                <div className="p-2 rounded-lg bg-[#c45c5c] shadow-sm">
                   <Tag className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-[#F5F6FA]">
+                  <h2 className="text-lg font-semibold text-[#f3eee4]">
                     Categories
                   </h2>
-                  <p className="text-sm text-[#6F7285]">
+                  <p className="text-sm text-[#8a867c]">
                     Manage product categories for inventory
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAddingCategory(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Category
@@ -479,7 +823,7 @@ export default function SettingsPage() {
               {isAddingCategory && (
                 <div className="mb-4 p-4 rounded-lg bg-white/[0.02] border border-white/[0.08]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-[#F5F6FA]">
+                    <h3 className="text-sm font-medium text-[#f3eee4]">
                       Add New Category
                     </h3>
                     <button
@@ -490,7 +834,7 @@ export default function SettingsPage() {
                       }}
                       className="p-1 rounded hover:bg-white/[0.05]"
                     >
-                      <X className="w-4 h-4 text-[#6F7285]" />
+                      <X className="w-4 h-4 text-[#8a867c]" />
                     </button>
                   </div>
                   <div className="space-y-3">
@@ -499,7 +843,7 @@ export default function SettingsPage() {
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="Category name (e.g., Groceries, Industrial, Home)"
-                      className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+                      className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
                     />
                     <input
                       type="text"
@@ -508,7 +852,7 @@ export default function SettingsPage() {
                         setNewCategoryDescription(e.target.value)
                       }
                       placeholder="Description (optional)"
-                      className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+                      className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
                     />
                     <div className="flex gap-2">
                       <button
@@ -517,7 +861,7 @@ export default function SettingsPage() {
                           setNewCategoryName("");
                           setNewCategoryDescription("");
                         }}
-                        className="px-4 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#A1A4B3] hover:bg-white/[0.08] transition-colors"
+                        className="px-4 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#c5c0b5] hover:bg-white/[0.08] transition-colors"
                       >
                         Cancel
                       </button>
@@ -544,7 +888,7 @@ export default function SettingsPage() {
                         disabled={
                           createCategory.isPending || !newCategoryName.trim()
                         }
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors disabled:opacity-50"
                       >
                         {createCategory.isPending ? (
                           <>
@@ -566,7 +910,7 @@ export default function SettingsPage() {
               {/* Categories List */}
               {categoriesLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-[#C6A15B] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#c4a574] animate-spin" />
                 </div>
               ) : categories && categories.length > 0 ? (
                 <div className="space-y-3">
@@ -576,11 +920,11 @@ export default function SettingsPage() {
                       className="flex items-center justify-between p-4 rounded-lg bg-white/[0.02] border border-white/[0.05]"
                     >
                       <div>
-                        <p className="text-sm font-medium text-[#F5F6FA]">
+                        <p className="text-sm font-medium text-[#f3eee4]">
                           {category.name}
                         </p>
                         {category.description && (
-                          <p className="text-xs text-[#6F7285]">
+                          <p className="text-xs text-[#8a867c]">
                             {category.description}
                           </p>
                         )}
@@ -600,7 +944,7 @@ export default function SettingsPage() {
                             }
                           }
                         }}
-                        className="p-2 rounded-lg text-[#6F7285] hover:text-[#E74C3C] hover:bg-[#E74C3C]/10 transition-colors"
+                        className="p-2 rounded-lg text-[#8a867c] hover:text-[#c45c5c] hover:bg-[#c45c5c]/10 transition-colors"
                         title="Delete category"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -610,11 +954,11 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Tag className="w-12 h-12 text-[#6F7285] mx-auto mb-4" />
-                  <p className="text-sm text-[#A1A4B3]">
+                  <Tag className="w-12 h-12 text-[#8a867c] mx-auto mb-4" />
+                  <p className="text-sm text-[#c5c0b5]">
                     No categories configured
                   </p>
-                  <p className="text-xs text-[#6F7285] mt-1">
+                  <p className="text-xs text-[#8a867c] mt-1">
                     Use categories that match how you assort — e.g. grocery,
                     hardware, pharmacy, cosmetics, electronics.
                   </p>

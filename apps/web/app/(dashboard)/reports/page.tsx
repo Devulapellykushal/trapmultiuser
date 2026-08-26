@@ -49,6 +49,7 @@ import {
   useSalesSummaryReport,
   useSalesTrendsReport,
 } from "@/hooks";
+import { useChartTheme } from "@/lib/chart-theme";
 
 // Format currency
 function formatCurrency(amount: number | string): string {
@@ -76,6 +77,7 @@ function formatDate(dateStr: string, groupBy: "day" | "month"): string {
 export default function ReportsOverviewPage() {
   const { filters } = useDashboardFilters();
   const [groupBy, setGroupBy] = React.useState<"day" | "month">("day");
+  const chartTheme = useChartTheme();
 
   // Fetch sales summary
   const {
@@ -128,7 +130,7 @@ export default function ReportsOverviewPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Overview</h1>
-            <p className="text-sm text-white/40 mt-1">
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
               Executive summary from sales data
             </p>
           </div>
@@ -149,7 +151,7 @@ export default function ReportsOverviewPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Overview</h1>
-          <p className="text-sm text-white/40 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Executive summary from sales data
           </p>
         </div>
@@ -168,7 +170,7 @@ export default function ReportsOverviewPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Overview</h1>
-            <p className="text-sm text-white/40 mt-1">
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
               Executive summary from sales data
             </p>
           </div>
@@ -191,7 +193,7 @@ export default function ReportsOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Overview</h1>
-          <p className="text-sm text-white/40 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Executive summary • Data from /reports/sales/summary/
           </p>
         </div>
@@ -245,7 +247,7 @@ export default function ReportsOverviewPage() {
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as "day" | "month")}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
+              className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/50"
             >
               <option value="day">Daily</option>
               <option value="month">Monthly</option>
@@ -258,12 +260,22 @@ export default function ReportsOverviewPage() {
             {/* Legend */}
             <div className="flex items-center gap-6 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#6366F1]"></div>
-                <span className="text-sm text-white/60">Revenue (₹)</span>
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: chartTheme.primary }}
+                />
+                <span className="text-sm text-[var(--text-secondary)]">
+                  Revenue (₹)
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                <span className="text-sm text-white/60">Orders</span>
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: chartTheme.success }}
+                />
+                <span className="text-sm text-[var(--text-secondary)]">
+                  Orders
+                </span>
               </div>
             </div>
 
@@ -271,48 +283,48 @@ export default function ReportsOverviewPage() {
               <LineChart data={chartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={chartTheme.grid}
                 />
                 <XAxis
                   dataKey="period"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-                  tickLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                  tick={{ fill: chartTheme.axis, fontSize: 12 }}
+                  axisLine={{ stroke: chartTheme.grid }}
+                  tickLine={{ stroke: chartTheme.grid }}
                 />
                 <YAxis
                   yAxisId="left"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-                  tickLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                  tick={{ fill: chartTheme.axis, fontSize: 12 }}
+                  axisLine={{ stroke: chartTheme.grid }}
+                  tickLine={{ stroke: chartTheme.grid }}
                   tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
                   label={{
                     value: "Revenue",
                     angle: -90,
                     position: "insideLeft",
-                    fill: "rgba(255,255,255,0.4)",
+                    fill: chartTheme.axis,
                     fontSize: 12,
                   }}
                 />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-                  tickLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                  tick={{ fill: chartTheme.axis, fontSize: 12 }}
+                  axisLine={{ stroke: chartTheme.grid }}
+                  tickLine={{ stroke: chartTheme.grid }}
                   label={{
                     value: "Orders",
                     angle: 90,
                     position: "insideRight",
-                    fill: "rgba(255,255,255,0.4)",
+                    fill: chartTheme.axis,
                     fontSize: 12,
                   }}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(6, 6, 8, 0.95)",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    backgroundColor: chartTheme.tooltipBg,
+                    border: `1px solid ${chartTheme.tooltipBorder}`,
                     borderRadius: "8px",
-                    color: "white",
+                    color: chartTheme.tooltipText,
                   }}
                   formatter={(value, name) => {
                     if (value === undefined) return ["-", name];
@@ -322,25 +334,25 @@ export default function ReportsOverviewPage() {
                       name === "revenue" ? "Revenue" : "Orders",
                     ];
                   }}
-                  labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                  labelStyle={{ color: chartTheme.tooltipMuted }}
                 />
                 <Line
                   yAxisId="left"
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#6366F1"
+                  stroke={chartTheme.primary}
                   strokeWidth={2}
-                  dot={{ fill: "#6366F1", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#6366F1" }}
+                  dot={{ fill: chartTheme.primary, strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: chartTheme.primary }}
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="orders"
-                  stroke="#A855F7"
+                  stroke={chartTheme.success}
                   strokeWidth={2}
-                  dot={{ fill: "#A855F7", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#A855F7" }}
+                  dot={{ fill: chartTheme.success, strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: chartTheme.success }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -355,7 +367,7 @@ export default function ReportsOverviewPage() {
       </SectionCard>
 
       {/* Data Source Attribution */}
-      <div className="text-xs text-white/30 text-center py-4">
+      <div className="text-xs text-[var(--text-muted)] text-center py-4">
         Data derived from immutable sales ledger • No frontend calculations
       </div>
     </div>

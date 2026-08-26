@@ -58,7 +58,7 @@ export function StoreAlertsWidget() {
           <p className="text-white/60 text-sm">All stores are well stocked</p>
           <Link
             href={adminHref("/stores")}
-            className="text-[#C6A15B] text-sm mt-2 hover:underline"
+            className="text-[#c4a574] text-sm mt-2 hover:underline"
           >
             View all stores →
           </Link>
@@ -101,7 +101,7 @@ export function StoreAlertsWidget() {
         {alerts.stores.length > 3 && (
           <Link
             href={adminHref("/stores")}
-            className="block text-center text-sm text-[#C6A15B] hover:underline py-2"
+            className="block text-center text-sm text-[#c4a574] hover:underline py-2"
           >
             View all {alerts.stores.length} stores with alerts →
           </Link>

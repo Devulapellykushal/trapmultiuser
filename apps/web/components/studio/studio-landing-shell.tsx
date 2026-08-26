@@ -97,6 +97,11 @@ export function StudioLandingShell() {
               fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
             }}
           >
+            <img
+              src="/assets/2d/Quake_Logo.png"
+              alt="Quake"
+              className="mb-6 h-16 w-auto max-w-[11rem] object-contain sm:h-20 sm:max-w-[13rem]"
+            />
             <h1
               className="text-4xl font-normal italic leading-tight tracking-tight text-white sm:text-5xl md:text-6xl"
               style={{

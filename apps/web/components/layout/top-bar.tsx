@@ -51,7 +51,7 @@ export function TopBar({
 
   const handleSignOut = async () => {
     await logout();
-    router.push("/login");
+    // logout hard-redirects to /login
   };
 
   const handleSettings = () => {
@@ -160,8 +160,8 @@ export function TopBar({
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]",
               )}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366F1]/20 via-[#A855F7]/20 to-[#EC4899]/20 flex items-center justify-center ring-2 ring-[#6366F1]/30">
-                <UserCircle2 className="w-5 h-5 text-[#6366F1]" />
+              <div className="w-8 h-8 rounded-full bg-[var(--brand-muted)] flex items-center justify-center ring-2 ring-[var(--brand)]/30">
+                <UserCircle2 className="w-5 h-5 text-[var(--brand)]" />
               </div>
               <ChevronDown className="w-4 h-4 text-[var(--text-muted)] hidden sm:block stroke-[1.5]" />
             </button>

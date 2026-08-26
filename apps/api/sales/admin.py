@@ -59,13 +59,13 @@ class SaleAdmin(admin.ModelAdmin):
     - No delete permission
     """
     list_display = [
-        'invoice_number', 'warehouse', 'total_display',
+        'invoice_number', 'warehouse', 'store', 'total_display',
         'total_items', 'status_badge', 'created_at'
     ]
-    list_filter = ['status', 'warehouse', 'created_at']
+    list_filter = ['status', 'warehouse', 'store', 'created_at']
     search_fields = ['invoice_number', 'customer_name']
     readonly_fields = [
-        'id', 'idempotency_key', 'invoice_number', 'warehouse',
+        'id', 'idempotency_key', 'invoice_number', 'warehouse', 'store',
         'customer_name', 'subtotal', 'discount_type', 'discount_value',
         'total', 'total_items', 'status', 'failure_reason',
         'created_by', 'created_at'

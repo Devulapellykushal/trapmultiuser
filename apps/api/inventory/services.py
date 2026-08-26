@@ -278,24 +278,26 @@ def record_adjustment(
     )
 
 
-def get_stock_summary():
+def get_stock_summary(organization_id=None):
     """
-    Get a summary of stock across all products.
-    
+    Get a summary of stock for one organization.
+
     Phase 11.1: Stock is derived from InventoryMovement ledger.
-    
-    Returns:
-        dict with total_stock, low_stock_items, out_of_stock_items, etc.
+    CRITICAL: never aggregate across organizations.
     """
     from django.db.models import Sum, Value
     from django.db.models.functions import Coalesce
-    from .models import Product, InventoryMovement
-    
+    from .models import Product
+
+    products_qs = Product.objects.filter(is_active=True, is_deleted=False)
+    if organization_id is None:
+        products_qs = products_qs.none()
+    else:
+        products_qs = products_qs.filter(organization_id=organization_id)
+
     # Get products with their derived stock from ledger
     # Convert to list to avoid queryset exhaustion
-    products_with_stock = list(Product.objects.filter(
-        is_active=True, is_deleted=False
-    ).annotate(
+    products_with_stock = list(products_qs.annotate(
         available_stock=Coalesce(
             Sum("inventory_movements__quantity"),
             Value(0)
@@ -840,6 +842,114 @@ def create_stock_adjustment(
     )
     
     return movement
+
+
+@transaction.atomic
+def consolidate_store_stock_into_warehouse(
+    warehouse_id: Union[UUID, str, None] = None,
+    user=None,
+) -> dict:
+    """
+    Pull all positive shop-counter stock into one warehouse.
+
+    Used when switching Godown + shops → One shop only.
+    Stock is NEVER split across shops — everything gathers into the
+    primary warehouse (shown as \"My shop\" in single-shop mode).
+
+    Shared-godown businesses usually have zero store ledger stock, so
+    this is often a no-op (godown stock stays put).
+    """
+    from django.db.models import Sum
+    from .models import Warehouse, Store, InventoryMovement
+
+    if user is None:
+        raise InvalidMovementError("User is required to consolidate stock")
+
+    warehouses = list(Warehouse.objects.filter(is_active=True).order_by('name'))
+    if not warehouses:
+        raise InvalidMovementError(
+            "Add a godown/shop stock location before switching to one shop."
+        )
+
+    target = None
+    if warehouse_id:
+        target = next((w for w in warehouses if str(w.id) == str(warehouse_id)), None)
+        if not target:
+            raise InvalidMovementError("Selected stock location not found or inactive")
+    else:
+        # Prefer the warehouse that already holds the most stock
+        best_qty = -1
+        for w in warehouses:
+            rows = (
+                InventoryMovement.objects.filter(warehouse_id=w.id)
+                .values('product_id')
+                .annotate(qty=Sum('quantity'))
+            )
+            total = sum(int(r['qty'] or 0) for r in rows if (r['qty'] or 0) > 0)
+            if total > best_qty:
+                best_qty = total
+                target = w
+        if target is None:
+            target = warehouses[0]
+
+    store_rows = (
+        InventoryMovement.objects.filter(store_id__isnull=False)
+        .values('store_id', 'product_id')
+        .annotate(qty=Sum('quantity'))
+        .filter(qty__gt=0)
+    )
+
+    lines_moved = 0
+    units_moved = 0
+    stores_touched: set[str] = set()
+
+    for row in store_rows:
+        qty = int(row['qty'] or 0)
+        if qty <= 0:
+            continue
+        store = Store.objects.filter(pk=row['store_id']).first()
+        if not store:
+            continue
+
+        # Remove from shop ledger
+        InventoryMovement.objects.create(
+            product_id=row['product_id'],
+            warehouse=None,
+            store=store,
+            movement_type=InventoryMovement.MovementType.ADJUSTMENT,
+            quantity=-qty,
+            reference_type='mode_switch_single_shop',
+            remarks=(
+                f"Consolidate to one shop: pulled from {store.name} "
+                f"→ {target.name}"
+            ),
+            created_by=user,
+        )
+        # Add to primary warehouse (My shop)
+        InventoryMovement.objects.create(
+            product_id=row['product_id'],
+            warehouse=target,
+            store=None,
+            movement_type=InventoryMovement.MovementType.TRANSFER_IN,
+            quantity=qty,
+            reference_type='mode_switch_single_shop',
+            remarks=(
+                f"Consolidate to one shop: received from {store.name}"
+            ),
+            created_by=user,
+        )
+        lines_moved += 1
+        units_moved += qty
+        stores_touched.add(str(store.id))
+
+    return {
+        'warehouse_id': str(target.id),
+        'warehouse_name': target.name,
+        'warehouse_count': len(warehouses),
+        'stores_consolidated': len(stores_touched),
+        'lines_moved': lines_moved,
+        'units_moved': units_moved,
+    }
 
 
 

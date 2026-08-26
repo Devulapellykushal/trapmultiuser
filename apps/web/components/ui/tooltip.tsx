@@ -30,10 +30,10 @@ export function Tooltip({
   };
 
   const arrowClasses = {
-    top: "top-full left-1/2 -translate-x-1/2 border-t-[#1A1B23] border-x-transparent border-b-transparent",
-    bottom: "bottom-full left-1/2 -translate-x-1/2 border-b-[#1A1B23] border-x-transparent border-t-transparent",
-    left: "left-full top-1/2 -translate-y-1/2 border-l-[#1A1B23] border-y-transparent border-r-transparent",
-    right: "right-full top-1/2 -translate-y-1/2 border-r-[#1A1B23] border-y-transparent border-l-transparent",
+    top: "top-full left-1/2 -translate-x-1/2 border-t-[#111318] border-x-transparent border-b-transparent",
+    bottom: "bottom-full left-1/2 -translate-x-1/2 border-b-[#111318] border-x-transparent border-t-transparent",
+    left: "left-full top-1/2 -translate-y-1/2 border-l-[#111318] border-y-transparent border-r-transparent",
+    right: "right-full top-1/2 -translate-y-1/2 border-r-[#111318] border-y-transparent border-l-transparent",
   };
 
   return (
@@ -54,8 +54,8 @@ export function Tooltip({
             transition={{ duration: 0.1 }}
             className={`absolute z-50 ${positionClasses[position]}`}
           >
-            <div className="px-3 py-2 rounded-lg bg-[#1A1B23] border border-white/[0.15] shadow-xl">
-              <p className="text-xs text-[#F5F6FA] whitespace-nowrap">{content}</p>
+            <div className="px-3 py-2 rounded-lg bg-[#111318] border border-white/[0.15] shadow-xl">
+              <p className="text-xs text-[#f3eee4] whitespace-nowrap">{content}</p>
             </div>
             {/* Arrow */}
             <div 

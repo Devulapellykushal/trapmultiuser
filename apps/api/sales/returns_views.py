@@ -33,7 +33,7 @@ from sales.returns_serializers import (
     StockAdjustmentResponseSerializer,
 )
 from core.pagination import StandardResultsSetPagination
-from users.permissions import IsAdmin
+from users.permissions import IsAdmin, IsStaffOrAdmin
 
 
 class CreateReturnView(APIView):
@@ -172,9 +172,9 @@ class StockAdjustmentView(APIView):
     - Quantity can be + or -
     - Cannot result in negative stock
     - Reason is mandatory
-    - Admin only
+    - Staff or admin (POS receive stock + corrections)
     """
-    permission_classes = [IsAdmin]
+    permission_classes = [IsStaffOrAdmin]
     
     @extend_schema(
         summary="Create stock adjustment",

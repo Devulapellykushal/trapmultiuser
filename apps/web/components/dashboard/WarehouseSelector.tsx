@@ -74,7 +74,7 @@ export function WarehouseSelector({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-56 bg-[#1A1B23] border border-white/10 rounded-xl shadow-xl z-50 py-1"
+            className="absolute right-0 mt-2 w-56 popover-panel rounded-xl z-[80] py-1"
           >
             {/* All option - only if showAllOption is true */}
             {showAllOption && (
@@ -87,7 +87,7 @@ export function WarehouseSelector({
                   className="w-full flex items-center justify-between px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
                 >
                   <span>{placeholder}</span>
-                  {!value && <Check className="w-4 h-4 text-[#C6A15B]" />}
+                  {!value && <Check className="w-4 h-4 text-[#c4a574]" />}
                 </button>
 
                 {/* Divider */}
@@ -114,7 +114,7 @@ export function WarehouseSelector({
                   )}
                 </div>
                 {value === warehouse.id && (
-                  <Check className="w-4 h-4 text-[#C6A15B]" />
+                  <Check className="w-4 h-4 text-[#c4a574]" />
                 )}
               </button>
             ))}

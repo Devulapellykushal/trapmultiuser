@@ -17,6 +17,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from inventory.models import StockSnapshot, StockLedger, ProductVariant, Warehouse
+from analytics.org_scope import scope_by_org
 
 
 def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = None) -> tuple:
@@ -24,7 +25,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
     if end_date:
         end = date.fromisoformat(end_date)
     else:
-        end = timezone.now().date()
+        end = timezone.localdate()
     
     if start_date:
         start = date.fromisoformat(start_date)
@@ -37,7 +38,8 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
 def get_inventory_overview(
     warehouse_id: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Get overall inventory metrics.
@@ -51,6 +53,7 @@ def get_inventory_overview(
         - low_stock_count: Variants below 10 units
     """
     snapshots = StockSnapshot.objects.select_related('variant', 'warehouse')
+    snapshots = scope_by_org(snapshots, organization_id, field='warehouse__organization_id')
     
     if warehouse_id:
         snapshots = snapshots.filter(warehouse_id=warehouse_id)
@@ -69,7 +72,9 @@ def get_inventory_overview(
     )
     
     # Count variants
-    total_variants = ProductVariant.objects.filter(is_active=True).count()
+    variants = ProductVariant.objects.filter(is_active=True)
+    variants = scope_by_org(variants, organization_id, field='product__organization_id')
+    total_variants = variants.count()
     
     # Out of stock (quantity = 0 or no snapshot)
     out_of_stock_count = snapshots.filter(quantity=0).count()
@@ -93,7 +98,8 @@ def get_inventory_overview(
 def get_low_stock_items(
     warehouse_id: Optional[str] = None,
     threshold: int = 10,
-    limit: int = 50
+    limit: int = 50,
+    organization_id=None,
 ) -> List[Dict[str, Any]]:
     """
     Get items with low stock (below threshold).
@@ -105,6 +111,7 @@ def get_low_stock_items(
         quantity__lt=threshold,
         variant__is_active=True
     )
+    snapshots = scope_by_org(snapshots, organization_id, field='warehouse__organization_id')
     
     if warehouse_id:
         snapshots = snapshots.filter(warehouse_id=warehouse_id)
@@ -160,7 +167,8 @@ def get_out_of_stock_items(
 def get_dead_stock_items(
     days_threshold: int = 30,
     warehouse_id: Optional[str] = None,
-    limit: int = 50
+    limit: int = 50,
+    organization_id=None,
 ) -> List[Dict[str, Any]]:
     """
     Get items with no movement in X days (dead stock).
@@ -174,6 +182,7 @@ def get_dead_stock_items(
         quantity__gt=0,
         variant__is_active=True
     )
+    snapshots = scope_by_org(snapshots, organization_id, field='warehouse__organization_id')
     
     if warehouse_id:
         snapshots = snapshots.filter(warehouse_id=warehouse_id)

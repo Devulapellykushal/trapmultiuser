@@ -5,8 +5,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { SIDEBAR_NAV_ITEMS } from "@/components/layout/sidebar";
+import { getSidebarNavItems } from "@/components/layout/sidebar";
+import { useLocationLabels } from "@/hooks/use-business-setup";
 import { adminHref } from "@/lib/admin-routes";
+import { useAuthStore } from "@/lib/auth";
+import { isServiceEnabled, type EnabledServices } from "@/lib/enabled-services";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -22,6 +25,10 @@ export function CommandPalette({
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [query, setQuery] = React.useState("");
+  const { mode } = useLocationLabels();
+  const enabledServices = useAuthStore((s) => s.user?.enabledServices) as
+    | EnabledServices
+    | undefined;
 
   React.useEffect(() => {
     if (open) {
@@ -31,10 +38,14 @@ export function CommandPalette({
     }
   }, [open]);
 
-  const navItems =
-    userRole === "ADMIN"
-      ? SIDEBAR_NAV_ITEMS
-      : SIDEBAR_NAV_ITEMS.filter((i) => !i.adminOnly);
+  const allNav = getSidebarNavItems(mode);
+  const navItems = allNav.filter((i) => {
+    if (userRole !== "ADMIN" && i.adminOnly) return false;
+    if (i.serviceKey && !isServiceEnabled(enabledServices, i.serviceKey)) {
+      return false;
+    }
+    return true;
+  });
 
   const q = query.trim().toLowerCase();
   const filteredNav = q
@@ -72,7 +83,7 @@ export function CommandPalette({
         <DialogPrimitive.Overlay
           className={cn(
             "fixed inset-0 z-[100]",
-            "bg-black/55 backdrop-blur-sm",
+            "modal-scrim",
             "data-[state=open]:animate-fade-in",
           )}
         />
@@ -80,8 +91,7 @@ export function CommandPalette({
           className={cn(
             "fixed left-1/2 top-[min(14vh,120px)] z-[101] w-[calc(100%-2rem)] max-w-xl",
             "-translate-x-1/2",
-            "rounded-xl border border-[var(--border-default)]",
-            "bg-[var(--bg-surface)] shadow-2xl shadow-black/40",
+            "rounded-xl modal-panel",
             "outline-none overflow-hidden",
             "max-h-[min(70vh,520px)] flex flex-col",
           )}

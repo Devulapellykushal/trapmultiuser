@@ -64,10 +64,10 @@ import { MovementItem } from "@/services";
 
 // Aging bucket colors - professional palette
 const AGING_COLORS: Record<string, string> = {
-  "0-30 days": "#6366F1",
-  "31-60 days": "#A855F7",
-  "61-90 days": "#EC4899",
-  "90+ days": "#6366F1",
+  "0-30 days": "#c4a574",
+  "31-60 days": "#d4b88a",
+  "61-90 days": "#d4a054",
+  "90+ days": "#c45c5c",
 };
 
 // Movement type badges
@@ -486,7 +486,7 @@ export default function InventoryReportsPage() {
               setMovementType(e.target.value);
               setMovementPage(1);
             }}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
           >
             <option value="">All Types</option>
             <option value="SALE">Sales</option>

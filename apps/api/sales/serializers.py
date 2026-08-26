@@ -69,10 +69,26 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
 
 class SaleItemInputSerializer(serializers.Serializer):
-    """Serializer for individual sale item input."""
-    
-    barcode = serializers.CharField(max_length=50)
+    """Serializer for individual sale item input.
+
+    Prefer barcode when present; product_id is used when barcodes are optional.
+    """
+
+    barcode = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    product_id = serializers.UUIDField(required=False, allow_null=True, default=None)
     quantity = serializers.IntegerField(min_value=1, default=1)
+
+    def validate(self, attrs):
+        barcode = (attrs.get("barcode") or "").strip()
+        product_id = attrs.get("product_id")
+        if not barcode and not product_id:
+            raise serializers.ValidationError(
+                "Each item needs a barcode or product_id."
+            )
+        attrs["barcode"] = barcode
+        return attrs
 
 
 # =============================================================================
@@ -88,6 +104,13 @@ class SaleSerializer(serializers.ModelSerializer):
     customer_id = serializers.SerializerMethodField()
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
     warehouse_code = serializers.CharField(source='warehouse.code', read_only=True)
+    store_id = serializers.SerializerMethodField()
+    store_name = serializers.CharField(
+        source='store.name', read_only=True, allow_null=True
+    )
+    store_code = serializers.CharField(
+        source='store.code', read_only=True, allow_null=True
+    )
     discount_amount = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True
     )
@@ -101,6 +124,7 @@ class SaleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'idempotency_key', 'invoice_number',
             'warehouse', 'warehouse_name', 'warehouse_code',
+            'store_id', 'store_name', 'store_code',
             'customer_id',
             'customer_name', 'customer_mobile', 'customer_email', 'customer_address',
             'subtotal', 'discount_type', 'discount_value',
@@ -115,6 +139,9 @@ class SaleSerializer(serializers.ModelSerializer):
     
     def get_customer_id(self, obj):
         return str(obj.customer_id) if obj.customer_id else None
+
+    def get_store_id(self, obj):
+        return str(obj.store_id) if obj.store_id else None
     
     def get_credit_payments(self, obj):
         """Return credit payments for this sale."""
@@ -127,11 +154,19 @@ class SaleListSerializer(serializers.ModelSerializer):
     """Compact serializer for sale list."""
     
     warehouse_code = serializers.CharField(source='warehouse.code', read_only=True)
+    store_name = serializers.CharField(
+        source='store.name', read_only=True, allow_null=True
+    )
+    store_code = serializers.CharField(
+        source='store.code', read_only=True, allow_null=True
+    )
     
     class Meta:
         model = Sale
         fields = [
-            'id', 'invoice_number', 'warehouse_code', 'customer_name', 'customer_mobile',
+            'id', 'invoice_number', 'warehouse_code',
+            'store_name', 'store_code',
+            'customer_name', 'customer_mobile',
             'subtotal', 'discount_type', 'discount_value', 'total',
             'total_items', 'status',
             'payment_status', 'paid_amount', 'due_amount',
@@ -243,6 +278,13 @@ class CheckoutSerializer(serializers.Serializer):
     )
     
     warehouse_id = serializers.UUIDField(required=True)
+
+    store_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="Shop counter that made this sale (attribution; stock still uses warehouse_id)",
+    )
     
     items = SaleItemInputSerializer(many=True)
     

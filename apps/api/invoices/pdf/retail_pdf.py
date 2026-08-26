@@ -23,7 +23,7 @@ def load_invoice_items_for_pdf(invoice) -> Tuple[Any, List[Any]]:
 
     inv = (
         Invoice.objects.prefetch_related("items")
-        .select_related("sale", "warehouse")
+        .select_related("sale", "sale__store", "warehouse")
         .get(pk=invoice.pk)
     )
     items = list(inv.items.order_by("id"))

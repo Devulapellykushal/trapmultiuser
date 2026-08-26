@@ -36,6 +36,7 @@ from .serializers import (
 from . import services
 from core.pagination import StandardResultsSetPagination
 from users.permissions import IsStaffOrAdmin
+from users.organization import filter_queryset_for_user
 
 
 class BarcodeScanView(APIView):
@@ -240,6 +241,11 @@ Process a complete sale with atomic transaction and idempotency protection.
                 apply_automatic_gst=serializer.validated_data.get(
                     'apply_automatic_gst', False
                 ),
+                store_id=(
+                    str(serializer.validated_data['store_id'])
+                    if serializer.validated_data.get('store_id')
+                    else None
+                ),
             )
             
             is_duplicate = existing_before is not None
@@ -291,7 +297,7 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
     - Sales cannot be deleted
     """
     queryset = Sale.objects.select_related(
-        'warehouse', 'customer', 'created_by'
+        'warehouse', 'store', 'customer', 'created_by'
     ).prefetch_related(
         'items__product',
         'payments',
@@ -306,14 +312,17 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
         return SaleSerializer
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = filter_queryset_for_user(super().get_queryset(), self.request.user)
         
         # Optional filters
         warehouse_id = self.request.query_params.get('warehouse_id')
+        store_id = self.request.query_params.get('store_id')
         status_filter = self.request.query_params.get('status')
         
         if warehouse_id:
             queryset = queryset.filter(warehouse_id=warehouse_id)
+        if store_id:
+            queryset = queryset.filter(store_id=store_id)
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         

@@ -16,6 +16,7 @@ from django.db.models import Sum, Count, Case, When, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
+from analytics.org_scope import scope_by_org
 from invoices.models import Invoice
 
 
@@ -24,7 +25,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
     if end_date:
         end = date.fromisoformat(end_date)
     else:
-        end = timezone.now().date()
+        end = timezone.localdate()
     
     if start_date:
         start = date.fromisoformat(start_date)
@@ -37,7 +38,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
 def get_discount_overview(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None, organization_id=None
 ) -> Dict[str, Any]:
     """
     Get discount analytics overview.
@@ -56,6 +57,7 @@ def get_discount_overview(
         invoice_date__gte=start,
         invoice_date__lte=end
     )
+    invoices = scope_by_org(invoices, organization_id, field="sale__organization_id")
     
     if warehouse_id:
         invoices = invoices.filter(warehouse_id=warehouse_id)
@@ -120,7 +122,8 @@ def get_discount_overview(
 
 def get_discount_effectiveness(
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Compare revenue from discounted vs non-discounted invoices.
@@ -131,6 +134,7 @@ def get_discount_effectiveness(
         invoice_date__gte=start,
         invoice_date__lte=end
     )
+    invoices = scope_by_org(invoices, organization_id, field="sale__organization_id")
     
     # Discounted invoices
     discounted = invoices.exclude(discount_type='NONE').aggregate(

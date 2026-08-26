@@ -1,22 +1,23 @@
 {
   "lang": "en-EN",
-  "name": "Studio",
-  "short_name": "Studio",
-  "description": "3D product experience and landing site.",
+  "name": "Quake",
+  "short_name": "Quake",
+  "description": "Inventory, warehouses, POS, and sales in one workspace.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#000",
-  "background_color": "#000",
+  "theme_color": "#0c0d10",
+  "background_color": "#0c0d10",
   "icons": [
     {
-      "src": "/assets/2d/aio.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/assets/2d/Quake_Logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/assets/2d/aio.png",
-      "sizes": "512x512",
+      "src": "/assets/2d/Quake_Logo.png",
+      "sizes": "any",
       "type": "image/png",
       "purpose": "maskable"
     }

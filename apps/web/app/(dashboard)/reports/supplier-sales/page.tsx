@@ -15,6 +15,7 @@
 "use client";
 
 import * as React from "react";
+import { CHART_SERIES } from "@/lib/brand-colors";
 import {
   Truck,
   BarChart3,
@@ -75,18 +76,7 @@ function formatFullCurrency(amount: number | string): string {
 }
 
 // Colors for pie chart
-const COLORS = [
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-];
+const COLORS = [...CHART_SERIES];
 
 export default function SupplierSalesReportsPage() {
   const { filters } = useDashboardFilters();
@@ -246,15 +236,15 @@ export default function SupplierSalesReportsPage() {
     if (!active || !payload?.length) return null;
     const data = payload[0].payload;
     return (
-      <div className="bg-[#1A1B23] border border-white/10 rounded-lg px-3 py-2 shadow-xl">
+      <div className="bg-[#111318] border border-white/10 rounded-lg px-3 py-2 shadow-xl">
         <p className="text-white font-medium text-sm">{data.fullName}</p>
-        <p className="text-[#6366F1] text-sm">
+        <p className="text-[#c4a574] text-sm">
           Revenue: {formatFullCurrency(data.revenue)}
         </p>
-        <p className="text-[#6F7285] text-xs">
+        <p className="text-[#8a867c] text-xs">
           Qty Sold: {data.quantity.toLocaleString()}
         </p>
-        <p className="text-[#6F7285] text-xs">Products: {data.products}</p>
+        <p className="text-[#8a867c] text-xs">Products: {data.products}</p>
       </div>
     );
   };
@@ -280,10 +270,10 @@ export default function SupplierSalesReportsPage() {
       {/* Header with Export */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#F5F6FA]">
+          <h1 className="text-xl font-semibold text-[#f3eee4]">
             Supplier Sales Performance
           </h1>
-          <p className="text-sm text-[#6F7285] mt-1">
+          <p className="text-sm text-[#8a867c] mt-1">
             Track which suppliers&apos; products are selling best
           </p>
         </div>
@@ -296,7 +286,7 @@ export default function SupplierSalesReportsPage() {
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="h-24 bg-[#1A1B23] rounded-xl animate-pulse"
+              className="h-24 bg-[#111318] rounded-xl animate-pulse"
             />
           ))}
         </div>
@@ -333,13 +323,13 @@ export default function SupplierSalesReportsPage() {
           icon={BarChart3}
           className="lg:col-span-2"
           action={
-            <div className="flex gap-1 bg-[#0E0F13] rounded-lg p-1">
+            <div className="flex gap-1 bg-[#0c0d10] rounded-lg p-1">
               <button
                 onClick={() => setMetric("revenue")}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   metric === "revenue"
-                    ? "bg-[#6366F1] text-white font-medium"
-                    : "text-[#A1A4B3] hover:text-white"
+                    ? "bg-[#c4a574] text-white font-medium"
+                    : "text-[#c5c0b5] hover:text-white"
                 }`}
               >
                 Revenue
@@ -348,8 +338,8 @@ export default function SupplierSalesReportsPage() {
                 onClick={() => setMetric("quantity")}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   metric === "quantity"
-                    ? "bg-[#6366F1] text-white font-medium"
-                    : "text-[#A1A4B3] hover:text-white"
+                    ? "bg-[#c4a574] text-white font-medium"
+                    : "text-[#c5c0b5] hover:text-white"
                 }`}
               >
                 Quantity
@@ -381,7 +371,7 @@ export default function SupplierSalesReportsPage() {
                   />
                   <XAxis
                     type="number"
-                    tick={{ fill: "#6F7285", fontSize: 11 }}
+                    tick={{ fill: "#8a867c", fontSize: 11 }}
                     tickFormatter={(v) =>
                       metric === "revenue" ? formatCurrency(v) : v.toString()
                     }
@@ -390,14 +380,14 @@ export default function SupplierSalesReportsPage() {
                   <YAxis
                     type="category"
                     dataKey="name"
-                    tick={{ fill: "#A1A4B3", fontSize: 11 }}
+                    tick={{ fill: "#c5c0b5", fontSize: 11 }}
                     width={80}
                     axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar
                     dataKey={metric}
-                    fill="#6366F1"
+                    fill="#c4a574"
                     radius={[0, 4, 4, 0]}
                     maxBarSize={24}
                   />
@@ -436,7 +426,7 @@ export default function SupplierSalesReportsPage() {
                         pct * 100
                       ).toFixed(0)}%`;
                     }}
-                    labelLine={{ stroke: "#6F7285", strokeWidth: 1 }}
+                    labelLine={{ stroke: "#8a867c", strokeWidth: 1 }}
                   >
                     {pieData.map((_, index) => (
                       <Cell
@@ -449,7 +439,7 @@ export default function SupplierSalesReportsPage() {
                     verticalAlign="bottom"
                     height={36}
                     formatter={(value) => (
-                      <span className="text-xs text-[#A1A4B3]">{value}</span>
+                      <span className="text-xs text-[#c5c0b5]">{value}</span>
                     )}
                   />
                 </RechartsPie>
@@ -466,7 +456,7 @@ export default function SupplierSalesReportsPage() {
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="h-12 bg-[#0E0F13] rounded-lg animate-pulse"
+                className="h-12 bg-[#0c0d10] rounded-lg animate-pulse"
               />
             ))}
           </div>
@@ -481,25 +471,25 @@ export default function SupplierSalesReportsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/[0.08]">
-                  <th className="text-left py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Supplier
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Code
                   </th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-right py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Qty Sold
                   </th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-right py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Revenue
                   </th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-right py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     GST
                   </th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-right py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Products
                   </th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <th className="text-right py-3 px-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                     Sales
                   </th>
                 </tr>
@@ -512,30 +502,30 @@ export default function SupplierSalesReportsPage() {
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#6366F1]/20 flex items-center justify-center">
-                          <Truck className="w-4 h-4 text-[#6366F1]" />
+                        <div className="w-8 h-8 rounded-lg bg-[#c4a574]/20 flex items-center justify-center">
+                          <Truck className="w-4 h-4 text-[#c4a574]" />
                         </div>
-                        <span className="text-sm font-medium text-[#F5F6FA]">
+                        <span className="text-sm font-medium text-[#f3eee4]">
                           {item.supplierName}
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#A1A4B3]">
+                    <td className="py-3 px-4 text-sm text-[#c5c0b5]">
                       {item.supplierCode || "-"}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#F5F6FA] text-right font-medium">
+                    <td className="py-3 px-4 text-sm text-[#f3eee4] text-right font-medium">
                       {item.quantitySold.toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#A855F7] text-right font-medium">
+                    <td className="py-3 px-4 text-sm text-[#d4b88a] text-right font-medium">
                       {formatFullCurrency(item.totalRevenue)}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#A1A4B3] text-right">
+                    <td className="py-3 px-4 text-sm text-[#c5c0b5] text-right">
                       {formatFullCurrency(item.totalGst)}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#A1A4B3] text-right">
+                    <td className="py-3 px-4 text-sm text-[#c5c0b5] text-right">
                       {item.productCount}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#A1A4B3] text-right">
+                    <td className="py-3 px-4 text-sm text-[#c5c0b5] text-right">
                       {item.saleCount}
                     </td>
                   </tr>

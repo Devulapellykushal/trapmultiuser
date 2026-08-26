@@ -31,6 +31,14 @@ from inventory.models import InventoryMovement, Product, Warehouse
 from sales.models import Sale, SaleItem, Return, ReturnItem
 
 
+def _completed_sales(*, organization_id=None):
+    """Sales queryset scoped to an organization (empty if org missing)."""
+    qs = Sale.objects.filter(status=Sale.Status.COMPLETED)
+    if organization_id is None:
+        return qs.none()
+    return qs.filter(organization_id=organization_id)
+
+
 # =============================================================================
 # A. INVENTORY REPORTS
 # =============================================================================
@@ -41,7 +49,8 @@ def get_current_stock_report(
     category: Optional[str] = None,
     brand: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Current Stock Report.
@@ -55,6 +64,10 @@ def get_current_stock_report(
     queryset = InventoryMovement.objects.filter(
         product__is_deleted=False
     )
+    if organization_id is not None:
+        queryset = queryset.filter(product__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if warehouse_id:
         queryset = queryset.filter(warehouse_id=warehouse_id)
@@ -260,7 +273,8 @@ def get_stock_movement_report(
 def get_sales_summary(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Sales Summary Report.
@@ -271,7 +285,7 @@ def get_sales_summary(
     - Number of invoices
     - GST collected
     """
-    queryset = Sale.objects.filter(status=Sale.Status.COMPLETED)
+    queryset = _completed_sales(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)
@@ -289,8 +303,31 @@ def get_sales_summary(
         total_items=Coalesce(Sum('total_items'), 0)
     )
     
-    # Calculate discount as subtotal - (total - gst)
-    total_discount = summary['total_subtotal'] - (summary['total_sales'] - summary['total_gst'])
+    # Discount = list price total minus amount charged (MRP/GST-inclusive totals).
+    # Do NOT subtract gst: GST is extracted from MRP for reporting, not added on top.
+    total_discount = summary['total_subtotal'] - summary['total_sales']
+    if total_discount < 0:
+        total_discount = Decimal('0.00')
+
+    # Per-shop breakdown (shared godown / multi-counter attribution)
+    by_store_qs = (
+        queryset.values('store_id', 'store__name')
+        .annotate(
+            total_sales=Coalesce(Sum('total'), Decimal('0.00')),
+            invoice_count=Count('id'),
+            total_items_sold=Coalesce(Sum('total_items'), 0),
+        )
+        .order_by('-total_sales')
+    )
+    by_store = []
+    for row in by_store_qs:
+        by_store.append({
+            'store_id': str(row['store_id']) if row['store_id'] else None,
+            'store_name': row['store__name'] or 'Unassigned',
+            'total_sales': str(row['total_sales']),
+            'invoice_count': row['invoice_count'],
+            'total_items_sold': row['total_items_sold'] or 0,
+        })
     
     return {
         'period': {
@@ -302,7 +339,8 @@ def get_sales_summary(
         'total_discount': str(total_discount),
         'total_gst': str(summary['total_gst']),
         'invoice_count': summary['invoice_count'],
-        'total_items_sold': summary['total_items']
+        'total_items_sold': summary['total_items'],
+        'by_store': by_store,
     }
 
 
@@ -312,7 +350,8 @@ def get_product_sales_report(
     warehouse_id: Optional[str] = None,
     product_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Product Sales Report.
@@ -327,6 +366,10 @@ def get_product_sales_report(
     queryset = SaleItem.objects.filter(
         sale__status=Sale.Status.COMPLETED
     )
+    if organization_id is not None:
+        queryset = queryset.filter(sale__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)
@@ -382,14 +425,15 @@ def get_sales_trends(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
-    group_by: str = 'day'  # 'day' or 'month'
+    group_by: str = 'day',  # 'day' or 'month'
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Daily/Monthly Sales Trend.
     
     Group sales by day or month for charts.
     """
-    queryset = Sale.objects.filter(status=Sale.Status.COMPLETED)
+    queryset = _completed_sales(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)
@@ -398,11 +442,12 @@ def get_sales_trends(
     if warehouse_id:
         queryset = queryset.filter(warehouse_id=warehouse_id)
     
-    # Group by day or month
+    # Group by day or month in business timezone (Asia/Kolkata)
+    biz_tz = timezone.get_current_timezone()
     if group_by == 'month':
-        trunc_func = TruncMonth('created_at')
+        trunc_func = TruncMonth('created_at', tzinfo=biz_tz)
     else:
-        trunc_func = TruncDate('created_at')
+        trunc_func = TruncDate('created_at', tzinfo=biz_tz)
     
     trend_data = queryset.annotate(
         period=trunc_func
@@ -704,7 +749,8 @@ def get_gross_profit_report(
 def get_gst_summary_report(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     GST Summary Report.
@@ -719,7 +765,7 @@ def get_gst_summary_report(
     - Return records (refund_gst)
     """
     # GST Collected (from completed sales)
-    sales_queryset = Sale.objects.filter(status=Sale.Status.COMPLETED)
+    sales_queryset = _completed_sales(organization_id=organization_id)
     if date_from:
         sales_queryset = sales_queryset.filter(created_at__gte=date_from)
     if date_to:
@@ -733,6 +779,10 @@ def get_gst_summary_report(
     
     # GST Refunded (from returns)
     returns_queryset = Return.objects.filter(status=Return.Status.COMPLETED)
+    if organization_id is not None:
+        returns_queryset = returns_queryset.filter(sale__organization_id=organization_id)
+    else:
+        returns_queryset = returns_queryset.none()
     if date_from:
         returns_queryset = returns_queryset.filter(created_at__gte=date_from)
     if date_to:
@@ -1140,14 +1190,15 @@ def get_warehouse_wise_sales_report(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Warehouse-wise Sales Report.
     
     Aggregates sales by warehouse/store location.
     """
-    queryset = Sale.objects.filter(status=Sale.Status.COMPLETED)
+    queryset = _completed_sales(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)

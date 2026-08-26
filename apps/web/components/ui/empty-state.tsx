@@ -28,15 +28,15 @@ export function EmptyState({ icon: Icon, title, description, actions }: EmptySta
       className="flex flex-col items-center justify-center py-16 px-6"
     >
       {/* Icon Container */}
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#C6A15B]/20 to-[#C6A15B]/5 flex items-center justify-center mb-6">
-        <Icon className="w-10 h-10 text-[#C6A15B] stroke-[1.5]" />
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#c4a574]/20 to-[#c4a574]/5 flex items-center justify-center mb-6">
+        <Icon className="w-10 h-10 text-[#c4a574] stroke-[1.5]" />
       </div>
 
       {/* Text */}
-      <h3 className="text-xl font-semibold text-[#F5F6FA] text-center mb-2">
+      <h3 className="text-xl font-semibold text-[#f3eee4] text-center mb-2">
         {title}
       </h3>
-      <p className="text-sm text-[#A1A4B3] text-center max-w-md mb-6">
+      <p className="text-sm text-[#c5c0b5] text-center max-w-md mb-6">
         {description}
       </p>
 
@@ -47,8 +47,8 @@ export function EmptyState({ icon: Icon, title, description, actions }: EmptySta
             const className = `
               px-5 py-2.5 rounded-lg text-sm font-medium transition-all
               ${action.variant === "secondary"
-                ? "bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] hover:bg-white/[0.08]"
-                : "bg-[#C6A15B] text-[#0E0F13] hover:bg-[#D4B06A]"
+                ? "bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] hover:bg-white/[0.08]"
+                : "bg-[#c4a574] text-[#0c0d10] hover:bg-[#d4b88a]"
               }
             `;
 

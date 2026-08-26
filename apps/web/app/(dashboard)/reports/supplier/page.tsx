@@ -15,6 +15,7 @@
 "use client";
 
 import * as React from "react";
+import { CHART_SERIES } from "@/lib/brand-colors";
 import {
   Truck,
   BarChart3,
@@ -72,18 +73,7 @@ function formatFullCurrency(amount: number | string): string {
 }
 
 // Colors for pie chart
-const COLORS = [
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-  "#A855F7",
-  "#EC4899",
-  "#6366F1",
-];
+const COLORS = [...CHART_SERIES];
 
 export default function SupplierReportsPage() {
   const { filters } = useDashboardFilters();
@@ -337,7 +327,7 @@ export default function SupplierReportsPage() {
               onClick={() => setMetric("amount")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "amount"
-                  ? "bg-[#6366F1] text-white font-medium"
+                  ? "bg-[#c4a574] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -347,7 +337,7 @@ export default function SupplierReportsPage() {
               onClick={() => setMetric("quantity")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 metric === "quantity"
-                  ? "bg-[#6366F1] text-white font-medium"
+                  ? "bg-[#c4a574] text-white font-medium"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -412,7 +402,7 @@ export default function SupplierReportsPage() {
                   fontWeight: "bold",
                 }}
               />
-              <Bar dataKey={metric} fill="#6366F1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey={metric} fill="#c4a574" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -443,7 +433,7 @@ export default function SupplierReportsPage() {
                   return `${n.length > 10 ? n.substring(0, 10) + "..." : n} (${((percent ?? 0) * 100).toFixed(0)}%)`;
                 }}
                 outerRadius={120}
-                fill="#A855F7"
+                fill="#d4b88a"
                 dataKey="value"
               >
                 {pieChartData.map((entry, index) => (

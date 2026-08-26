@@ -10,8 +10,13 @@ import {
   ProductGrid,
 } from "@/components/pos";
 import { InvoicePreview } from "@/components/invoices";
-import { inventoryService, StoreListItem, storesService, Warehouse } from "@/services";
-import { inventoryKeys } from "@/hooks";
+import {
+  inventoryService,
+  StoreListItem,
+  storesService,
+  Warehouse,
+} from "@/services";
+import { inventoryKeys, useLocationLabels } from "@/hooks";
 import { usePosStore } from "@/features/pos/store/usePosStore";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -21,49 +26,181 @@ import * as React from "react";
 
 type InventoryMode = "warehouse" | "store";
 
+const POS_SHOP_STORAGE_KEY = "quake-pos-selling-shop-id";
+
 export default function POSPage() {
+  const {
+    isSingleShop,
+    isGodownAndShops,
+    isSharedGodown,
+    isTransferStock,
+    barcodeEnabled,
+    labels,
+  } = useLocationLabels();
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
-  const [posInvoicePreview, setPosInvoicePreview] = React.useState<Invoice | null>(
-    null,
-  );
+  const [posInvoicePreview, setPosInvoicePreview] =
+    React.useState<Invoice | null>(null);
   const [posInvoicePreviewOpen, setPosInvoicePreviewOpen] =
     React.useState(false);
   const [inventoryMode, setInventoryMode] =
     React.useState<InventoryMode>("warehouse");
   const [warehouseId, setWarehouseId] = React.useState<string | null>(null);
-  const [storeId, setStoreId] = React.useState<string | null>(null);
+  const [storeId, setStoreId] = React.useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(POS_SHOP_STORAGE_KEY);
+  });
 
-  // Fetch warehouses to auto-select the first one
+  const persistedWarehouseId = usePosStore((s) => s.warehouseId);
+  const posHydrated = usePosStore((s) => s._hasHydrated);
+  const cartLineCount = usePosStore((s) => s.cart.items.length);
+  const clearCart = usePosStore((s) => s.clearCart);
+
+  /** Petpooja-style: don't silently sell a draft bill against a different stock ledger. */
+  const confirmStockLocationChange = React.useCallback(
+    (next: () => void, label: string) => {
+      if (cartLineCount === 0) {
+        next();
+        return;
+      }
+      const ok = window.confirm(
+        `Changing ${label} will clear the current bill (${cartLineCount} line${
+          cartLineCount === 1 ? "" : "s"
+        }). Continue?`,
+      );
+      if (!ok) return;
+      clearCart();
+      next();
+    },
+    [cartLineCount, clearCart],
+  );
+
+  const handleWarehouseChange = React.useCallback(
+    (id: string | null) => {
+      if (id === warehouseId) return;
+      confirmStockLocationChange(() => setWarehouseId(id), "godown");
+    },
+    [warehouseId, confirmStockLocationChange],
+  );
+
+  const handleInventoryModeChange = React.useCallback(
+    (mode: InventoryMode) => {
+      if (mode === inventoryMode) return;
+      confirmStockLocationChange(() => setInventoryMode(mode), "stock source");
+    },
+    [inventoryMode, confirmStockLocationChange],
+  );
+
+  const handleStoreChange = React.useCallback(
+    (id: string | null) => {
+      if (id === storeId) return;
+      // Shared godown: shop is only who is selling — stock still from godown
+      if (isSharedGodown) {
+        setStoreId(id);
+        return;
+      }
+      if (inventoryMode === "store") {
+        confirmStockLocationChange(() => setStoreId(id), "shop");
+        return;
+      }
+      setStoreId(id);
+    },
+    [storeId, isSharedGodown, inventoryMode, confirmStockLocationChange],
+  );
+
   const { data: warehouses } = useQuery({
     queryKey: inventoryKeys.warehouses(),
     queryFn: () => inventoryService.getWarehouses(),
-    staleTime: 300000, // 5 minutes
+    staleTime: 300000,
   });
 
-  // Fetch stores
   const { data: stores } = useQuery({
     queryKey: ["stores", { isActive: true }],
     queryFn: () => storesService.getStores({ isActive: true }),
     staleTime: 300000,
+    enabled: isGodownAndShops,
   });
 
-  // Auto-select first warehouse when data loads
+  // One-shop OR shared-godown: always sell from godown/warehouse stock
   React.useEffect(() => {
-    if (warehouses && warehouses.length > 0 && !warehouseId) {
-      setWarehouseId((warehouses as Warehouse[])[0].id);
+    if ((isSingleShop || isSharedGodown) && inventoryMode !== "warehouse") {
+      setInventoryMode("warehouse");
     }
-  }, [warehouses, warehouseId]);
+  }, [isSingleShop, isSharedGodown, inventoryMode]);
 
-  // Auto-select first store when data loads
+  // Restore last godown after cart hydrate; otherwise first warehouse
   React.useEffect(() => {
-    if (stores && stores.length > 0 && !storeId) {
-      setStoreId((stores as StoreListItem[])[0].id);
+    if (!warehouses || warehouses.length === 0 || !posHydrated) return;
+    const list = warehouses as Warehouse[];
+    const stillValid =
+      warehouseId && list.some((w) => w.id === warehouseId);
+    if (stillValid) return;
+
+    const fromPersist =
+      persistedWarehouseId &&
+      list.some((w) => w.id === persistedWarehouseId)
+        ? persistedWarehouseId
+        : null;
+    setWarehouseId(fromPersist ?? list[0].id);
+  }, [
+    warehouses,
+    warehouseId,
+    posHydrated,
+    persistedWarehouseId,
+  ]);
+
+  React.useEffect(() => {
+    if (!stores || stores.length === 0) return;
+    const list = stores as StoreListItem[];
+    const stillValid = storeId && list.some((s) => s.id === storeId);
+    if (!stillValid) {
+      setStoreId(list[0].id);
     }
   }, [stores, storeId]);
 
   React.useEffect(() => {
+    if (storeId) {
+      window.localStorage.setItem(POS_SHOP_STORAGE_KEY, storeId);
+    }
+  }, [storeId]);
+
+  React.useEffect(() => {
     usePosStore.getState().setWarehouseId(warehouseId);
   }, [warehouseId]);
+
+  const selectedWarehouse = warehouses?.find(
+    (w: Warehouse) => w.id === warehouseId,
+  );
+  const selectedStore = stores?.find((s: StoreListItem) => s.id === storeId);
+
+  // Header: which shop is selling (shared / transfer-from-shop) or godown name
+  React.useEffect(() => {
+    const setHeader = usePosStore.getState().setHeaderLocation;
+    if (isSharedGodown && selectedStore?.name) {
+      setHeader(`Selling at ${selectedStore.name}`);
+      return;
+    }
+    if (isTransferStock && inventoryMode === "store" && selectedStore?.name) {
+      setHeader(`Selling at ${selectedStore.name}`);
+      return;
+    }
+    if (selectedWarehouse?.name) {
+      setHeader(
+        isSingleShop
+          ? selectedWarehouse.name
+          : `${labels.warehouseSingularTitle}: ${selectedWarehouse.name}`,
+      );
+      return;
+    }
+    setHeader(null);
+  }, [
+    isSharedGodown,
+    isTransferStock,
+    isSingleShop,
+    inventoryMode,
+    selectedStore?.name,
+    selectedWarehouse?.name,
+    labels.warehouseSingularTitle,
+  ]);
 
   React.useEffect(() => {
     if (inventoryMode !== "warehouse") {
@@ -109,88 +246,122 @@ export default function POSPage() {
     setTimeout(() => setPosInvoicePreview(null), 300);
   };
 
-  // Get selected warehouse/store name for display
-  const selectedWarehouse = warehouses?.find(
-    (w: Warehouse) => w.id === warehouseId,
-  );
-  const selectedStore = stores?.find((s: StoreListItem) => s.id === storeId);
-  const currentLocationName =
-    inventoryMode === "warehouse"
-      ? selectedWarehouse?.name
-      : selectedStore?.name;
+  const warehouseList = (warehouses as Warehouse[] | undefined) ?? [];
+  const showWarehousePicker =
+    inventoryMode === "warehouse" && warehouseList.length > 1;
+  // Transfer mode: pick shop stock. Shared: pick which shop is selling (stock stays godown).
+  const showModeToggle = isTransferStock;
+  const showStorePicker =
+    isSharedGodown || (isTransferStock && inventoryMode === "store");
+
+  // Shared: stock from godown + attribute sale to shop
+  const checkoutWarehouseId =
+    inventoryMode === "warehouse" || isSharedGodown
+      ? warehouseId || undefined
+      : undefined;
+  const checkoutStoreId = isSharedGodown
+    ? storeId || undefined
+    : inventoryMode === "store"
+      ? storeId || undefined
+      : undefined;
+
+  const canCheckout = isSharedGodown
+    ? Boolean(checkoutWarehouseId && checkoutStoreId)
+    : Boolean(checkoutWarehouseId || checkoutStoreId);
 
   return (
     <CartProvider>
       <div className="flex h-[calc(100vh-56px)]">
-        {/* Left Panel - Products */}
         <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-hidden">
-          {/* Header with Mode Toggle and Selectors */}
           <div className="flex flex-col gap-3 mb-6">
-            <div className="flex items-center justify-between gap-4">
-              <BarcodeInput
-                warehouseId={
-                  inventoryMode === "warehouse" ? warehouseId : undefined
-                }
-              />
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {barcodeEnabled ? (
+                <BarcodeInput
+                  warehouseId={
+                    inventoryMode === "warehouse" ? warehouseId : undefined
+                  }
+                />
+              ) : (
+                <p className="text-sm text-[var(--text-muted)]">
+                  Barcodes off — search or tap a tyre to add
+                </p>
+              )}
 
-              <div className="flex items-center gap-3">
-                {/* Inventory Mode Toggle */}
-                <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/10">
-                  <button
-                    onClick={() => setInventoryMode("warehouse")}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      inventoryMode === "warehouse"
-                        ? "bg-[#6366F1] text-white"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    Warehouse
-                  </button>
-                  <button
-                    onClick={() => setInventoryMode("store")}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      inventoryMode === "store"
-                        ? "bg-[#A855F7] text-white"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    Store
-                  </button>
-                </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                {showModeToggle && (
+                  <div className="flex bg-[var(--bg-elevated)] rounded-lg p-0.5 border border-[var(--border-default)]">
+                    <button
+                      type="button"
+                      onClick={() => handleInventoryModeChange("warehouse")}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        inventoryMode === "warehouse"
+                          ? "bg-[var(--brand)] text-[var(--brand-contrast)]"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      {labels.posFromGodown}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInventoryModeChange("store")}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        inventoryMode === "store"
+                          ? "bg-[var(--brand)] text-[var(--brand-contrast)]"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      {labels.posFromShop}
+                    </button>
+                  </div>
+                )}
 
-                {/* Dynamic Selector based on mode */}
-                {inventoryMode === "warehouse" ? (
+                {showWarehousePicker && (
                   <WarehouseSelector
                     value={warehouseId}
-                    onChange={setWarehouseId}
+                    onChange={handleWarehouseChange}
                     showAllOption={false}
-                    placeholder="Select Warehouse"
+                    placeholder={`Select ${labels.warehouseSingularTitle.toLowerCase()}`}
                   />
-                ) : (
+                )}
+                {showStorePicker && (
                   <StoreSelector
                     value={storeId}
-                    onChange={setStoreId}
+                    onChange={handleStoreChange}
                     showAllOption={false}
-                    placeholder="Select Store"
+                    placeholder={`Which ${labels.storeSingular}?`}
                   />
                 )}
               </div>
             </div>
 
-            {/* Current Location Indicator */}
-            {currentLocationName && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-white/40">Showing stock from:</span>
-                <span
-                  className={`font-medium px-2 py-0.5 rounded ${
-                    inventoryMode === "warehouse"
-                      ? "bg-[#6366F1]/20 text-[#6366F1]"
-                      : "bg-[#A855F7]/20 text-[#A855F7]"
-                  }`}
-                >
-                  {currentLocationName}
+            {isSharedGodown ? (
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <span className="text-[var(--text-muted)]">Selling at</span>
+                <span className="font-medium px-2 py-0.5 rounded bg-[var(--brand-muted)] text-[var(--brand)]">
+                  {selectedStore?.name ?? "Select shop"}
+                </span>
+                <span className="text-[var(--text-muted)]">·</span>
+                <span className="text-[var(--text-muted)]">Stock from</span>
+                <span className="font-medium px-2 py-0.5 rounded bg-[var(--brand-muted)] text-[var(--brand)]">
+                  {selectedWarehouse?.name ?? labels.warehouseSingularTitle}
+                </span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  Sale +/− on godown; shop is recorded on the bill
                 </span>
               </div>
+            ) : (
+              (selectedWarehouse || selectedStore) && (
+                <div className="flex items-center gap-2 text-sm flex-wrap">
+                  <span className="text-[var(--text-muted)]">
+                    {isSingleShop ? "Selling from" : "Showing stock from"}
+                  </span>
+                  <span className="font-medium px-2 py-0.5 rounded bg-[var(--brand-muted)] text-[var(--brand)]">
+                    {inventoryMode === "warehouse"
+                      ? selectedWarehouse?.name
+                      : selectedStore?.name}
+                  </span>
+                </div>
+              )
             )}
           </div>
 
@@ -198,7 +369,6 @@ export default function POSPage() {
             enabled={inventoryMode === "warehouse" && !!warehouseId}
           />
 
-          {/* Product Grid */}
           <div className="flex-1 overflow-auto -mx-1 px-1">
             <ProductGrid
               warehouseId={
@@ -209,30 +379,36 @@ export default function POSPage() {
               storeId={
                 inventoryMode === "store" ? storeId || undefined : undefined
               }
+              warehouseName={selectedWarehouse?.name}
             />
           </div>
         </div>
 
-        {/* Right Panel - Cart */}
         <div className="w-80 lg:w-96 flex flex-col border-l border-white/[0.08]">
           <div className="flex-1 overflow-hidden">
             <CartPanel />
           </div>
 
-          {/* Checkout Button */}
           <div className="p-4 border-t border-white/[0.08]">
-            <CheckoutButton onCheckout={handleCheckout} />
+            <CheckoutButton
+              onCheckout={handleCheckout}
+              disabled={!canCheckout}
+              disabledReason={
+                isSharedGodown && !storeId
+                  ? "Select which shop is selling"
+                  : !canCheckout
+                    ? "Select stock location"
+                    : undefined
+              }
+            />
           </div>
         </div>
 
-        {/* Checkout Modal */}
         <CheckoutModal
           isOpen={checkoutOpen}
           onClose={() => setCheckoutOpen(false)}
-          warehouseId={
-            inventoryMode === "warehouse" ? warehouseId || undefined : undefined
-          }
-          storeId={inventoryMode === "store" ? storeId || undefined : undefined}
+          warehouseId={checkoutWarehouseId}
+          storeId={checkoutStoreId}
           onViewInvoice={handleViewInvoiceFromCheckout}
         />
         <InvoicePreview
@@ -245,14 +421,28 @@ export default function POSPage() {
   );
 }
 
-// Simple checkout button that opens the checkout modal
-function CheckoutButton({ onCheckout }: { onCheckout: () => void }) {
+function CheckoutButton({
+  onCheckout,
+  disabled,
+  disabledReason,
+}: {
+  onCheckout: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
   return (
-    <button
-      onClick={onCheckout}
-    className="w-full py-4 rounded-xl [background:var(--grad-brand-diagonal)] text-white font-bold text-lg hover:opacity-95 transition-all shadow-lg shadow-[#6366F1]/20"
-    >
-      Proceed to Checkout
-    </button>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={onCheckout}
+        disabled={disabled}
+        className="w-full py-4 rounded-xl [background:var(--grad-brand-diagonal)] text-[var(--brand-contrast)] font-bold text-lg hover:opacity-95 transition-all shadow-lg shadow-[var(--brand)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Proceed to Checkout
+      </button>
+      {disabled && disabledReason && (
+        <p className="text-center text-xs text-amber-400/80">{disabledReason}</p>
+      )}
+    </div>
   );
 }

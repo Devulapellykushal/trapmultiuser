@@ -1,6 +1,8 @@
 # Quake Inventory - Environment Variables Reference
 
-Complete reference for all environment variables used in the Quake system.
+Complete reference for all environment variables used in the Quake system (multi-tenant POS / inventory).
+
+Also see repo-root `.env.example` and `apps/web/.env.example`.
 
 ---
 
@@ -14,15 +16,30 @@ Complete reference for all environment variables used in the Quake system.
 | `DJANGO_ENV`           | Environment mode                                   | `development` / `production` |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hosts                      | `localhost,api.example.com`  |
 
-### Database (Supabase)
+### Database (prefer `DATABASE_URL`)
 
-| Variable            | Description            | Example                                                               |
-| ------------------- | ---------------------- | --------------------------------------------------------------------- |
-| `POSTGRES_DB`       | Database name          | `postgres`                                                            |
-| `POSTGRES_USER`     | Database username      | `postgres`                                                            |
-| `POSTGRES_PASSWORD` | Database password      | `your_supabase_password`                                              |
-| `POSTGRES_HOST`     | Supabase database host | `db.<project-ref>.supabase.co` or `<project-ref>.pooler.supabase.com` |
-| `POSTGRES_PORT`     | Database port          | `5432` (direct) or `6543` (pooler)                                    |
+| Variable            | Description            | Example                               |
+| ------------------- | ---------------------- | ------------------------------------- |
+| `DATABASE_URL`      | Full Postgres URL      | `postgresql://USER:PASS@HOST:5432/DB` |
+| `POSTGRES_DB`       | Database name          | `postgres`                            |
+| `POSTGRES_USER`     | Database username      | `postgres`                            |
+| `POSTGRES_PASSWORD` | Database password      | `your_password`                       |
+| `POSTGRES_HOST`     | Database host          | `localhost` or managed host           |
+| `POSTGRES_PORT`     | Database port          | `5432` or `6543` (pooler)             |
+
+### Auth & email
+
+| Variable                      | Description                          | Default / example       |
+| ----------------------------- | ------------------------------------ | ----------------------- |
+| `FRONTEND_URL`                | Web origin for reset / welcome links | `http://localhost:3000` |
+| `AUTH_ALLOW_PUBLIC_SIGNUP`    | Enable public register               | `true`                  |
+| `AUTH_DEV_RETURN_RESET_TOKEN` | Return reset token in API (dev only) | `false`                 |
+| `EMAIL_ADAPTER`               | `smtp` or `console`                  | `smtp`                  |
+| `SMTP_HOST` / `SMTP_PORT`     | SMTP server                          | `587`                   |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | SMTP credentials                 |                         |
+| `SMTP_USE_TLS` / `SMTP_USE_SSL`   | TLS/SSL flags                    | TLS `True`              |
+
+Public signup creates a **new organization** + ADMIN (ADR 0003).
 
 ### Security
 
@@ -44,98 +61,35 @@ Complete reference for all environment variables used in the Quake system.
 
 ## Frontend (Next.js)
 
-### Required Variables
-
 | Variable                   | Description     | Example                          |
 | -------------------------- | --------------- | -------------------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | Backend API URL | `https://api.example.com/api/v1` |
-
-### Optional Variables
-
-| Variable                  | Description         | Default          |
-| ------------------------- | ------------------- | ---------------- |
-| `NEXT_PUBLIC_APP_NAME`    | Application name    | `Quake Inventory` |
-| `NEXT_PUBLIC_APP_VERSION` | Application version | `1.0.0`          |
+| `NEXT_PUBLIC_APP_NAME`     | Application name | `Quake Inventory`               |
+| `NEXT_PUBLIC_APP_VERSION`  | Application version | `1.0.0`                      |
 
 ---
 
-## Environment Files
-
-### Development (`.env`)
+## Development `.env` sketch
 
 ```bash
-# ============================================
-# Quake Inventory - Development Environment
-# ============================================
-
-# Django
 DJANGO_SECRET_KEY=dev-secret-key-change-in-production
 DJANGO_ENV=development
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Database (PostgreSQL or SQLite)
 USE_SQLITE=true
-# POSTGRES_DB=Quake_inventory
-# POSTGRES_USER=postgres
-# POSTGRES_PASSWORD=postgres
-# POSTGRES_HOST=localhost
-# POSTGRES_PORT=5432
-
-# CORS
+FRONTEND_URL=http://localhost:3000
+AUTH_ALLOW_PUBLIC_SIGNUP=true
+EMAIL_ADAPTER=console
+AUTH_DEV_RETURN_RESET_TOKEN=true
 CORS_ALLOWED_ORIGINS=http://localhost:3000
-
-# JWT
 JWT_ACCESS_TOKEN_LIFETIME=60
 JWT_REFRESH_TOKEN_LIFETIME=1440
 ```
 
-### Production (Cloud Run Secrets)
+## Production checklist
 
-These should be stored in Google Cloud Secret Manager, NOT in files:
-
-```bash
-# Required secrets (do NOT commit these)
-DJANGO_SECRET_KEY=<randomly-generated-64-char-key>
-
-# Supabase Database
-POSTGRES_DB=postgres
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=<your-supabase-password>
-POSTGRES_HOST=<project-ref>.pooler.supabase.com
-POSTGRES_PORT=6543
-
-# Hosts & CORS
-DJANGO_ALLOWED_HOSTS=Quake-api-xxxxx.asia-south1.run.app
-CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
-CSRF_TRUSTED_ORIGINS=https://your-app.vercel.app
-```
-
----
-
-## Generating Secrets
-
-### Django Secret Key
-
-```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-
-### Secure Password
-
-```bash
-openssl rand -base64 32
-```
-
----
-
-## Variable Validation Checklist
-
-Before deploying, verify:
-
-- [ ] `DJANGO_SECRET_KEY` is unique per environment
-- [ ] `DEBUG` is `False` in production (set via `DJANGO_ENV=production`)
-- [ ] `ALLOWED_HOSTS` includes your production domain
-- [ ] `CORS_ALLOWED_ORIGINS` matches your frontend URL exactly
-- [ ] `CSRF_TRUSTED_ORIGINS` matches your frontend URL exactly
-- [ ] Database credentials are correct
-- [ ] No secrets are committed to Git
+- [ ] Unique `DJANGO_SECRET_KEY`
+- [ ] `DJANGO_ENV=production` (DEBUG off)
+- [ ] Hosts / CORS / CSRF match frontend
+- [ ] `FRONTEND_URL` correct for password-reset links
+- [ ] SMTP ready if `EMAIL_ADAPTER=smtp`
+- [ ] No secrets in git

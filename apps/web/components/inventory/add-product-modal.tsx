@@ -1,6 +1,7 @@
 "use client";
 
 import { inventoryKeys, useCategories } from "@/hooks/use-inventory";
+import { useLocationLabels } from "@/hooks/use-business-setup";
 import { api } from "@/lib/api";
 import {
     Category as CategoryType,
@@ -59,7 +60,7 @@ interface ProductFormData {
 interface CreatedProduct {
   id: string;
   sku: string;
-  barcodeValue: string;
+  barcodeValue?: string | null;
   barcodeImageUrl?: string;
 }
 
@@ -210,6 +211,7 @@ export function AddProductModal({
   const [warehousesLoading, setWarehousesLoading] = React.useState(false);
 
   const queryClient = useQueryClient();
+  const { barcodeEnabled } = useLocationLabels();
 
   // Fetch categories from API
   const { data: categoriesData } = useCategories();
@@ -423,12 +425,17 @@ export function AddProductModal({
       const response = await api.post("/inventory/products/", productData);
 
       if (response && typeof response === "object") {
-        const product = response as CreatedProduct;
+        const product = response as CreatedProduct & {
+          barcode_value?: string | null;
+          barcode_image_url?: string;
+        };
         setCreatedProduct({
           id: product.id,
           sku: product.sku,
-          barcodeValue: product.barcodeValue,
-          barcodeImageUrl: product.barcodeImageUrl,
+          barcodeValue:
+            product.barcodeValue ?? product.barcode_value ?? null,
+          barcodeImageUrl:
+            product.barcodeImageUrl ?? product.barcode_image_url,
         });
       }
 
@@ -490,14 +497,14 @@ export function AddProductModal({
     if (createdProduct) {
       return (
         <div className="flex flex-col items-center justify-center py-8 space-y-6">
-          <div className="w-16 h-16 rounded-full bg-[#2ECC71]/20 flex items-center justify-center">
-            <Check className="w-8 h-8 text-[#2ECC71]" />
+          <div className="w-16 h-16 rounded-full bg-[#3f9d7a]/20 flex items-center justify-center">
+            <Check className="w-8 h-8 text-[#3f9d7a]" />
           </div>
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-[#F5F6FA] mb-2">
+            <h3 className="text-xl font-semibold text-[#f3eee4] mb-2">
               Saved — this product is on your list
             </h3>
-            <p className="text-[#A1A4B3] max-w-md mx-auto">
+            <p className="text-[#c5c0b5] max-w-md mx-auto">
               You can find it in Inventory, sell it at the till, and print its
               label when you need it.
             </p>
@@ -506,41 +513,48 @@ export function AddProductModal({
           {/* SKU and Barcode Display */}
           <div className="w-full max-w-sm space-y-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
             <div>
-              <p className="text-xs text-[#6F7285] uppercase tracking-wide mb-1">
+              <p className="text-xs text-[#8a867c] uppercase tracking-wide mb-1">
                 Store code (SKU)
               </p>
-              <p className="text-lg font-mono font-semibold text-[#C6A15B]">
+              <p className="text-lg font-mono font-semibold text-[#c4a574]">
                 {createdProduct.sku}
               </p>
-              <p className="text-xs text-[#6F7285] mt-1">
+              <p className="text-xs text-[#8a867c] mt-1">
                 The system uses this code so nothing gets mixed up at billing.
               </p>
             </div>
-            <div>
-              <p className="text-xs text-[#6F7285] uppercase tracking-wide mb-1">
-                Barcode (for scanning)
+            {createdProduct.barcodeValue ? (
+              <div>
+                <p className="text-xs text-[#8a867c] uppercase tracking-wide mb-1">
+                  Barcode (for scanning)
+                </p>
+                <p className="text-sm font-mono text-[#f3eee4] mb-2">
+                  {createdProduct.barcodeValue}
+                </p>
+                {createdProduct.barcodeImageUrl && (
+                  <div className="p-3 bg-white rounded-lg">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- API SVG; avoids next/image host config */}
+                    <img
+                      src={createdProduct.barcodeImageUrl}
+                      alt="Barcode"
+                      width={300}
+                      height={100}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-[#8a867c]">
+                No barcode — barcodes are off in Settings. Sell by search or
+                tap.
               </p>
-              <p className="text-sm font-mono text-[#F5F6FA] mb-2">
-                {createdProduct.barcodeValue}
-              </p>
-              {createdProduct.barcodeImageUrl && (
-                <div className="p-3 bg-white rounded-lg">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- API SVG; avoids next/image host config */}
-                  <img
-                    src={createdProduct.barcodeImageUrl}
-                    alt="Barcode"
-                    width={300}
-                    height={100}
-                    className="w-full h-auto"
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <button
             onClick={handleClose}
-            className="px-6 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors"
+            className="px-6 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] font-medium hover:bg-[#d4b88a] transition-colors"
           >
             Done
           </button>
@@ -592,6 +606,7 @@ export function AddProductModal({
             formData={formData}
             marginPercentage={marginPercentage}
             warehouses={warehouses}
+            barcodeEnabled={barcodeEnabled}
           />
         );
       default:
@@ -609,7 +624,7 @@ export function AddProductModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-40 modal-scrim"
             onClick={handleClose}
             aria-hidden="true"
           />
@@ -622,19 +637,19 @@ export function AddProductModal({
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
           >
-            <div className="w-full max-w-2xl bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl flex flex-col max-h-[90vh] my-4">
+            <div className="w-full max-w-2xl bg-[#111318] rounded-2xl border border-white/[0.08] shadow-2xl flex flex-col max-h-[90vh] my-4">
               {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-[#C6A15B]/10">
-                    <Package className="w-5 h-5 text-[#C6A15B]" />
+                  <div className="p-2 rounded-lg bg-[#c4a574]/10">
+                    <Package className="w-5 h-5 text-[#c4a574]" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-[#F5F6FA]">
+                    <h2 className="text-lg font-semibold text-[#f3eee4]">
                       {createdProduct ? "All set" : "Add a product"}
                     </h2>
                     {!createdProduct && (
-                      <p className="text-xs text-[#6F7285]">
+                      <p className="text-xs text-[#8a867c]">
                         Step {currentStep} of {STEPS.length}
                         {STEPS[currentStep - 1]?.hint
                           ? ` — ${STEPS[currentStep - 1].hint}`
@@ -648,7 +663,7 @@ export function AddProductModal({
                   className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
                   aria-label="Close"
                 >
-                  <X className="w-5 h-5 text-[#A1A4B3]" />
+                  <X className="w-5 h-5 text-[#c5c0b5]" />
                 </button>
               </div>
 
@@ -661,17 +676,17 @@ export function AddProductModal({
                         <div
                           className={`flex items-center gap-2 ${
                             currentStep >= step.id
-                              ? "text-[#C6A15B]"
-                              : "text-[#6F7285]"
+                              ? "text-[#c4a574]"
+                              : "text-[#8a867c]"
                           }`}
                         >
                           <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                               currentStep > step.id
-                                ? "bg-[#C6A15B] text-[#0E0F13]"
+                                ? "bg-[#c4a574] text-[#0c0d10]"
                                 : currentStep === step.id
-                                  ? "bg-[#C6A15B]/20 text-[#C6A15B] border border-[#C6A15B]"
-                                  : "bg-white/[0.05] text-[#6F7285]"
+                                  ? "bg-[#c4a574]/20 text-[#c4a574] border border-[#c4a574]"
+                                  : "bg-white/[0.05] text-[#8a867c]"
                             }`}
                           >
                             {currentStep > step.id ? (
@@ -688,7 +703,7 @@ export function AddProductModal({
                           <div
                             className={`flex-1 h-px mx-2 ${
                               currentStep > step.id
-                                ? "bg-[#C6A15B]"
+                                ? "bg-[#c4a574]"
                                 : "bg-white/[0.08]"
                             }`}
                           />
@@ -702,7 +717,7 @@ export function AddProductModal({
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-5">
                 {error && (
-                  <div className="mb-4 p-3 rounded-lg bg-[#E74C3C]/10 border border-[#E74C3C]/30 text-sm text-[#E74C3C]">
+                  <div className="mb-4 p-3 rounded-lg bg-[#c45c5c]/10 border border-[#c45c5c]/30 text-sm text-[#c45c5c]">
                     {error}
                   </div>
                 )}
@@ -715,7 +730,7 @@ export function AddProductModal({
                   <button
                     type="button"
                     onClick={currentStep === 1 ? handleClose : handleBack}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] font-medium hover:bg-white/[0.08] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] font-medium hover:bg-white/[0.08] transition-colors"
                   >
                     {currentStep === 1 ? (
                       "Cancel"
@@ -730,7 +745,7 @@ export function AddProductModal({
                     <button
                       type="button"
                       onClick={handleNext}
-                      className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors"
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] font-medium hover:bg-[#d4b88a] transition-colors"
                     >
                       Continue
                       <ChevronRight className="w-4 h-4" />
@@ -740,7 +755,7 @@ export function AddProductModal({
                       type="button"
                       onClick={handleSubmit}
                       disabled={isSubmitting}
-                      className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] font-medium hover:bg-[#d4b88a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? (
                         <>
@@ -786,15 +801,15 @@ function StepBasicInfo({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[#6F7285] leading-relaxed">
+      <p className="text-sm text-[#8a867c] leading-relaxed">
         Add a tyre, wheel, tube, valve, or other shop SKU. Fields with a red star
         are required; the rest can wait until you have the sidewall or catalog in
         front of you.
       </p>
       {/* Product Name */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-          Name of the product <span className="text-[#E74C3C]">*</span>
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+          Name of the product <span className="text-[#c45c5c]">*</span>
         </label>
         <input
           type="text"
@@ -802,20 +817,20 @@ function StepBasicInfo({
           value={formData.name}
           onChange={onChange}
           placeholder="e.g. MRF Wanderer 205/55 R16 91V tubeless"
-          className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-            errors.name ? "border-[#E74C3C]" : "border-white/[0.08]"
+          className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+            errors.name ? "border-[#c45c5c]" : "border-white/[0.08]"
           }`}
         />
         {errors.name && (
-          <p className="text-xs text-[#E74C3C] mt-1">{errors.name}</p>
+          <p className="text-xs text-[#c45c5c] mt-1">{errors.name}</p>
         )}
       </div>
 
       {/* Product Code */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
           Your own item code{" "}
-          <span className="text-[#6F7285] font-normal">(optional)</span>
+          <span className="text-[#8a867c] font-normal">(optional)</span>
         </label>
         <input
           type="text"
@@ -823,15 +838,15 @@ function StepBasicInfo({
           value={formData.productCode}
           onChange={onChange}
           placeholder="Bay code, job card ref, or your own stock label"
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
         />
       </div>
 
       {/* Brand & Category */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Brand / maker <span className="text-[#E74C3C]">*</span>
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+            Brand / maker <span className="text-[#c45c5c]">*</span>
           </label>
           <input
             type="text"
@@ -839,25 +854,25 @@ function StepBasicInfo({
             value={formData.brand}
             onChange={onChange}
             placeholder="e.g. MRF, CEAT, Apollo, JK Tyre, Michelin, Bridgestone"
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-              errors.brand ? "border-[#E74C3C]" : "border-white/[0.08]"
+            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+              errors.brand ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           />
           {errors.brand && (
-            <p className="text-xs text-[#E74C3C] mt-1">{errors.brand}</p>
+            <p className="text-xs text-[#c45c5c] mt-1">{errors.brand}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Type of product (category) <span className="text-[#E74C3C]">*</span>
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+            Type of product (category) <span className="text-[#c45c5c]">*</span>
           </label>
           {categories.length > 0 ? (
             <select
               name="category"
               value={formData.category}
               onChange={onChange}
-              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent cursor-pointer ${
-                errors.category ? "border-[#E74C3C]" : "border-white/[0.08]"
+              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent cursor-pointer ${
+                errors.category ? "border-[#c45c5c]" : "border-white/[0.08]"
               }`}
             >
               <option value="">Choose a category</option>
@@ -874,16 +889,16 @@ function StepBasicInfo({
               value={formData.category}
               onChange={onChange}
               placeholder="e.g. Car radial, 2W, SUV, Alloy wheel, Steel rim, Tube"
-              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-                errors.category ? "border-[#E74C3C]" : "border-white/[0.08]"
+              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+                errors.category ? "border-[#c45c5c]" : "border-white/[0.08]"
               }`}
             />
           )}
           {errors.category && (
-            <p className="text-xs text-[#E74C3C] mt-1">{errors.category}</p>
+            <p className="text-xs text-[#c45c5c] mt-1">{errors.category}</p>
           )}
           {categories.length === 0 && (
-            <p className="text-xs text-[#6F7285] mt-1">
+            <p className="text-xs text-[#8a867c] mt-1">
               Tip: an admin can add saved categories under Settings so this
               becomes a simple drop-down list.
             </p>
@@ -894,9 +909,9 @@ function StepBasicInfo({
       {/* Brand Code & Alias */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
             Brand code{" "}
-            <span className="text-[#6F7285] font-normal">(optional)</span>
+            <span className="text-[#8a867c] font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -904,13 +919,13 @@ function StepBasicInfo({
             value={formData.brandCode}
             onChange={onChange}
             placeholder="Pattern / article from sidewall or supplier catalog"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
             Nickname / short name{" "}
-            <span className="text-[#6F7285] font-normal">(optional)</span>
+            <span className="text-[#8a867c] font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -918,14 +933,14 @@ function StepBasicInfo({
             value={formData.alias}
             onChange={onChange}
             placeholder="Short POS name (e.g. “OE Swift spare”)"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
           Extra notes (optional)
         </label>
         <textarea
@@ -934,7 +949,7 @@ function StepBasicInfo({
           onChange={onChange}
           placeholder="Load & speed index, tubeless/tube, DOT/week, PCD, offset, warranty…"
           rows={3}
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent resize-none"
+          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent resize-none"
         />
       </div>
     </div>
@@ -967,17 +982,17 @@ function StepAttributes({
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-[#6F7285] leading-relaxed">
+      <p className="text-sm text-[#8a867c] leading-relaxed">
         Same model line often comes in several{" "}
-        <span className="text-[#A1A4B3]">tyre markings</span> (e.g.{" "}
-        <span className="text-[#A1A4B3]">205/55 R16</span>: width / profile R rim
-        diameter) or <span className="text-[#A1A4B3]">rim sizes</span>. Pick a
+        <span className="text-[#c5c0b5]">tyre markings</span> (e.g.{" "}
+        <span className="text-[#c5c0b5]">205/55 R16</span>: width / profile R rim
+        diameter) or <span className="text-[#c5c0b5]">rim sizes</span>. Pick a
         list style, then tap each size you stock. Single-size SKUs can leave this
-        empty and tap <span className="text-[#A1A4B3]">Continue</span>.
+        empty and tap <span className="text-[#c5c0b5]">Continue</span>.
       </p>
 
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
           What kind of size list?
         </label>
         <div className="flex gap-2 flex-wrap">
@@ -994,8 +1009,8 @@ function StepAttributes({
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   formData.sizeFormat === format
-                    ? "bg-[#C6A15B] text-[#0E0F13]"
-                    : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                    ? "bg-[#c4a574] text-[#0c0d10]"
+                    : "bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
                 }`}
               >
                 {formatLabels[format]}
@@ -1007,7 +1022,7 @@ function StepAttributes({
 
       {formData.sizeFormat === "CUSTOM_MARKING" && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-[#A1A4B3]">
+          <label className="block text-sm font-medium text-[#c5c0b5]">
             Add marking, PCD, offset, tube size, etc.
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -1023,7 +1038,7 @@ function StepAttributes({
                 }
               }}
               placeholder='e.g. 100 PCD, ET45, 275/40 R20, "TR413" valve'
-              className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+              className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
             />
             <button
               type="button"
@@ -1031,7 +1046,7 @@ function StepAttributes({
                 onAppendCustomSize(customDraft);
                 setCustomDraft("");
               }}
-              className="px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors shrink-0"
+              className="px-4 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors shrink-0"
             >
               Add
             </button>
@@ -1042,7 +1057,7 @@ function StepAttributes({
       {formData.sizeFormat !== "CUSTOM_MARKING" &&
         currentSizeOptions.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+            <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
               {formData.sizeFormat === "TYRE_SIDWALL"
                 ? "Tap each sidewall size you sell for this line"
                 : "Tap each rim size you sell for this line"}
@@ -1055,8 +1070,8 @@ function StepAttributes({
                   onClick={() => onToggleSize(size)}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     formData.sizes.includes(size)
-                      ? "bg-[#C6A15B] text-[#0E0F13]"
-                      : "bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                      ? "bg-[#c4a574] text-[#0c0d10]"
+                      : "bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
                   }`}
                 >
                   {size}
@@ -1068,7 +1083,7 @@ function StepAttributes({
 
       {formData.sizes.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-[#A1A4B3] mb-2">
+          <p className="text-xs font-medium text-[#c5c0b5] mb-2">
             Selected ({formData.sizes.length}) — tap to remove
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1077,7 +1092,7 @@ function StepAttributes({
                 key={size}
                 type="button"
                 onClick={() => onToggleSize(size)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C6A15B]/20 text-[#C6A15B] border border-[#C6A15B]/40 hover:bg-[#C6A15B]/30"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#c4a574]/20 text-[#c4a574] border border-[#c4a574]/40 hover:bg-[#c4a574]/30"
               >
                 {size} ×
               </button>
@@ -1110,9 +1125,9 @@ function StepPricing({
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-[#6F7285] leading-relaxed">
-        Enter amounts in <span className="text-[#A1A4B3]">rupees (₹)</span> for{" "}
-        <strong className="text-[#A1A4B3] font-medium">one unit</strong> (one
+      <p className="text-sm text-[#8a867c] leading-relaxed">
+        Enter amounts in <span className="text-[#c5c0b5]">rupees (₹)</span> for{" "}
+        <strong className="text-[#c5c0b5] font-medium">one unit</strong> (one
         tyre, one rim, or one line item) of this product. The box at the bottom
         shows roughly how much you keep after paying your supplier — it updates
         as you type.
@@ -1121,8 +1136,8 @@ function StepPricing({
       {/* Cost & MRP */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Your cost (what you paid) <span className="text-[#E74C3C]">*</span>
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+            Your cost (what you paid) <span className="text-[#c45c5c]">*</span>
           </label>
           <input
             type="number"
@@ -1133,21 +1148,21 @@ function StepPricing({
             step="0.01"
             placeholder="0.00"
             aria-describedby="hint-cost"
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-              errors.costPrice ? "border-[#E74C3C]" : "border-white/[0.08]"
+            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+              errors.costPrice ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           />
-          <p id="hint-cost" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+          <p id="hint-cost" className="text-xs text-[#8a867c] mt-1.5 leading-snug">
             The price <em>you</em> paid to buy or make one unit — before any
             tax you charge the customer.
           </p>
           {errors.costPrice && (
-            <p className="text-xs text-[#E74C3C] mt-1">{errors.costPrice}</p>
+            <p className="text-xs text-[#c45c5c] mt-1">{errors.costPrice}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Maximum tag price (MRP) <span className="text-[#E74C3C]">*</span>
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+            Maximum tag price (MRP) <span className="text-[#c45c5c]">*</span>
           </label>
           <input
             type="number"
@@ -1158,16 +1173,16 @@ function StepPricing({
             step="0.01"
             placeholder="0.00"
             aria-describedby="hint-mrp"
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-              errors.mrp ? "border-[#E74C3C]" : "border-white/[0.08]"
+            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+              errors.mrp ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           />
-          <p id="hint-mrp" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+          <p id="hint-mrp" className="text-xs text-[#8a867c] mt-1.5 leading-snug">
             The highest price printed on the pack or tag by law. Your everyday
             selling price must stay at or below this number.
           </p>
           {errors.mrp && (
-            <p className="text-xs text-[#E74C3C] mt-1">{errors.mrp}</p>
+            <p className="text-xs text-[#c45c5c] mt-1">{errors.mrp}</p>
           )}
         </div>
       </div>
@@ -1175,8 +1190,8 @@ function StepPricing({
       {/* Selling Price & GST */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
-            Price you charge today <span className="text-[#E74C3C]">*</span>
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+            Price you charge today <span className="text-[#c45c5c]">*</span>
           </label>
           <input
             type="number"
@@ -1187,23 +1202,23 @@ function StepPricing({
             step="0.01"
             placeholder="0.00"
             aria-describedby="hint-selling"
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-              errors.sellingPrice ? "border-[#E74C3C]" : "border-white/[0.08]"
+            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+              errors.sellingPrice ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           />
           <p
             id="hint-selling"
-            className="text-xs text-[#6F7285] mt-1.5 leading-snug"
+            className="text-xs text-[#8a867c] mt-1.5 leading-snug"
           >
             What appears at the till when someone buys one unit. Offers and
             discounts apply on top of this in the POS screen.
           </p>
           {errors.sellingPrice && (
-            <p className="text-xs text-[#E74C3C] mt-1">{errors.sellingPrice}</p>
+            <p className="text-xs text-[#c45c5c] mt-1">{errors.sellingPrice}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
             GST rate (tax %)
           </label>
           <select
@@ -1211,25 +1226,25 @@ function StepPricing({
             value={formData.gstPercentage}
             onChange={onChange}
             aria-describedby="hint-gst"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
           >
-            <option value="0" className="bg-[#1A1B23]">
+            <option value="0" className="bg-[#111318]">
               No tax (0%)
             </option>
-            <option value="5" className="bg-[#1A1B23]">
+            <option value="5" className="bg-[#111318]">
               5%
             </option>
-            <option value="12" className="bg-[#1A1B23]">
+            <option value="12" className="bg-[#111318]">
               12%
             </option>
-            <option value="18" className="bg-[#1A1B23]">
+            <option value="18" className="bg-[#111318]">
               18%
             </option>
-            <option value="28" className="bg-[#1A1B23]">
+            <option value="28" className="bg-[#111318]">
               28%
             </option>
           </select>
-          <p id="hint-gst" className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+          <p id="hint-gst" className="text-xs text-[#8a867c] mt-1.5 leading-snug">
             Pick the government tax slab that matches this product. Ask your
             accountant if you are unsure.
           </p>
@@ -1240,10 +1255,10 @@ function StepPricing({
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <span className="text-sm font-medium text-[#A1A4B3]">
+            <span className="text-sm font-medium text-[#c5c0b5]">
               Rough profit on one sale
             </span>
-            <p className="text-xs text-[#6F7285] mt-1">
+            <p className="text-xs text-[#8a867c] mt-1">
               Sale price minus your cost (tax is handled separately on the
               bill).
             </p>
@@ -1251,30 +1266,30 @@ function StepPricing({
           <span
             className={`text-xl font-bold tabular-nums ${
               marginPercentage >= 30
-                ? "text-[#2ECC71]"
+                ? "text-[#3f9d7a]"
                 : marginPercentage >= 15
-                  ? "text-[#F5A623]"
+                  ? "text-[#d4a054]"
                   : marginPercentage > 0
-                    ? "text-[#E74C3C]"
-                    : "text-[#6F7285]"
+                    ? "text-[#c45c5c]"
+                    : "text-[#8a867c]"
             }`}
           >
             ₹{profitPerUnit.toFixed(2)}
           </span>
         </div>
         <div className="mt-3 pt-3 border-t border-white/[0.08] flex items-center justify-between">
-          <span className="text-xs text-[#6F7285]">
+          <span className="text-xs text-[#8a867c]">
             Compared to your cost, that is about:
           </span>
           <span
             className={`text-sm font-semibold tabular-nums ${
               marginPercentage >= 30
-                ? "text-[#2ECC71]"
+                ? "text-[#3f9d7a]"
                 : marginPercentage >= 15
-                  ? "text-[#F5A623]"
+                  ? "text-[#d4a054]"
                   : marginPercentage > 0
-                    ? "text-[#E74C3C]"
-                    : "text-[#6F7285]"
+                    ? "text-[#c45c5c]"
+                    : "text-[#8a867c]"
             }`}
           >
             {marginPercentage.toFixed(1)}% extra
@@ -1307,20 +1322,20 @@ function StepStock({
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-[#6F7285] leading-relaxed">
+      <p className="text-sm text-[#8a867c] leading-relaxed">
         If you already have units in the shop or godown, say how many and where
         they sit. If you are not ready yet, leave quantity at{" "}
-        <span className="text-[#A1A4B3]">0</span> and continue — you can add
+        <span className="text-[#c5c0b5]">0</span> and continue — you can add
         stock later from Inventory.
       </p>
 
       {/* Warehouse Selection */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
           Storage place (warehouse / shop section)
         </label>
         {warehousesLoading ? (
-          <div className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#6F7285]">
+          <div className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#8a867c]">
             Loading your storage list…
           </div>
         ) : (
@@ -1328,28 +1343,28 @@ function StepStock({
             name="warehouseId"
             value={formData.warehouseId}
             onChange={onChange}
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent ${
-              errors.warehouseId ? "border-[#E74C3C]" : "border-white/[0.08]"
+            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+              errors.warehouseId ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           >
-            <option value="" className="bg-[#1A1B23]">
+            <option value="" className="bg-[#111318]">
               Not chosen yet (pick when you add quantity)
             </option>
             {warehouses.map((wh) => (
-              <option key={wh.id} value={wh.id} className="bg-[#1A1B23]">
+              <option key={wh.id} value={wh.id} className="bg-[#111318]">
                 {wh.name} ({wh.code})
               </option>
             ))}
           </select>
         )}
         {errors.warehouseId && (
-          <p className="text-xs text-[#E74C3C] mt-1">{errors.warehouseId}</p>
+          <p className="text-xs text-[#c45c5c] mt-1">{errors.warehouseId}</p>
         )}
       </div>
 
       {/* Initial Stock */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
           How many units do you have right now?
         </label>
         <input
@@ -1359,17 +1374,17 @@ function StepStock({
           onChange={onChange}
           min="0"
           placeholder="0"
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
         />
-        <p className="text-xs text-[#6F7285] mt-1.5 leading-snug">
-          We record this as opening stock. Use <span className="text-[#A1A4B3]">0</span> if you
+        <p className="text-xs text-[#8a867c] mt-1.5 leading-snug">
+          We record this as opening stock. Use <span className="text-[#c5c0b5]">0</span> if you
           are only creating the product card for now.
         </p>
       </div>
 
       {/* Reorder Threshold */}
       <div>
-        <label className="block text-sm font-medium text-[#A1A4B3] mb-1.5">
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
           When should we warn you stock is low?
         </label>
         <input
@@ -1379,21 +1394,21 @@ function StepStock({
           onChange={onChange}
           min="0"
           placeholder="0"
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent"
+          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
         />
-        <p className="text-xs text-[#6F7285] mt-1.5 leading-snug">
+        <p className="text-xs text-[#8a867c] mt-1.5 leading-snug">
           When counted stock goes <em>below</em> this number, the system can
-          remind you to reorder. Use <span className="text-[#A1A4B3]">0</span> to
+          remind you to reorder. Use <span className="text-[#c5c0b5]">0</span> to
           turn that reminder off for now.
         </p>
       </div>
 
       {/* Stock Preview */}
       {initialStockQty > 0 && formData.warehouseId && (
-        <div className="p-4 rounded-xl bg-[#2ECC71]/10 border border-[#2ECC71]/30">
+        <div className="p-4 rounded-xl bg-[#3f9d7a]/10 border border-[#3f9d7a]/30">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-[#2ECC71]">✓</span>
-            <span className="text-sm text-[#2ECC71]">
+            <span className="text-sm text-[#3f9d7a]">✓</span>
+            <span className="text-sm text-[#3f9d7a]">
               {initialStockQty} units will be added to{" "}
               {warehouses.find((w) => w.id === formData.warehouseId)?.name ||
                 "warehouse"}
@@ -1401,15 +1416,15 @@ function StepStock({
           </div>
           {thresholdQty > 0 ? (
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-[#F59E0B]">⚠</span>
-              <span className="text-sm text-[#F59E0B]">
+              <span className="text-sm text-[#d4a054]">⚠</span>
+              <span className="text-sm text-[#d4a054]">
                 We will nudge you when stock falls under {thresholdQty} units
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-[#6F7285]">•</span>
-              <span className="text-sm text-[#6F7285]">
+              <span className="text-sm text-[#8a867c]">•</span>
+              <span className="text-sm text-[#8a867c]">
                 Low-stock reminder is off (you can turn it on later)
               </span>
             </div>
@@ -1420,7 +1435,7 @@ function StepStock({
       {/* No Stock Note */}
       {(!formData.initialStock || initialStockQty === 0) && (
         <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
-          <p className="text-sm text-[#6F7285] leading-relaxed">
+          <p className="text-sm text-[#8a867c] leading-relaxed">
             No problem — you can add how many you have, and where they are kept,
             any time from the Inventory screen.
           </p>
@@ -1434,10 +1449,12 @@ function StepReview({
   formData,
   marginPercentage,
   warehouses,
+  barcodeEnabled,
 }: {
   formData: ProductFormData;
   marginPercentage: number;
   warehouses?: WarehouseType[];
+  barcodeEnabled: boolean;
 }) {
   const initialStockQty = parseNonNegativeInt(formData.initialStock);
   const thresholdQty = parseNonNegativeInt(formData.reorderThreshold);
@@ -1448,38 +1465,38 @@ function StepReview({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[#6F7285] leading-relaxed">
+      <p className="text-sm text-[#8a867c] leading-relaxed">
         Please read this summary once. If something looks wrong, use{" "}
-        <span className="text-[#A1A4B3]">Back</span> to fix it. When everything
-        looks right, tap <span className="text-[#A1A4B3]">Save product</span>.
+        <span className="text-[#c5c0b5]">Back</span> to fix it. When everything
+        looks right, tap <span className="text-[#c5c0b5]">Save product</span>.
       </p>
 
       {/* Basic Info */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
+        <h4 className="text-sm font-medium text-[#c4a574] mb-3">
           What you are adding
         </h4>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-[#6F7285]">Name</p>
-            <p className="text-[#F5F6FA] font-medium">{formData.name || "—"}</p>
+            <p className="text-[#8a867c]">Name</p>
+            <p className="text-[#f3eee4] font-medium">{formData.name || "—"}</p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Brand</p>
-            <p className="text-[#F5F6FA] font-medium">
+            <p className="text-[#8a867c]">Brand</p>
+            <p className="text-[#f3eee4] font-medium">
               {formData.brand || "—"}
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Category</p>
-            <p className="text-[#F5F6FA] font-medium">
+            <p className="text-[#8a867c]">Category</p>
+            <p className="text-[#f3eee4] font-medium">
               {formData.category || "—"}
             </p>
           </div>
           {formData.description && (
             <div className="col-span-2">
-              <p className="text-[#6F7285]">Description</p>
-              <p className="text-[#F5F6FA] font-medium">
+              <p className="text-[#8a867c]">Description</p>
+              <p className="text-[#f3eee4] font-medium">
                 {formData.description}
               </p>
             </div>
@@ -1489,13 +1506,13 @@ function StepReview({
 
       {/* Attributes */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
+        <h4 className="text-sm font-medium text-[#c4a574] mb-3">
           Tyre &amp; rim markings
         </h4>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <span className="text-[#6F7285]">Size list style:</span>
-            <span className="text-[#F5F6FA]">
+            <span className="text-[#8a867c]">Size list style:</span>
+            <span className="text-[#f3eee4]">
               {formData.sizeFormat === "TYRE_SIDWALL"
                 ? "Tyre — sidewall marking (ISO)"
                 : formData.sizeFormat === "RIM_SIZE"
@@ -1505,14 +1522,14 @@ function StepReview({
           </div>
           {formData.sizes.length > 0 && (
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">Markings / sizes:</span>
-              <span className="text-[#F5F6FA]">
+              <span className="text-[#8a867c]">Markings / sizes:</span>
+              <span className="text-[#f3eee4]">
                 {formData.sizes.join(", ")}
               </span>
             </div>
           )}
           {formData.sizes.length === 0 && (
-            <p className="text-[#6F7285]">
+            <p className="text-[#8a867c]">
               No extra markings — treated as one SKU (single size line)
             </p>
           )}
@@ -1521,39 +1538,39 @@ function StepReview({
 
       {/* Pricing */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">Money</h4>
+        <h4 className="text-sm font-medium text-[#c4a574] mb-3">Money</h4>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-[#6F7285]">Your cost (per unit)</p>
-            <p className="text-[#F5F6FA] font-medium">
+            <p className="text-[#8a867c]">Your cost (per unit)</p>
+            <p className="text-[#f3eee4] font-medium">
               ₹{formData.costPrice || "0"}
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Maximum tag price (MRP)</p>
-            <p className="text-[#F5F6FA] font-medium">₹{formData.mrp || "0"}</p>
+            <p className="text-[#8a867c]">Maximum tag price (MRP)</p>
+            <p className="text-[#f3eee4] font-medium">₹{formData.mrp || "0"}</p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Price at till today</p>
-            <p className="text-[#F5F6FA] font-medium">
+            <p className="text-[#8a867c]">Price at till today</p>
+            <p className="text-[#f3eee4] font-medium">
               ₹{formData.sellingPrice || "0"}
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">GST rate</p>
-            <p className="text-[#F5F6FA] font-medium">
+            <p className="text-[#8a867c]">GST rate</p>
+            <p className="text-[#f3eee4] font-medium">
               {formData.gstPercentage || "0"}%
             </p>
           </div>
           <div>
-            <p className="text-[#6F7285]">Rough profit vs cost</p>
+            <p className="text-[#8a867c]">Rough profit vs cost</p>
             <p
               className={`font-bold ${
                 marginPercentage >= 30
-                  ? "text-[#2ECC71]"
+                  ? "text-[#3f9d7a]"
                   : marginPercentage >= 15
-                    ? "text-[#F5A623]"
-                    : "text-[#E74C3C]"
+                    ? "text-[#d4a054]"
+                    : "text-[#c45c5c]"
               }`}
             >
               {marginPercentage.toFixed(1)}%
@@ -1564,45 +1581,45 @@ function StepReview({
 
       {/* Stock Info */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <h4 className="text-sm font-medium text-[#C6A15B] mb-3">
+        <h4 className="text-sm font-medium text-[#c4a574] mb-3">
           Stock you are starting with
         </h4>
         {hasStock ? (
           <div className="text-sm">
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">How many:</span>
-              <span className="text-[#2ECC71] font-medium">
+              <span className="text-[#8a867c]">How many:</span>
+              <span className="text-[#3f9d7a] font-medium">
                 {initialStockQty} units
               </span>
             </div>
             <div className="flex gap-2 mt-1">
-              <span className="text-[#6F7285]">Stored at:</span>
-              <span className="text-[#F5F6FA]">{selectedWarehouse.name}</span>
+              <span className="text-[#8a867c]">Stored at:</span>
+              <span className="text-[#f3eee4]">{selectedWarehouse.name}</span>
             </div>
             <div className="flex gap-2 mt-1">
-              <span className="text-[#6F7285]">Low-stock reminder:</span>
+              <span className="text-[#8a867c]">Low-stock reminder:</span>
               {thresholdQty > 0 ? (
-                <span className="text-[#F59E0B] font-medium">
+                <span className="text-[#d4a054] font-medium">
                   when below {thresholdQty} units
                 </span>
               ) : (
-                <span className="text-[#6F7285] font-medium">off</span>
+                <span className="text-[#8a867c] font-medium">off</span>
               )}
             </div>
           </div>
         ) : (
           <div className="text-sm space-y-1">
-            <p className="text-[#6F7285]">
+            <p className="text-[#8a867c]">
               Starting with no counted stock (you can add it later)
             </p>
             <div className="flex gap-2">
-              <span className="text-[#6F7285]">Low-stock reminder:</span>
+              <span className="text-[#8a867c]">Low-stock reminder:</span>
               {thresholdQty > 0 ? (
-                <span className="text-[#F59E0B] font-medium">
+                <span className="text-[#d4a054] font-medium">
                   when below {thresholdQty} units
                 </span>
               ) : (
-                <span className="text-[#6F7285] font-medium">off</span>
+                <span className="text-[#8a867c] font-medium">off</span>
               )}
             </div>
           </div>
@@ -1610,19 +1627,31 @@ function StepReview({
       </div>
 
       {/* SKU Note — solid panel + high-contrast text (no “empty tinted box” on some displays) */}
-      <div className="p-4 rounded-xl bg-[#0E0F13] border border-[#C6A15B]/50 ring-1 ring-[#C6A15B]/20">
-        <p className="text-sm text-[#F7EED6] leading-relaxed flex items-start gap-2">
+      <div className="p-4 rounded-xl bg-[#0c0d10] border border-[#c4a574]/50 ring-1 ring-[#c4a574]/20">
+        <p className="text-sm text-[#e0cba0] leading-relaxed flex items-start gap-2">
           <Barcode
-            className="w-4 h-4 mt-0.5 shrink-0 text-[#E8D4A8]"
+            className="w-4 h-4 mt-0.5 shrink-0 text-[#d4b88a]"
             strokeWidth={2}
             aria-hidden
           />
           <span>
-            <span className="font-semibold text-[#FFF5E6]">
-              Store code &amp; barcode
-            </span>{" "}
-            are created for you automatically when you save — nothing to type
-            here.
+            {barcodeEnabled ? (
+              <>
+                <span className="font-semibold text-[#e0cba0]">
+                  Store code &amp; barcode
+                </span>{" "}
+                are created for you automatically when you save — nothing to
+                type here.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-[#e0cba0]">
+                  Store code (SKU)
+                </span>{" "}
+                is created when you save. Barcodes are off in Settings — sell
+                by search or tap at POS.
+              </>
+            )}
           </span>
         </p>
       </div>

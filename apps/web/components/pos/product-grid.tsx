@@ -2,22 +2,28 @@
 
 import * as React from "react";
 import {
-  ShoppingCart,
   Package,
   AlertTriangle,
-  Barcode,
   Printer,
   Layers,
+  PackagePlus,
 } from "lucide-react";
 import { motion } from "framer-motion";
 // Re-export Product type from cart-context for consistency
 import { useCart, Product } from "./cart-context";
 import { SizeSelectionModal, ProductVariant } from "./size-selection-modal";
-import { usePOSProducts } from "@/hooks";
+import {
+  PosReceiveStockModal,
+  type PosStockTarget,
+} from "./pos-receive-stock-modal";
+import { usePOSProducts, useLocationLabels } from "@/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { inventoryKeys } from "@/hooks/use-inventory";
 import { EmptyState, emptyStates } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POSProduct } from "@/services/inventory.service";
 import { adminHref } from "@/lib/admin-routes";
+import { toast } from "sonner";
 
 // Get API base URL for barcode images
 const API_BASE_URL =
@@ -49,6 +55,7 @@ function getVariantMrpBounds(
 
 // Grouped product for display
 interface GroupedProduct {
+  productId: string;
   productName: string;
   brand: string;
   category: string;
@@ -64,26 +71,31 @@ interface GroupedProduct {
   displayBarcode: string;
   displaySku: string;
   displaySize: string | null;
+  imageUrl: string | null;
 }
 
 interface ProductGridProps {
   searchQuery?: string;
   warehouseId?: string;
+  warehouseName?: string;
   storeId?: string;
 }
 
 export function ProductGrid({
   searchQuery = "",
   warehouseId,
+  warehouseName,
   storeId,
 }: ProductGridProps) {
   const { addItem, items } = useCart();
+  const { barcodeEnabled } = useLocationLabels();
+  const queryClient = useQueryClient();
   const [lastAdded, setLastAdded] = React.useState<string | null>(null);
-  const [showBarcodeFor, setShowBarcodeFor] = React.useState<string | null>(
-    null,
-  );
   const [selectedProduct, setSelectedProduct] =
     React.useState<GroupedProduct | null>(null);
+  const [stockTarget, setStockTarget] = React.useState<PosStockTarget | null>(
+    null,
+  );
 
   // Use POS-specific API to get flattened variants with real-time stock
   const {
@@ -107,6 +119,10 @@ export function ProductGrid({
       // Use productName if available, otherwise extract from name (before the parentheses)
       const baseName = p.productName || p.name.split(" (")[0].trim();
       const groupKey = `${p.brand}::${baseName}`;
+      const productId =
+        p.productId ||
+        (p as POSProduct & { product_id?: string }).product_id ||
+        "";
 
       const mrpVal = parseFloat(p.mrp) || 0;
       const variant: ProductVariant = {
@@ -128,6 +144,7 @@ export function ProductGrid({
 
       if (!productMap.has(groupKey)) {
         productMap.set(groupKey, {
+          productId,
           productName: baseName,
           brand: p.brand,
           category: p.category,
@@ -141,6 +158,10 @@ export function ProductGrid({
           displayBarcode: p.barcode || "",
           displaySku: p.sku,
           displaySize: p.size,
+          imageUrl:
+            p.imageUrl ||
+            (p as POSProduct & { image_url?: string }).image_url ||
+            null,
         });
       } else {
         const existing = productMap.get(groupKey)!;
@@ -150,6 +171,16 @@ export function ProductGrid({
         existing.maxPrice = Math.max(existing.maxPrice, variant.sellingPrice);
         existing.mrp = Math.max(existing.mrp, mrpVal);
         existing.hasMultipleVariants = true;
+        if (!existing.productId && productId) existing.productId = productId;
+        if (
+          !existing.imageUrl &&
+          (p.imageUrl || (p as POSProduct & { image_url?: string }).image_url)
+        ) {
+          existing.imageUrl =
+            p.imageUrl ||
+            (p as POSProduct & { image_url?: string }).image_url ||
+            null;
+        }
       }
     });
 
@@ -220,7 +251,15 @@ export function ProductGrid({
         color: variant.color,
       };
 
-      addItem(cartProduct);
+      const result = addItem(cartProduct);
+      if (!result.ok) {
+        toast.error(
+          result.reason === "out_of_stock"
+            ? "Out of stock"
+            : `Only ${result.available} left in stock`,
+        );
+        return;
+      }
       setLastAdded(product.productName);
       setTimeout(() => setLastAdded(null), 300);
     }
@@ -243,7 +282,15 @@ export function ProductGrid({
       color: variant.color,
     };
 
-    addItem(cartProduct);
+    const result = addItem(cartProduct);
+    if (!result.ok) {
+      toast.error(
+        result.reason === "out_of_stock"
+          ? "Out of stock"
+          : `Only ${result.available} left in stock`,
+      );
+      return;
+    }
     setLastAdded(variant.productName);
     setTimeout(() => setLastAdded(null), 300);
   };
@@ -406,9 +453,9 @@ export function ProductGrid({
   if (isError) {
     return (
       <div className="py-16 text-center">
-        <Package className="w-12 h-12 text-[#EC4899] mx-auto mb-4" />
-        <p className="text-[#EC4899]">Could not load products</p>
-        <p className="text-xs text-[#6F7285] mt-1">
+        <Package className="w-12 h-12 text-[#c45c5c] mx-auto mb-4" />
+        <p className="text-[#c45c5c]">Could not load products</p>
+        <p className="text-xs text-[#8a867c] mt-1">
           Check if backend is running
         </p>
       </div>
@@ -443,7 +490,6 @@ export function ProductGrid({
           const isOutOfStock = remaining <= 0;
           const isLowStock = remaining > 0 && remaining <= 5;
           const isJustAdded = lastAdded === product.productName;
-          const showingBarcode = showBarcodeFor === product.productName;
           const mrpBounds = getVariantMrpBounds(product.variants);
 
           // Get available sizes for display
@@ -453,85 +499,143 @@ export function ProductGrid({
             .filter((s): s is string => s !== null && s !== undefined);
           const uniqueSizes = Array.from(new Set(availableSizes));
 
+          const canReceiveStock = Boolean(product.productId && warehouseId);
+          const canPrintBarcode =
+            barcodeEnabled && Boolean(product.displayBarcode) && !isOutOfStock;
+
           return (
             <motion.div
               key={product.productName + product.brand}
               animate={isJustAdded ? { scale: [1, 0.95, 1] } : {}}
               transition={{ duration: 0.2 }}
               className={`
-                relative p-4 rounded-xl text-left transition-all group
+                relative flex flex-col rounded-xl text-left transition-colors
                 ${
                   isOutOfStock
-                    ? "bg-[#1A1B23]/40 border border-white/[0.04] opacity-60"
-                    : "bg-[var(--bg-surface)] border border-white/[0.08] hover:border-[#6366F1]/40 hover:bg-[var(--bg-elevated)]"
+                    ? "bg-[var(--bg-card-fill)] border border-[var(--border-default)] opacity-60"
+                    : "bg-[var(--bg-surface)] border border-[var(--border-default)] hover:border-[var(--brand)]/40 hover:bg-[var(--bg-elevated)]"
                 }
               `}
-              onMouseEnter={() => setShowBarcodeFor(product.productName)}
-              onMouseLeave={() => setShowBarcodeFor(null)}
             >
-              {/* Main clickable area */}
+              {/* Stock count — top right, over image only */}
+              {isOutOfStock && (
+                <div className="absolute top-2.5 right-2.5 z-[1] px-2 py-1 rounded-md border border-[var(--danger)]/40 bg-[var(--danger-muted)] text-[var(--danger)] text-[10px] font-semibold uppercase tracking-wide">
+                  Out of Stock
+                </div>
+              )}
+              {!isOutOfStock && isLowStock && (
+                <div
+                  className="absolute top-2.5 right-2.5 z-[1] flex items-center gap-1 max-w-[min(120px,calc(100%-1rem))] px-2 py-1 rounded-md border border-[var(--warning)]/50 bg-[var(--warning)] text-[var(--brand-contrast)] text-[10px] font-semibold"
+                  title={`Low stock: ${remaining} available (after cart)`}
+                >
+                  <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                  <span className="truncate">{remaining} left</span>
+                </div>
+              )}
+              {!isOutOfStock && !isLowStock && (
+                <div
+                  className="absolute top-2.5 right-2.5 z-[1] px-2 py-1 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-[10px] font-semibold tabular-nums"
+                  title="Units available at this location (minus cart)"
+                >
+                  {remaining} left
+                </div>
+              )}
+
+              {product.hasMultipleVariants && !isOutOfStock && (
+                <div className="absolute top-2.5 left-2.5 z-[1] flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--brand)]/35 bg-[var(--brand-muted)] text-[var(--brand)] text-[10px] font-semibold">
+                  <Layers className="w-3 h-3 shrink-0" aria-hidden />
+                  <span>{product.variants.length} sizes</span>
+                </div>
+              )}
+
+              {/* Main clickable area — fixed info stack, no hover layout shift */}
               <button
+                type="button"
                 onClick={() => handleProductClick(product)}
                 disabled={isOutOfStock}
-                className="w-full text-left focus:outline-none"
+                className="flex flex-1 flex-col w-full p-3 pb-2 text-left focus:outline-none disabled:cursor-not-allowed"
               >
-                {/* Product Image Placeholder */}
                 <div
                   className={`
-                  aspect-square rounded-lg mb-3 flex items-center justify-center
-                  ${isOutOfStock ? "bg-white/[0.02]" : "bg-white/[0.03]"}
+                  relative aspect-square w-full rounded-lg mb-3 flex items-center justify-center overflow-hidden
+                  ${isOutOfStock ? "bg-[var(--bg-card-fill)]" : "bg-[var(--bg-elevated)]"}
                 `}
                 >
-                  <Package
-                    className={`w-10 h-10 ${
-                      isOutOfStock ? "text-[#6F7285]/50" : "text-[#6F7285]"
-                    } stroke-[1.5]`}
-                  />
+                  {product.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote/API media URLs
+                    <img
+                      src={product.imageUrl}
+                      alt={product.productName}
+                      className={`absolute inset-0 h-full w-full object-cover ${
+                        isOutOfStock ? "opacity-50 grayscale" : ""
+                      }`}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const fallback = e.currentTarget.nextElementSibling;
+                        if (fallback instanceof HTMLElement) {
+                          fallback.style.display = "flex";
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`absolute inset-0 items-center justify-center ${
+                      product.imageUrl ? "hidden" : "flex"
+                    }`}
+                  >
+                    <Package
+                      className={`w-10 h-10 ${
+                        isOutOfStock
+                          ? "text-[var(--text-muted)]/50"
+                          : "text-[var(--text-muted)]"
+                      } stroke-[1.5]`}
+                    />
+                  </div>
                 </div>
 
-                {/* Product Info */}
-                <p
-                  className={`text-sm font-medium truncate ${
-                    isOutOfStock ? "text-[#6F7285]" : "text-[var(--text-primary)]"
-                  }`}
-                >
-                  {product.productName}
-                </p>
-                <p className="text-xs text-[#6F7285] mt-0.5">{product.brand}</p>
+                <div className="min-h-[3.25rem]">
+                  <p
+                    className={`text-sm font-medium leading-snug line-clamp-2 ${
+                      isOutOfStock
+                        ? "text-[var(--text-muted)]"
+                        : "text-[var(--text-primary)]"
+                    }`}
+                  >
+                    {product.productName}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                    {product.brand}
+                  </p>
+                </div>
 
-                {/* Available Sizes Preview (if multiple variants) */}
-                {product.hasMultipleVariants && uniqueSizes.length > 0 && (
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    <Layers className="w-3 h-3 text-[#6F7285]" />
-                    <span className="text-[10px] text-[#A1A4B3]">
+                {product.hasMultipleVariants && uniqueSizes.length > 0 ? (
+                  <div className="flex items-center gap-1 mt-1.5 min-h-[1rem]">
+                    <Layers className="w-3 h-3 shrink-0 text-[var(--text-muted)]" />
+                    <span className="text-[10px] text-[var(--text-secondary)] truncate">
                       {uniqueSizes.slice(0, 5).join(", ")}
                       {uniqueSizes.length > 5 && ` +${uniqueSizes.length - 5}`}
                     </span>
                   </div>
+                ) : (
+                  <div className="mt-1.5 min-h-[1rem]" aria-hidden />
                 )}
 
-                {/* Barcode on hover */}
-                {product.displayBarcode && showingBarcode && (
-                  <p className="flex items-center gap-1 text-xs text-[#6366F1] mt-0.5">
-                    <Barcode className="w-3 h-3" />
-                    {product.displayBarcode}
-                  </p>
-                )}
-
-                <div className="mt-2 space-y-0.5">
+                <div className="mt-2 min-h-[2.75rem]">
                   {product.minPrice > 0 ? (
                     <p
-                      className={`text-base font-semibold tabular-nums ${
-                        isOutOfStock ? "text-[#6F7285]" : "text-[#6366F1]"
+                      className={`text-base font-semibold tabular-nums leading-tight ${
+                        isOutOfStock
+                          ? "text-[var(--text-muted)]"
+                          : "text-[var(--brand)]"
                       }`}
                     >
-                      <span className="text-[11px] font-medium text-[#6F7285] block leading-tight">
+                      <span className="text-[11px] font-medium text-[var(--text-muted)] block leading-tight">
                         Selling
                       </span>
                       <span className="inline-flex items-baseline gap-1 flex-wrap">
                         {formatCurrency(product.minPrice)}
                         {product.maxPrice > product.minPrice && (
-                          <span className="text-xs text-[#6F7285] font-normal">
+                          <span className="text-xs text-[var(--text-muted)] font-normal">
                             – {formatCurrency(product.maxPrice)}
                           </span>
                         )}
@@ -539,87 +643,67 @@ export function ProductGrid({
                     </p>
                   ) : mrpBounds.min > 0 ? (
                     <p
-                      className={`text-base font-semibold tabular-nums ${
-                        isOutOfStock ? "text-[#6F7285]" : "text-[#C6A15B]"
+                      className={`text-base font-semibold tabular-nums leading-tight ${
+                        isOutOfStock
+                          ? "text-[var(--text-muted)]"
+                          : "text-[var(--brand)]"
                       }`}
                     >
-                      <span className="text-[11px] font-medium text-[#6F7285] block leading-tight">
-                        MRP (set selling price in inventory)
+                      <span className="text-[11px] font-medium text-[var(--text-muted)] block leading-tight">
+                        MRP
                       </span>
                       <span className="inline-flex items-baseline gap-1 flex-wrap">
                         {formatCurrency(mrpBounds.min)}
                         {mrpBounds.max > mrpBounds.min && (
-                          <span className="text-xs text-[#6F7285] font-normal">
+                          <span className="text-xs text-[var(--text-muted)] font-normal">
                             – {formatCurrency(mrpBounds.max)}
                           </span>
                         )}
                       </span>
                     </p>
                   ) : (
-                    <p className="text-xs font-medium text-[#F5A623]/90 leading-snug">
-                      No selling price or MRP on file — edit product in Inventory
-                      to set prices.
+                    <p className="text-xs font-medium text-[var(--warning)] leading-snug">
+                      No price set — edit in Inventory
                     </p>
                   )}
                 </div>
               </button>
 
-              {/* Stock Badge */}
-              {isOutOfStock && (
-                <div className="absolute top-3 right-3 z-[1] px-2 py-1 rounded-md border border-rose-400/55 bg-neutral-950/90 text-rose-200 text-[10px] font-semibold uppercase tracking-wide shadow-sm ring-1 ring-rose-500/35">
-                  Out of Stock
-                </div>
-              )}
-              {!isOutOfStock && isLowStock && (
-                <div
-                  className="absolute top-3 right-3 z-[1] flex items-center gap-1 max-w-[min(140px,calc(100%-1rem))] px-2 py-1 rounded-md border border-amber-400/70 bg-amber-500 text-neutral-950 text-[10px] font-semibold shadow-sm ring-1 ring-amber-200/90"
-                  title={`Low stock: ${remaining} available (after cart)`}
-                >
-                  <AlertTriangle
-                    className="w-3 h-3 shrink-0 text-neutral-900"
-                    aria-hidden
-                  />
-                  <span className="truncate">{remaining} left</span>
-                </div>
-              )}
-              {!isOutOfStock && !isLowStock && (
-                <div
-                  className="absolute top-3 right-3 z-[1] px-2 py-1 rounded-md border border-white/[0.12] bg-slate-950/90 text-[#A1A4B3] text-[10px] font-semibold tabular-nums shadow-sm"
-                  title="Units available at this location (minus cart)"
-                >
-                  {remaining} left
-                </div>
-              )}
-
-              {/* Multiple Sizes Indicator */}
-              {product.hasMultipleVariants && !isOutOfStock && (
-                <div className="absolute top-3 left-3 z-[1] flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-400/40 bg-slate-900/95 text-indigo-100 text-[10px] font-semibold shadow-sm">
-                  <Layers className="w-3 h-3 shrink-0 text-indigo-200" aria-hidden />
-                  <span>{product.variants.length} sizes</span>
-                </div>
-              )}
-
-              {/* Print Barcode Button - on hover */}
-              {product.displayBarcode && showingBarcode && !isOutOfStock && (
-                <button
-                  type="button"
-                  onClick={(e) => handlePrintBarcode(e, product)}
-                  className="absolute bottom-3 right-3 z-[1] p-1.5 rounded-md border border-indigo-400/45 bg-slate-950/95 text-indigo-200 hover:bg-indigo-500/20 hover:text-white transition-colors shadow-sm"
-                  title="Print barcode label"
-                  aria-label="Print barcode for this product"
-                >
-                  <Printer className="w-4 h-4" strokeWidth={2} aria-hidden />
-                </button>
-              )}
-
-              {/* Add indicator when not showing barcode */}
-              {!isOutOfStock && !showingBarcode && (
-                <div
-                  className="absolute bottom-3 right-3 z-[1] p-1.5 rounded-md border border-indigo-400/40 bg-slate-950/95 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none"
-                  title="Click card to add"
-                  aria-hidden
-                >
-                  <ShoppingCart className="w-4 h-4" strokeWidth={2} />
+              {/* Stable footer — no hover pop-ins */}
+              {(canReceiveStock || canPrintBarcode) && (
+                <div className="flex items-center gap-2 px-3 pb-3 pt-0">
+                  {canReceiveStock && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStockTarget({
+                          productId: product.productId,
+                          productName: product.productName,
+                          brand: product.brand,
+                          currentStock:
+                            product.variants[0]?.stock ?? remaining,
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[var(--brand)]/40 bg-[var(--brand-muted)] text-[var(--brand)] text-[10px] font-semibold hover:bg-[var(--brand)] hover:text-[var(--brand-contrast)] transition-colors"
+                      title="Add or remove stock without leaving POS"
+                      aria-label={`Update stock for ${product.productName}`}
+                    >
+                      <PackagePlus className="w-3.5 h-3.5" strokeWidth={2} />
+                      Stock
+                    </button>
+                  )}
+                  {canPrintBarcode && (
+                    <button
+                      type="button"
+                      onClick={(e) => handlePrintBarcode(e, product)}
+                      className="ml-auto p-1.5 rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--brand)]/40 hover:text-[var(--brand)] hover:bg-[var(--brand-muted)] transition-colors"
+                      title="Print barcode label"
+                      aria-label="Print barcode for this product"
+                    >
+                      <Printer className="w-4 h-4" strokeWidth={2} aria-hidden />
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -628,8 +712,8 @@ export function ProductGrid({
 
         {filteredProducts.length === 0 && groupedProducts.length > 0 && (
           <div className="col-span-full py-16 text-center">
-            <Package className="w-12 h-12 text-[#6F7285] mx-auto mb-4" />
-            <p className="text-[#A1A4B3]">
+            <Package className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+            <p className="text-[var(--text-secondary)]">
               No products found for &quot;{searchQuery}&quot;
             </p>
           </div>
@@ -644,6 +728,19 @@ export function ProductGrid({
         brand={selectedProduct?.brand || ""}
         variants={selectedProduct?.variants || []}
         onSelectVariant={handleVariantSelect}
+      />
+
+      <PosReceiveStockModal
+        isOpen={stockTarget !== null}
+        onClose={() => setStockTarget(null)}
+        target={stockTarget}
+        warehouseId={warehouseId ?? null}
+        warehouseName={warehouseName}
+        onSuccess={() => {
+          void queryClient.invalidateQueries({
+            queryKey: [...inventoryKeys.all, "pos-products"],
+          });
+        }}
       />
     </>
   );

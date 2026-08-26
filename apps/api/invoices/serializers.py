@@ -60,6 +60,18 @@ class InvoiceSerializer(serializers.ModelSerializer):
     sale_payments = serializers.SerializerMethodField()
     sale_customer_email = serializers.CharField(source='sale.customer_email', read_only=True)
     sale_customer_address = serializers.CharField(source='sale.customer_address', read_only=True)
+    # Selling shop (when sale attributed to a store — shared godown POS)
+    sale_store_id = serializers.SerializerMethodField()
+    sale_store_name = serializers.CharField(
+        source='sale.store.name', read_only=True, allow_null=True
+    )
+    sale_store_address = serializers.SerializerMethodField()
+    sale_store_phone = serializers.CharField(
+        source='sale.store.phone', read_only=True, allow_null=True
+    )
+    sale_store_email = serializers.CharField(
+        source='sale.store.email', read_only=True, allow_null=True
+    )
     
     class Meta:
         model = Invoice
@@ -68,6 +80,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'warehouse', 'warehouse_name', 'warehouse_address',
             'warehouse_email', 'warehouse_phone', 'warehouse_seller_image_url',
             'warehouse_bank_name', 'warehouse_bank_account_number', 'warehouse_bank_ifsc',
+            'sale_store_id', 'sale_store_name', 'sale_store_address',
+            'sale_store_phone', 'sale_store_email',
             'subtotal_amount', 'discount_type', 'discount_value',
             'discount_amount', 'gst_total', 'total_amount',
             'billing_name', 'billing_phone', 'billing_gstin',
@@ -91,6 +105,19 @@ class InvoiceSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(url)
         return url
+
+    def get_sale_store_id(self, obj):
+        store = getattr(obj.sale, 'store', None) if obj.sale_id else None
+        return str(store.id) if store else None
+
+    def get_sale_store_address(self, obj):
+        """Street only — city/state/pin are not dumped into the seller block."""
+        store = getattr(obj.sale, 'store', None) if obj.sale_id else None
+        if not store:
+            return None
+        from invoices.pdf.seller_context import store_address_lines
+        lines = store_address_lines(store)
+        return "\n".join(lines) if lines else None
 
     def get_sale_created_by(self, obj):
         if obj.sale and obj.sale.created_by:
@@ -245,6 +272,63 @@ class DiscountSettingsSerializer(serializers.ModelSerializer):
                 )
         
         return value
+
+
+class BusinessSetupSerializer(serializers.ModelSerializer):
+    """
+    Plain-language business stock layout for the web app.
+    Controls whether UI shows one shop or godown + shops,
+    and whether shops share godown stock or use transfers.
+    """
+
+    class Meta:
+        model = BusinessSettings
+        fields = [
+            "inventory_location_mode",
+            "shop_stock_mode",
+            "barcode_enabled",
+            "business_name",
+        ]
+        read_only_fields = ["business_name"]
+
+    def validate_inventory_location_mode(self, value):
+        valid = {
+            BusinessSettings.InventoryLocationMode.SINGLE_SHOP,
+            BusinessSettings.InventoryLocationMode.GODOWN_AND_SHOPS,
+        }
+        if value not in valid:
+            raise serializers.ValidationError(
+                "Choose either one shop only, or godown and shops."
+            )
+        return value
+
+    def validate_shop_stock_mode(self, value):
+        valid = {
+            BusinessSettings.ShopStockMode.TRANSFER,
+            BusinessSettings.ShopStockMode.SHARED_GODOWN,
+        }
+        if value not in valid:
+            raise serializers.ValidationError(
+                "Choose either send-to-each-shop, or shared godown stock."
+            )
+        return value
+
+    def validate(self, attrs):
+        location = attrs.get(
+            "inventory_location_mode",
+            getattr(self.instance, "inventory_location_mode", None),
+        )
+        shop_mode = attrs.get(
+            "shop_stock_mode",
+            getattr(self.instance, "shop_stock_mode", None),
+        )
+        # Shared godown only makes sense with godown + shops
+        if (
+            location == BusinessSettings.InventoryLocationMode.SINGLE_SHOP
+            and shop_mode == BusinessSettings.ShopStockMode.SHARED_GODOWN
+        ):
+            attrs["shop_stock_mode"] = BusinessSettings.ShopStockMode.TRANSFER
+        return attrs
 
 
 class POSDiscountOptionsSerializer(serializers.Serializer):

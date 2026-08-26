@@ -275,7 +275,7 @@ export function CreateDebitNoteModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={handleClose}
       />
       <motion.div
@@ -370,7 +370,7 @@ export function CreateDebitNoteModal({
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="absolute z-50 w-full mt-2 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
+                        className="absolute z-[80] w-full mt-2 popover-panel rounded-xl overflow-hidden"
                       >
                         {/* Search Input */}
                         <div className="p-3 border-b border-zinc-700">

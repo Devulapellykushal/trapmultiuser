@@ -1022,7 +1022,13 @@ class ProcessSaleCustomerFieldsTest(TestCase):
         self.assertEqual(sale.customer_mobile, "5551234567")
         self.assertEqual(sale.customer_email, "walk@example.com")
         self.assertEqual(sale.customer_address, "99 Main Rd")
-        self.assertIsNone(sale.customer_id)
+        # Checkout buyers with phone/name are auto-collected into CRM
+        self.assertIsNotNone(sale.customer_id)
+        self.assertEqual(sale.customer.name, "Walk In")
+        self.assertTrue(
+            sale.customer.phone.endswith("5551234567")
+            or sale.customer.phone == "5551234567"
+        )
 
     def test_snapshot_fills_from_linked_customer_when_contact_blank(self):
         sale = services.process_sale(

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Sidebar, TopBar } from "@/components/layout";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { useAuth } from "@/lib/auth";
 import { Toaster } from "sonner";
@@ -123,7 +124,15 @@ const routeTitles: Record<string, DashboardRouteConfig> = {
   "/invoices": { title: "Sales", subtitle: "Invoices and receipts" },
   "/customers": {
     title: "Customers",
-    subtitle: "Customer directory",
+    subtitle: "Directory, segments & outreach",
+  },
+  "/customers/segments": {
+    title: "Segments",
+    subtitle: "Ready lists for WhatsApp and Meta",
+  },
+  "/customers/outreach": {
+    title: "Outreach",
+    subtitle: "Templates, WhatsApp, Meta channels",
   },
   "/settings": { title: "Settings", subtitle: "System configuration" },
   "/users": {
@@ -156,6 +165,17 @@ function resolveRouteConfig(pathname: string): DashboardRouteConfig {
     };
   }
 
+  if (
+    pathname.startsWith("/customers/") &&
+    pathname !== "/customers/segments" &&
+    pathname !== "/customers/outreach"
+  ) {
+    return {
+      title: "Customer",
+      subtitle: "Profile and channels",
+    };
+  }
+
   return { title: "Page" };
 }
 
@@ -166,7 +186,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin, hasHydrated } = useAuth();
 
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -185,19 +205,18 @@ export default function DashboardLayout({
 
   const routeConfig = resolveRouteConfig(pathname);
 
-  // Redirect to login if not authenticated
   React.useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (hasHydrated && !isLoading && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [hasHydrated, isLoading, isAuthenticated, router]);
 
   // Redirect STAFF from admin-only routes
   React.useEffect(() => {
-    if (!isLoading && isAuthenticated && routeConfig.adminOnly && !isAdmin) {
+    if (hasHydrated && !isLoading && isAuthenticated && routeConfig.adminOnly && !isAdmin) {
       router.push("/");
     }
-  }, [isLoading, isAuthenticated, isAdmin, routeConfig.adminOnly, router]);
+  }, [hasHydrated, isLoading, isAuthenticated, isAdmin, routeConfig.adminOnly, router]);
 
   // Close mobile sidebar on route change
   React.useEffect(() => {
@@ -216,8 +235,18 @@ export default function DashboardLayout({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Show loading while checking auth
-  if (isLoading) {
+  const showShell = isAuthenticated && Boolean(user);
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+
+  // Show loading only when there is no cached session to render
+  if (isLoading && !showShell) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
@@ -228,22 +257,26 @@ export default function DashboardLayout({
     );
   }
 
-  // Don't render if not authenticated
-  if (!isAuthenticated) {
+  if (!showShell) {
     return null;
   }
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-primary)]">
-      {/* Toast notifications */}
+      <NavigationProgress />
+      {/* Toast notifications — solid panel so text stays readable */}
       <Toaster
         position="top-right"
         theme="system"
+        richColors
+        closeButton
         toastOptions={{
+          className: "quake-toast",
           style: {
-            background: "var(--bg-surface)",
+            background: "var(--bg-modal)",
             border: "1px solid var(--border-default)",
             color: "var(--text-primary)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
           },
         }}
       />

@@ -34,6 +34,7 @@ from .serializers import (
     GenerateInvoiceSerializer,
     GenerateInvoiceResponseSerializer,
     DiscountSettingsSerializer,
+    BusinessSetupSerializer,
     POSDiscountOptionsSerializer,
 )
 from . import services
@@ -62,7 +63,9 @@ class DiscountSettingsView(APIView):
         tags=['Settings']
     )
     def get(self, request):
-        settings = BusinessSettings.get_settings()
+        settings = BusinessSettings.get_settings(
+            organization=getattr(request.user, "organization_id", None)
+        )
         serializer = DiscountSettingsSerializer(settings)
         return Response(serializer.data)
     
@@ -74,11 +77,89 @@ class DiscountSettingsView(APIView):
         tags=['Settings']
     )
     def patch(self, request):
-        settings_obj = BusinessSettings.get_settings()
+        settings_obj = BusinessSettings.get_settings(
+            organization=getattr(request.user, "organization_id", None)
+        )
         serializer = DiscountSettingsSerializer(settings_obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class BusinessSetupView(APIView):
+    """
+    Business stock layout: one shop only vs godown + shops.
+
+    GET: Staff or Admin (drives UI labels / nav)
+    PATCH: Admin only
+    """
+
+    def get_permissions(self):
+        if self.request.method == "PATCH":
+            return [IsAdmin()]
+        return [IsStaffOrAdmin()]
+
+    @extend_schema(
+        summary="Get business stock setup",
+        description="One shop only, or godown + shops. Used to simplify the UI.",
+        responses={200: BusinessSetupSerializer},
+        tags=["Settings"],
+    )
+    def get(self, request):
+        settings = BusinessSettings.get_settings(
+            organization=getattr(request.user, "organization_id", None)
+        )
+        serializer = BusinessSetupSerializer(settings)
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="Update business stock setup",
+        description="Admin sets whether this business uses one shop or godown + shops.",
+        request=BusinessSetupSerializer,
+        responses={200: BusinessSetupSerializer},
+        tags=["Settings"],
+    )
+    def patch(self, request):
+        settings_obj = BusinessSettings.get_settings(
+            organization=getattr(request.user, "organization_id", None)
+        )
+        previous_mode = settings_obj.inventory_location_mode
+        serializer = BusinessSetupSerializer(
+            settings_obj, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        consolidation = None
+        new_mode = serializer.instance.inventory_location_mode
+        if (
+            previous_mode
+            == BusinessSettings.InventoryLocationMode.GODOWN_AND_SHOPS
+            and new_mode == BusinessSettings.InventoryLocationMode.SINGLE_SHOP
+        ):
+            from inventory.services import (
+                consolidate_store_stock_into_warehouse,
+                InvalidMovementError,
+            )
+            try:
+                primary_id = request.data.get("primary_warehouse_id")
+                consolidation = consolidate_store_stock_into_warehouse(
+                    warehouse_id=primary_id or None,
+                    user=request.user,
+                )
+            except InvalidMovementError as e:
+                # Roll mode back if consolidation cannot run
+                settings_obj.inventory_location_mode = previous_mode
+                settings_obj.save(update_fields=["inventory_location_mode"])
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        data = dict(serializer.data)
+        if consolidation is not None:
+            data["consolidation"] = consolidation
+        return Response(data)
 
 
 class POSDiscountOptionsView(APIView):
@@ -267,6 +348,7 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Invoice.objects.select_related(
         "warehouse",
         "sale",
+        "sale__store",
         "sale__created_by",
     ).prefetch_related(
         "items",
@@ -277,6 +359,11 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        org_id = getattr(self.request.user, "organization_id", None)
+        if org_id:
+            qs = qs.filter(sale__organization_id=org_id)
+        else:
+            qs = qs.none()
         params = self.request.query_params
 
         if self.action == 'list':
@@ -346,7 +433,7 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
     def summary(self, request):
         """Aggregate stats for dashboards and `invoicesService.getInvoiceSummary`."""
         period = (request.query_params.get('period') or 'all').lower()
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         qs = Invoice.objects.all()
         if period == 'today':

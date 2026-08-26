@@ -48,11 +48,11 @@ function DebitCreditNotesPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <Receipt className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <Receipt className="w-6 h-6 text-[#c4a574]" />
               Debit/Credit Notes
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading...</p>
+            <p className="text-sm text-[#8a867c] mt-1">Loading...</p>
           </div>
         </div>
         <SkeletonTable rows={6} />
@@ -202,11 +202,11 @@ function DebitCreditNotesPageContent() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-            <Receipt className="w-6 h-6 text-[#6366F1]" />
+          <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+            <Receipt className="w-6 h-6 text-[#c4a574]" />
             Debit/Credit Notes
           </h1>
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
             <ErrorState
               message={`Could not load ${activeTab.replace("-", " ")}. Check if backend is running.`}
               onRetry={refetch}
@@ -223,17 +223,17 @@ function DebitCreditNotesPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <Receipt className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <Receipt className="w-6 h-6 text-[#c4a574]" />
               Debit/Credit Notes
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">
+            <p className="text-sm text-[#8a867c] mt-1">
               Manage customer returns and supplier returns
             </p>
           </div>
           <button
             onClick={handleNewReturn}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
           >
             <Plus className="w-4 h-4 stroke-[2]" />
             {activeTab === "credit-notes"
@@ -244,8 +244,8 @@ function DebitCreditNotesPageContent() {
 
         {/* Loading indicator for details */}
         {isLoadingDetails && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-            <Loader2 className="w-8 h-8 text-[#C6A15B] animate-spin" />
+          <div className="fixed inset-0 z-40 flex items-center justify-center modal-scrim">
+            <Loader2 className="w-8 h-8 text-[#c4a574] animate-spin" />
           </div>
         )}
 
@@ -260,8 +260,8 @@ function DebitCreditNotesPageContent() {
               className={cn(
                 "py-3 px-1 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "credit-notes"
-                  ? "text-[#C6A15B] border-[#C6A15B]"
-                  : "text-[#6F7285] border-transparent hover:text-[#A1A4B3] hover:border-white/[0.2]",
+                  ? "text-[#c4a574] border-[#c4a574]"
+                  : "text-[#8a867c] border-transparent hover:text-[#c5c0b5] hover:border-white/[0.2]",
               )}
             >
               Credit Notes ({creditNotes.length})
@@ -274,8 +274,8 @@ function DebitCreditNotesPageContent() {
               className={cn(
                 "py-3 px-1 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "debit-notes"
-                  ? "text-[#C6A15B] border-[#C6A15B]"
-                  : "text-[#6F7285] border-transparent hover:text-[#A1A4B3] hover:border-white/[0.2]",
+                  ? "text-[#c4a574] border-[#c4a574]"
+                  : "text-[#8a867c] border-transparent hover:text-[#c5c0b5] hover:border-white/[0.2]",
               )}
             >
               Debit Notes ({debitNotes.length})
@@ -286,22 +286,22 @@ function DebitCreditNotesPageContent() {
         {/* Search and Filter */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c]" />
             <input
               type="text"
               placeholder={`Search ${activeTab === "credit-notes" ? "credit notes" : "debit notes"}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#1A1B23]/60 border border-white/[0.08] text-[#F5F6FA] text-sm placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#111318]/60 border border-white/[0.08] text-[#f3eee4] text-sm placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#6F7285]" />
+            <Filter className="w-4 h-4 text-[#8a867c]" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#1A1B23]/60 border border-white/[0.08] rounded-lg px-3 py-2.5 text-[#F5F6FA] text-sm focus:outline-none focus:ring-2 focus:ring-[#C6A15B]/50"
+              className="bg-[#111318]/60 border border-white/[0.08] rounded-lg px-3 py-2.5 text-[#f3eee4] text-sm focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
             >
               <option value="">All Status</option>
               <option value="DRAFT">Draft</option>
@@ -324,7 +324,7 @@ function DebitCreditNotesPageContent() {
           {statusFilter && (
             <button
               onClick={() => setStatusFilter("")}
-              className="text-sm text-[#C6A15B] hover:underline"
+              className="text-sm text-[#c4a574] hover:underline"
             >
               Clear filter
             </button>
@@ -425,22 +425,22 @@ function CreditNotesTable({
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       DRAFT: {
-        color: "bg-[#6F7285]/20 text-[#A1A4B3]",
+        color: "bg-[#8a867c]/20 text-[#c5c0b5]",
         icon: Clock,
         label: "Draft",
       },
       ISSUED: {
-        color: "bg-[#3498DB]/20 text-[#3498DB]",
+        color: "bg-[#c4a574]/20 text-[#c4a574]",
         icon: FileText,
         label: "Issued",
       },
       SETTLED: {
-        color: "bg-[#2ECC71]/20 text-[#2ECC71]",
+        color: "bg-[#3f9d7a]/20 text-[#3f9d7a]",
         icon: CheckCircle,
         label: "Settled",
       },
       CANCELLED: {
-        color: "bg-[#E74C3C]/20 text-[#E74C3C]",
+        color: "bg-[#c45c5c]/20 text-[#c45c5c]",
         icon: XCircle,
         label: "Cancelled",
       },
@@ -478,7 +478,7 @@ function CreditNotesTable({
 
   if (notes.length === 0) {
     return (
-      <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+      <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
         <EmptyState
           icon={Receipt}
           title="No credit notes found"
@@ -496,33 +496,33 @@ function CreditNotesTable({
   }
 
   return (
-    <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+    <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/[0.08]">
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Credit Note
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Original Invoice
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Customer
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Return Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Reason
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-right px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Amount
               </th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-center px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -537,33 +537,33 @@ function CreditNotesTable({
                 className="hover:bg-white/[0.02] cursor-pointer transition-colors"
               >
                 <td className="px-4 py-4">
-                  <span className="font-mono text-sm text-[#2ECC71]">
+                  <span className="font-mono text-sm text-[#3f9d7a]">
                     {note.creditNoteNumber}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#F5F6FA]">
+                  <span className="text-sm text-[#f3eee4]">
                     {note.originalInvoiceNumber}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {note.customerName || "Walk-in Customer"}
                   </span>
                 </td>
                 <td className="px-4 py-4">{getStatusBadge(note.status)}</td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {formatDate(note.returnDate)}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {note.returnReason.replace(/_/g, " ")}
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="text-sm font-medium text-[#F5F6FA]">
+                  <span className="text-sm font-medium text-[#f3eee4]">
                     {debitCreditNotesService.formatCurrency(note.totalAmount)}
                   </span>
                 </td>
@@ -575,7 +575,7 @@ function CreditNotesTable({
                     }}
                     className="p-1.5 rounded-lg hover:bg-white/[0.1] transition-colors"
                   >
-                    <Eye className="w-4 h-4 text-[#6F7285]" />
+                    <Eye className="w-4 h-4 text-[#8a867c]" />
                   </button>
                 </td>
               </motion.tr>
@@ -599,27 +599,27 @@ function DebitNotesTable({
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       DRAFT: {
-        color: "bg-[#6F7285]/20 text-[#A1A4B3]",
+        color: "bg-[#8a867c]/20 text-[#c5c0b5]",
         icon: Clock,
         label: "Draft",
       },
       ISSUED: {
-        color: "bg-[#3498DB]/20 text-[#3498DB]",
+        color: "bg-[#c4a574]/20 text-[#c4a574]",
         icon: FileText,
         label: "Issued",
       },
       ACCEPTED: {
-        color: "bg-[#2ECC71]/20 text-[#2ECC71]",
+        color: "bg-[#3f9d7a]/20 text-[#3f9d7a]",
         icon: ThumbsUp,
         label: "Accepted",
       },
       SETTLED: {
-        color: "bg-[#27AE60]/20 text-[#27AE60]",
+        color: "bg-[#3f9d7a]/20 text-[#3f9d7a]",
         icon: CheckCircle,
         label: "Settled",
       },
       REJECTED: {
-        color: "bg-[#E74C3C]/20 text-[#E74C3C]",
+        color: "bg-[#c45c5c]/20 text-[#c45c5c]",
         icon: XCircle,
         label: "Rejected",
       },
@@ -657,7 +657,7 @@ function DebitNotesTable({
 
   if (notes.length === 0) {
     return (
-      <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+      <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
         <EmptyState
           icon={Receipt}
           title="No debit notes found"
@@ -675,33 +675,33 @@ function DebitNotesTable({
   }
 
   return (
-    <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+    <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/[0.08]">
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Debit Note
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Original PO
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Supplier
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Return Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Reason
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-right px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Amount
               </th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-center px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -716,33 +716,33 @@ function DebitNotesTable({
                 className="hover:bg-white/[0.02] cursor-pointer transition-colors"
               >
                 <td className="px-4 py-4">
-                  <span className="font-mono text-sm text-[#E67E22]">
+                  <span className="font-mono text-sm text-[#d4a054]">
                     {note.debitNoteNumber}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#F5F6FA]">
+                  <span className="text-sm text-[#f3eee4]">
                     {note.originalPoNumber}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {note.supplierName}
                   </span>
                 </td>
                 <td className="px-4 py-4">{getStatusBadge(note.status)}</td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {formatDate(note.returnDate)}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {note.returnReason.replace(/_/g, " ")}
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="text-sm font-medium text-[#F5F6FA]">
+                  <span className="text-sm font-medium text-[#f3eee4]">
                     {debitCreditNotesService.formatCurrency(note.totalAmount)}
                   </span>
                 </td>
@@ -754,7 +754,7 @@ function DebitNotesTable({
                     }}
                     className="p-1.5 rounded-lg hover:bg-white/[0.1] transition-colors"
                   >
-                    <Eye className="w-4 h-4 text-[#6F7285]" />
+                    <Eye className="w-4 h-4 text-[#8a867c]" />
                   </button>
                 </td>
               </motion.tr>

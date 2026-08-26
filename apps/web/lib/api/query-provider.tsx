@@ -40,6 +40,12 @@ function getQueryClient() {
   }
 }
 
+/** Drop all cached API data on login/logout so org A never sees org B's KPIs. */
+export function clearAppQueryCache() {
+  if (typeof window === "undefined") return;
+  browserQueryClient?.clear();
+}
+
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 

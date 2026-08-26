@@ -23,10 +23,14 @@ export const inventoryKeys = {
   }) => [...inventoryKeys.all, "pos-products", params] as const,
 };
 
-export function useProducts(params?: ProductListParams) {
+export function useProducts(
+  params?: ProductListParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: inventoryKeys.productList(params),
     queryFn: () => inventoryService.getProducts(params),
+    enabled: options?.enabled !== false,
   });
 }
 
@@ -115,6 +119,30 @@ export function useDeactivateProduct() {
       // Invalidate products list to refetch
       queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.summary() });
+    },
+  });
+}
+
+/**
+ * Admin: add or remove stock for an existing product (ledger ADJUSTMENT).
+ */
+export function useAdjustStock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      product_id: string;
+      warehouse_id: string;
+      quantity: number;
+      reason: string;
+    }) => inventoryService.adjustStock(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.summary() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: [...inventoryKeys.all, "pos-products"],
+      });
     },
   });
 }

@@ -45,11 +45,11 @@ function CreditSalesPageSkeleton() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <Banknote className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <Banknote className="w-6 h-6 text-[#c4a574]" />
               Credit Sales
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading...</p>
+            <p className="text-sm text-[#8a867c] mt-1">Loading...</p>
           </div>
         </div>
         <SkeletonTable rows={6} />
@@ -169,11 +169,11 @@ function CreditSalesPageContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <Banknote className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <Banknote className="w-6 h-6 text-[#c4a574]" />
               Credit Sales
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">
+            <p className="text-sm text-[#8a867c] mt-1">
               Track and collect outstanding customer credit
             </p>
           </div>
@@ -212,23 +212,23 @@ function CreditSalesPageContent() {
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by invoice, customer name or phone..."
-              className="w-full pl-11 pr-4 py-2.5 bg-[#1A1B23] border border-[#2A2B35] rounded-xl text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:border-[#6C5DD3] transition-colors"
+              className="w-full pl-11 pr-4 py-2.5 bg-[#111318] border border-[#1c1d22] rounded-xl text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
             />
           </div>
 
           {/* Status Filter */}
           <div className="relative">
-            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c]" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="pl-11 pr-10 py-2.5 bg-[#1A1B23] border border-[#2A2B35] rounded-xl text-[#F5F6FA] focus:outline-none focus:border-[#6C5DD3] transition-colors appearance-none cursor-pointer min-w-[160px]"
+              className="pl-11 pr-10 py-2.5 bg-[#111318] border border-[#1c1d22] rounded-xl text-[#f3eee4] focus:outline-none focus:border-[#c4a574] transition-colors appearance-none cursor-pointer min-w-[160px]"
             >
               <option value="all">All Status</option>
               <option value="PENDING">Pending</option>
@@ -242,7 +242,7 @@ function CreditSalesPageContent() {
             <select
               value={warehouseFilter}
               onChange={(e) => setWarehouseFilter(e.target.value)}
-              className="px-4 py-2.5 bg-[#1A1B23] border border-[#2A2B35] rounded-xl text-[#F5F6FA] focus:outline-none focus:border-[#6C5DD3] transition-colors appearance-none cursor-pointer min-w-[140px]"
+              className="px-4 py-2.5 bg-[#111318] border border-[#1c1d22] rounded-xl text-[#f3eee4] focus:outline-none focus:border-[#c4a574] transition-colors appearance-none cursor-pointer min-w-[140px]"
             >
               <option value="">All Stores</option>
               {warehouses.map((wh) => (
@@ -268,38 +268,38 @@ function CreditSalesPageContent() {
             }
           />
         ) : (
-          <div className="bg-[#1A1B23] border border-[#2A2B35] rounded-2xl overflow-hidden">
+          <div className="bg-[#111318] border border-[#1c1d22] rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#2A2B35]">
-                    <th className="text-left px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                  <tr className="border-b border-[#1c1d22]">
+                    <th className="text-left px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Customer
                     </th>
-                    <th className="text-left px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-left px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Invoice
                     </th>
-                    <th className="text-right px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-right px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Sale Total
                     </th>
-                    <th className="text-right px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-right px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Credit
                     </th>
-                    <th className="text-right px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-right px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Balance
                     </th>
-                    <th className="text-center px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-center px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="text-center px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-center px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Days
                     </th>
-                    <th className="text-right px-6 py-4 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="text-right px-6 py-4 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#2A2B35]">
+                <tbody className="divide-y divide-[#1c1d22]">
                   {filteredSales.map((sale) => {
                     const statusInfo = creditSalesService.getCreditStatusInfo(
                       sale.creditStatus,
@@ -311,20 +311,20 @@ function CreditSalesPageContent() {
                         key={sale.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="hover:bg-[#23242F] transition-colors"
+                        className="hover:bg-[#1c1d22] transition-colors"
                       >
                         {/* Customer */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-[#2A2B35] rounded-full flex items-center justify-center">
-                              <User className="w-4 h-4 text-[#6F7285]" />
+                            <div className="w-9 h-9 bg-[#1c1d22] rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4 text-[#8a867c]" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-[#F5F6FA]">
+                              <p className="text-sm font-medium text-[#f3eee4]">
                                 {sale.customerName || "Walk-in Customer"}
                               </p>
                               {sale.customerMobile && (
-                                <p className="text-xs text-[#6F7285] flex items-center gap-1">
+                                <p className="text-xs text-[#8a867c] flex items-center gap-1">
                                   <Phone className="w-3 h-3" />
                                   {sale.customerMobile}
                                 </p>
@@ -335,24 +335,24 @@ function CreditSalesPageContent() {
 
                         {/* Invoice */}
                         <td className="px-6 py-4">
-                          <p className="text-sm text-[#F5F6FA] font-mono">
+                          <p className="text-sm text-[#f3eee4] font-mono">
                             {sale.invoiceNumber}
                           </p>
-                          <p className="text-xs text-[#6F7285]">
+                          <p className="text-xs text-[#8a867c]">
                             {formatDate(sale.createdAt)}
                           </p>
                         </td>
 
                         {/* Sale Total */}
                         <td className="px-6 py-4 text-right">
-                          <span className="text-sm text-[#F5F6FA]">
+                          <span className="text-sm text-[#f3eee4]">
                             {formatCurrency(parseFloat(sale.total))}
                           </span>
                         </td>
 
                         {/* Credit Amount */}
                         <td className="px-6 py-4 text-right">
-                          <span className="text-sm text-[#6F7285]">
+                          <span className="text-sm text-[#8a867c]">
                             {formatCurrency(parseFloat(sale.creditAmount))}
                           </span>
                         </td>
@@ -392,7 +392,7 @@ function CreditSalesPageContent() {
                                 ? "text-red-400"
                                 : sale.daysPending > 7
                                   ? "text-amber-400"
-                                  : "text-[#6F7285]",
+                                  : "text-[#8a867c]",
                             )}
                           >
                             {sale.daysPending}d
@@ -404,7 +404,7 @@ function CreditSalesPageContent() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setSelectedSaleForHistory(sale)}
-                              className="p-2 text-[#6F7285] hover:text-[#F5F6FA] hover:bg-[#2A2B35] rounded-lg transition-colors"
+                              className="p-2 text-[#8a867c] hover:text-[#f3eee4] hover:bg-[#1c1d22] rounded-lg transition-colors"
                               title="View History"
                             >
                               <History className="w-4 h-4" />
@@ -412,7 +412,7 @@ function CreditSalesPageContent() {
                             {hasOutstanding && (
                               <button
                                 onClick={() => setSelectedSaleForPayment(sale)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white text-sm font-medium rounded-lg transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#c4a574] hover:bg-[#8f7349] text-white text-sm font-medium rounded-lg transition-colors"
                               >
                                 <Banknote className="w-4 h-4" />
                                 Collect
@@ -463,7 +463,7 @@ function StatCard({
   highlight?: boolean;
 }) {
   const colorClasses = {
-    purple: "bg-[#6C5DD3]/20 text-[#6C5DD3]",
+    purple: "bg-[#c4a574]/20 text-[#c4a574]",
     amber: "bg-amber-500/20 text-amber-400",
     blue: "bg-blue-500/20 text-blue-400",
     red: "bg-red-500/20 text-red-400",
@@ -473,7 +473,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-[#1A1B23] border border-[#2A2B35] rounded-2xl p-5",
+        "bg-[#111318] border border-[#1c1d22] rounded-2xl p-5",
         highlight && "ring-2 ring-red-500/30",
       )}
     >
@@ -487,11 +487,11 @@ function StatCard({
           <Icon className="w-5 h-5" />
         </div>
         <div>
-          <p className="text-xs text-[#6F7285]">{label}</p>
+          <p className="text-xs text-[#8a867c]">{label}</p>
           <p
             className={cn(
               "text-xl font-bold",
-              highlight ? "text-red-400" : "text-[#F5F6FA]",
+              highlight ? "text-red-400" : "text-[#f3eee4]",
             )}
           >
             {value}

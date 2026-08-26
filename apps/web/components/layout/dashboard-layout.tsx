@@ -5,10 +5,18 @@ import { Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Sidebar, TopBar } from "@/components/layout";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { useAuth } from "@/lib/auth";
-import { Toaster } from "sonner";
+import { useLocationLabels, useWarehouses } from "@/hooks";
+import { Toaster, toast } from "sonner";
 import { ADMIN_BASE } from "@/lib/admin-routes";
+import type { InventoryLocationMode } from "@/lib/business-location";
+import { locationLabels } from "@/lib/business-location";
+import {
+  isServiceEnabled,
+  serviceKeyForPath,
+} from "@/lib/enabled-services";
 
 type DashboardRouteConfig = {
   title: string;
@@ -124,7 +132,15 @@ const routeTitles: Record<string, DashboardRouteConfig> = {
   [`${ADMIN_BASE}/invoices`]: { title: "Sales", subtitle: "Invoices and receipts" },
   [`${ADMIN_BASE}/customers`]: {
     title: "Customers",
-    subtitle: "Customer directory",
+    subtitle: "Directory, segments & outreach",
+  },
+  [`${ADMIN_BASE}/customers/segments`]: {
+    title: "Segments",
+    subtitle: "Ready lists for WhatsApp and Meta",
+  },
+  [`${ADMIN_BASE}/customers/outreach`]: {
+    title: "Outreach",
+    subtitle: "Templates, WhatsApp, Meta channels",
   },
   [`${ADMIN_BASE}/settings`]: { title: "Settings", subtitle: "System configuration" },
   [`${ADMIN_BASE}/users`]: {
@@ -143,8 +159,51 @@ const REPORT_FALLBACK: DashboardRouteConfig = {
 
 const reportsPrefix = `${ADMIN_BASE}/reports`;
 
-function resolveRouteConfig(pathname: string): DashboardRouteConfig {
+function resolveRouteConfig(
+  pathname: string,
+  mode: InventoryLocationMode,
+  godownCount: number,
+): DashboardRouteConfig {
+  const nouns = locationLabels(mode);
   const exact = routeTitles[pathname];
+
+  if (pathname === `${ADMIN_BASE}/warehouses`) {
+    return {
+      title: nouns.warehousePluralTitle,
+      subtitle: nouns.warehousePageSubtitle,
+      adminOnly: true,
+    };
+  }
+
+  if (pathname === `${ADMIN_BASE}/stores`) {
+    return {
+      title: nouns.storePluralTitle,
+      subtitle: nouns.storePageSubtitle,
+      adminOnly: true,
+    };
+  }
+
+  if (pathname === `${ADMIN_BASE}/reports/warehouse`) {
+    return {
+      title: mode === "GODOWN_AND_SHOPS" ? "Godown / shop report" : "Shop report",
+      subtitle:
+        mode === "GODOWN_AND_SHOPS"
+          ? "Sales by godown and shop"
+          : "Sales for your shop",
+      showDateRange: true,
+      managerOrAdmin: true,
+    };
+  }
+
+  if (pathname === `${ADMIN_BASE}/inventory`) {
+    return {
+      title: "Inventory",
+      subtitle: "Products and stock",
+      // Filter only when 2+ godowns exist (no "All godowns" for a single godown)
+      showWarehouse: godownCount > 1,
+    };
+  }
+
   if (exact) return exact;
 
   if (pathname === reportsPrefix || pathname.startsWith(`${reportsPrefix}/`)) {
@@ -153,9 +212,20 @@ function resolveRouteConfig(pathname: string): DashboardRouteConfig {
 
   if (pathname.startsWith(`${ADMIN_BASE}/stores/`)) {
     return {
-      title: "Store details",
+      title: `${nouns.storeSingularTitle} details`,
       subtitle: "Profile, stock and alerts",
       adminOnly: true,
+    };
+  }
+
+  if (
+    pathname.startsWith(`${ADMIN_BASE}/customers/`) &&
+    pathname !== `${ADMIN_BASE}/customers/segments` &&
+    pathname !== `${ADMIN_BASE}/customers/outreach`
+  ) {
+    return {
+      title: "Customer",
+      subtitle: "Profile and channels",
     };
   }
 
@@ -169,7 +239,11 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin, hasHydrated, hasBootstrapped } =
+    useAuth();
+  const { mode } = useLocationLabels();
+  const { data: warehouses = [] } = useWarehouses();
+  const godownCount = warehouses.length;
 
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -186,19 +260,59 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const routeConfig = resolveRouteConfig(pathname);
+  const routeConfig = resolveRouteConfig(pathname, mode, godownCount);
 
   React.useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (hasHydrated && hasBootstrapped && !isLoading && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [hasHydrated, hasBootstrapped, isLoading, isAuthenticated, router]);
 
   React.useEffect(() => {
-    if (!isLoading && isAuthenticated && routeConfig.adminOnly && !isAdmin) {
+    if (
+      hasHydrated &&
+      hasBootstrapped &&
+      !isLoading &&
+      isAuthenticated &&
+      routeConfig.adminOnly &&
+      !isAdmin
+    ) {
       router.push(ADMIN_BASE);
     }
-  }, [isLoading, isAuthenticated, isAdmin, routeConfig.adminOnly, router]);
+  }, [
+    hasHydrated,
+    hasBootstrapped,
+    isLoading,
+    isAuthenticated,
+    isAdmin,
+    routeConfig.adminOnly,
+    router,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      !hasHydrated ||
+      !hasBootstrapped ||
+      isLoading ||
+      !isAuthenticated ||
+      !user
+    ) {
+      return;
+    }
+    const key = serviceKeyForPath(pathname);
+    if (!key) return;
+    if (isServiceEnabled(user.enabledServices, key)) return;
+    toast.error("This module is not enabled for your organization.");
+    router.replace(ADMIN_BASE);
+  }, [
+    hasHydrated,
+    hasBootstrapped,
+    isLoading,
+    isAuthenticated,
+    user,
+    pathname,
+    router,
+  ]);
 
   React.useEffect(() => {
     setMobileOpen(false);
@@ -215,7 +329,17 @@ export default function DashboardLayout({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if (isLoading) {
+  const showShell = isAuthenticated && Boolean(user);
+
+  if (!hasHydrated || !hasBootstrapped) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+
+  if (isLoading && !showShell) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
@@ -226,20 +350,25 @@ export default function DashboardLayout({
     );
   }
 
-  if (!isAuthenticated) {
+  if (!showShell) {
     return null;
   }
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-primary)]">
+      <NavigationProgress />
       <Toaster
         position="top-right"
         theme="system"
+        richColors
+        closeButton
         toastOptions={{
+          className: "quake-toast",
           style: {
-            background: "var(--bg-surface)",
+            background: "var(--bg-modal)",
             border: "1px solid var(--border-default)",
             color: "var(--text-primary)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
           },
         }}
       />

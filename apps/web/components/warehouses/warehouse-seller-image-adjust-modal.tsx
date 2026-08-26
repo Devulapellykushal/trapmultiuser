@@ -45,7 +45,7 @@ export function WarehouseSellerImageAdjustModal({
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
-    ctx.fillStyle = "#0e0f13";
+    ctx.fillStyle = "#0c0d10";
     ctx.fillRect(0, 0, w, h);
     const z = zoom / 100;
     const iw = img.naturalWidth;
@@ -161,7 +161,7 @@ export function WarehouseSellerImageAdjustModal({
     const scaleK = OUT_W / VIEW_W;
     const x = (w - drawW) / 2 + pan.x * scaleK;
     const y = (h - drawH) / 2 + pan.y * scaleK;
-    ctx.fillStyle = "#0e0f13";
+    ctx.fillStyle = "#0c0d10";
     ctx.fillRect(0, 0, w, h);
     ctx.save();
     ctx.beginPath();
@@ -194,24 +194,24 @@ export function WarehouseSellerImageAdjustModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 modal-scrim"
             onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            className="relative z-[61] w-full max-w-xl mx-4 rounded-2xl border border-white/[0.1] bg-[#1A1B23] shadow-2xl overflow-hidden"
+            className="relative z-[61] w-full max-w-xl mx-4 rounded-2xl border border-white/[0.1] bg-[#111318] shadow-2xl overflow-hidden"
           >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2 text-[#F5F6FA]">
-            <Crop className="w-5 h-5 text-[#C6A15B]" />
+          <div className="flex items-center gap-2 text-[#f3eee4]">
+            <Crop className="w-5 h-5 text-[#c4a574]" />
             <h2 className="text-base font-semibold">Adjust Image</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-[#6F7285] hover:bg-white/[0.06] transition-colors"
+            className="p-2 rounded-lg text-[#8a867c] hover:bg-white/[0.06] transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -231,12 +231,12 @@ export function WarehouseSellerImageAdjustModal({
               onPointerLeave={onPointerUp}
             />
           </div>
-          <p className="text-xs text-[#6F7285] leading-relaxed">
+          <p className="text-xs text-[#8a867c] leading-relaxed">
             Drag the image to position it. Use the slider to zoom in/out. Final
             crop is 16:9 for invoices and PDFs.
           </p>
           <div>
-            <div className="flex justify-between text-xs text-[#A1A4B3] mb-1.5">
+            <div className="flex justify-between text-xs text-[#c5c0b5] mb-1.5">
               <span>Zoom Level</span>
               <span>{zoom}%</span>
             </div>
@@ -247,7 +247,7 @@ export function WarehouseSellerImageAdjustModal({
               step={2}
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-full accent-[#C6A15B]"
+              className="w-full accent-[#c4a574]"
             />
           </div>
         </div>
@@ -256,14 +256,14 @@ export function WarehouseSellerImageAdjustModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-[#A1A4B3] hover:text-[#F5F6FA] transition-colors"
+            className="text-sm text-[#c5c0b5] hover:text-[#f3eee4] transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleApply}
-            className="px-5 py-2.5 rounded-xl bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4AF6A] transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
           >
             Save &amp; Apply
           </button>

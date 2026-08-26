@@ -1,71 +1,121 @@
 "use client";
 
 import { useThemeStore } from "@/hooks/use-theme";
+import { useLocationLabels } from "@/hooks/use-business-setup";
 import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    BarChart3,
-    Building2,
-    ChevronLeft,
-    ChevronRight,
-    // ClipboardList,
-    // CreditCard,
-    FileText,
-    LayoutDashboard,
-    // LineChart,
-    LogOut,
-    Moon,
-    Package,
-    // Receipt,
-    Settings,
-    ShoppingCart,
-    // Store,
-    Sun,
-    // Users,
-    UserRound,
-    X,
+  BarChart3,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Package,
+  Settings,
+  ShoppingCart,
+  Store,
+  Sun,
+  UserRound,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 import { ADMIN_BASE, adminHref } from "@/lib/admin-routes";
+import { QUAKE_LOGO_SRC } from "@/lib/brand-colors";
+import type { InventoryLocationMode } from "@/lib/business-location";
+import { locationLabels } from "@/lib/business-location";
+import { isServiceEnabled, type EnabledServices } from "@/lib/enabled-services";
 
 export interface SidebarNavItem {
   label: string;
   href: string;
   icon: React.ElementType;
   adminOnly?: boolean;
+  /** Used to filter by business stock setup / org entitlements */
+  id?: "warehouses" | "stores" | "pos" | "inventory" | "customers" | "sales" | "reports" | string;
+  /** Organization.enabled_services key; omit for always-on (Dashboard, Settings) */
+  serviceKey?: "pos" | "warehouses" | "stores" | "inventory" | "customers" | "sales" | "reports" | "analytics";
 }
 
-/** Shared nav list for sidebar and command palette. */
-export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
-  { label: "Dashboard", href: ADMIN_BASE, icon: LayoutDashboard },
-  { label: "POS", href: "/pos", icon: ShoppingCart },
-  {
-    label: "Warehouses",
-    href: adminHref("/warehouses"),
-    icon: Building2,
-    adminOnly: true,
-  },
-  { label: "Inventory", href: adminHref("/inventory"), icon: Package },
-  // { label: "Purchase Orders", href: "/purchase-orders", icon: ClipboardList },
-  // { label: "Debit/Credit Notes", href: "/debit-credit-notes", icon: Receipt },
-  // { label: "Credit Sales", href: "/credit-sales", icon: CreditCard },
-  // { label: "Stores", href: "/stores", icon: Store, adminOnly: true },
-  // {
-  //   label: "Analytics",
-  //   href: "/analytics",
-  //   icon: LineChart,
-  //   adminOnly: true,
-  // },
-  { label: "Customers", href: adminHref("/customers"), icon: UserRound },
-  { label: "Sales", href: adminHref("/invoices"), icon: FileText },
-  { label: "Reports", href: adminHref("/reports"), icon: BarChart3, adminOnly: true },
-  // { label: "Users", href: "/users", icon: Users, adminOnly: true },
-  // { label: "Invoices", href: "/invoices", icon: FileText },
-  { label: "Settings", href: adminHref("/settings"), icon: Settings },
-];
+/** Build nav for the current business setup (plain-language labels). */
+export function getSidebarNavItems(
+  mode: InventoryLocationMode = "SINGLE_SHOP",
+): SidebarNavItem[] {
+  const nouns = locationLabels(mode);
+  const items: SidebarNavItem[] = [
+    { label: "Dashboard", href: ADMIN_BASE, icon: LayoutDashboard },
+    {
+      id: "pos",
+      serviceKey: "pos",
+      label: "POS",
+      href: "/pos",
+      icon: ShoppingCart,
+    },
+    {
+      id: "warehouses",
+      serviceKey: "warehouses",
+      label: nouns.warehouseNav,
+      href: adminHref("/warehouses"),
+      icon: Building2,
+      adminOnly: true,
+    },
+  ];
+
+  if (mode === "GODOWN_AND_SHOPS") {
+    items.push({
+      id: "stores",
+      serviceKey: "stores",
+      label: nouns.storeNav,
+      href: adminHref("/stores"),
+      icon: Store,
+      adminOnly: true,
+    });
+  }
+
+  items.push(
+    {
+      id: "inventory",
+      serviceKey: "inventory",
+      label: "Inventory",
+      href: adminHref("/inventory"),
+      icon: Package,
+    },
+    {
+      id: "customers",
+      serviceKey: "customers",
+      label: "Customers",
+      href: adminHref("/customers"),
+      icon: UserRound,
+    },
+    {
+      id: "sales",
+      serviceKey: "sales",
+      label: "Sales",
+      href: adminHref("/invoices"),
+      icon: FileText,
+    },
+    {
+      id: "reports",
+      serviceKey: "reports",
+      label: "Reports",
+      href: adminHref("/reports"),
+      icon: BarChart3,
+      adminOnly: true,
+    },
+    { label: "Settings", href: adminHref("/settings"), icon: Settings },
+  );
+
+  return items;
+}
+
+/** @deprecated Prefer getSidebarNavItems(mode) — kept for command palette fallback. */
+export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] =
+  getSidebarNavItems("SINGLE_SHOP");
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -83,9 +133,12 @@ export function Sidebar({
   userRole,
 }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
   const { theme, toggleTheme } = useThemeStore();
+  const { mode } = useLocationLabels();
+  const enabledServices = useAuthStore((s) => s.user?.enabledServices) as
+    | EnabledServices
+    | undefined;
 
   // Handle escape key for mobile
   React.useEffect(() => {
@@ -106,44 +159,51 @@ export function Sidebar({
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  // Filter nav items based on role
   const filteredNavItems = React.useMemo(() => {
-    if (userRole === "ADMIN") return SIDEBAR_NAV_ITEMS;
-    // STAFF can only see non-admin items
-    return SIDEBAR_NAV_ITEMS.filter((item) => !item.adminOnly);
-  }, [userRole]);
+    let items = getSidebarNavItems(mode);
+    if (userRole !== "ADMIN") {
+      items = items.filter((item) => !item.adminOnly);
+    }
+    return items.filter((item) => {
+      if (!item.serviceKey) return true;
+      return isServiceEnabled(enabledServices, item.serviceKey);
+    });
+  }, [userRole, mode, enabledServices]);
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // logout hard-redirects to /login
   };
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo / Brand */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-[var(--border-default)]">
-        <Link href={ADMIN_BASE} className="flex items-center gap-3">
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
-            <img
-              src="/assets/2d/aio.png"
-              alt="Quake"
-              className="w-8 h-8 object-contain"
-            />
-          </div>
+        <Link
+          href={ADMIN_BASE}
+          className="flex items-center gap-2.5 min-w-0"
+          aria-label="Quake home"
+        >
+          <img
+            src={QUAKE_LOGO_SRC}
+            alt=""
+            className={`object-contain shrink-0 ${
+              isCollapsed ? "h-9 w-9" : "h-9 w-[3.35rem]"
+            }`}
+          />
           {!isCollapsed && (
             <motion.span
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: "auto" }}
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
-              className="font-semibold text-lg text-[var(--text-primary)] tracking-tight whitespace-nowrap"
+              className="font-display font-semibold text-xl text-[var(--text-primary)] tracking-wide whitespace-nowrap"
             >
               Quake
             </motion.span>
           )}
         </Link>
-        
-        {/* Mobile close button */}
+
         {isMobileOpen && onMobileClose && (
           <button
             onClick={onMobileClose}
@@ -155,7 +215,6 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {filteredNavItems.map((item) => {
           const Icon = item.icon;
@@ -196,7 +255,6 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Logout Button */}
       <div className="p-3 border-t border-[var(--border-default)]">
         <button
           onClick={handleLogout}
@@ -211,7 +269,6 @@ export function Sidebar({
           {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
         </button>
 
-        {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
           className={cn(
@@ -237,7 +294,6 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Collapse Toggle - Desktop only */}
       <div className="hidden lg:block p-4 border-t border-[var(--border-default)]">
         <button
           onClick={onToggle}
@@ -264,7 +320,6 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile Overlay */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div
@@ -272,14 +327,13 @@ export function Sidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 modal-scrim lg:hidden"
             onClick={onMobileClose}
             aria-hidden="true"
           />
         )}
       </AnimatePresence>
 
-      {/* Mobile Sidebar */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.aside
@@ -294,7 +348,6 @@ export function Sidebar({
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar */}
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 76 : 256 }}

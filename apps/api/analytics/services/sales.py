@@ -17,6 +17,7 @@ from django.db.models.functions import Coalesce, TruncDate, TruncWeek, TruncMont
 from django.utils import timezone
 
 from sales.models import Sale, SaleItem
+from analytics.org_scope import scope_by_org
 
 
 def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = None) -> tuple:
@@ -24,7 +25,7 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
     if end_date:
         end = date.fromisoformat(end_date)
     else:
-        end = timezone.now().date()
+        end = timezone.localdate()
     
     if start_date:
         start = date.fromisoformat(start_date)
@@ -37,7 +38,8 @@ def get_date_range(start_date: Optional[str] = None, end_date: Optional[str] = N
 def get_sales_summary(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Get sales summary metrics for dashboard.
@@ -55,6 +57,7 @@ def get_sales_summary(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    sales = scope_by_org(sales, organization_id)
     
     if warehouse_id:
         sales = sales.filter(warehouse_id=warehouse_id)
@@ -82,7 +85,8 @@ def get_sales_trends(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     granularity: str = 'day',
-    warehouse_id: Optional[str] = None
+    warehouse_id: Optional[str] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Get sales trends by time period.
@@ -100,6 +104,7 @@ def get_sales_trends(
         created_at__date__gte=start,
         created_at__date__lte=end
     )
+    sales = scope_by_org(sales, organization_id)
     
     if warehouse_id:
         sales = sales.filter(warehouse_id=warehouse_id)
@@ -150,7 +155,8 @@ def get_top_selling_products(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     warehouse_id: Optional[str] = None,
-    limit: int = 10
+    limit: int = 10,
+    organization_id=None,
 ) -> List[Dict[str, Any]]:
     """
     Get top selling products by quantity.
@@ -162,6 +168,7 @@ def get_top_selling_products(
         sale__created_at__date__gte=start,
         sale__created_at__date__lte=end
     ).select_related('product')
+    items = scope_by_org(items, organization_id, field='sale__organization_id')
     
     if warehouse_id:
         items = items.filter(sale__warehouse_id=warehouse_id)
@@ -196,7 +203,8 @@ def get_low_performers(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     warehouse_id: Optional[str] = None,
-    limit: int = 5
+    limit: int = 5,
+    organization_id=None,
 ) -> List[Dict[str, Any]]:
     """
     Get low-performing products (least sold) in the period.
@@ -208,6 +216,7 @@ def get_low_performers(
         sale__created_at__date__gte=start,
         sale__created_at__date__lte=end
     ).select_related('product')
+    items = scope_by_org(items, organization_id, field='sale__organization_id')
     
     if warehouse_id:
         items = items.filter(sale__warehouse_id=warehouse_id)

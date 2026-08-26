@@ -35,8 +35,10 @@ interface POSDiscountOptions {
 export function CartPanel() {
   const {
     items,
+    hasHydrated,
     removeItem,
     updateQuantity,
+    clearCart,
     subtotal,
     discount,
     appliedDiscount,
@@ -65,32 +67,61 @@ export function CartPanel() {
     setShowDiscountMenu(false);
   };
 
+  const handleClearCart = () => {
+    if (items.length === 0) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Clear all items from this bill?")
+    ) {
+      return;
+    }
+    clearCart();
+  };
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
       {/* Cart Header */}
       <div className="p-4 border-b border-white/[0.08]">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Cart</h2>
-          <span className="px-2.5 py-1 rounded-full bg-[#6366F1]/10 text-[#6366F1] text-xs font-medium tabular-nums">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-          </span>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            Cart
+          </h2>
+          <div className="flex items-center gap-2">
+            {hasHydrated && items.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearCart}
+                className="px-2 py-1 rounded-md text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-muted)] transition-colors"
+                title="Clear bill"
+              >
+                Clear
+              </button>
+            )}
+            <span className="px-2.5 py-1 rounded-full bg-[#c4a574]/10 text-[#c4a574] text-xs font-medium tabular-nums">
+              {itemCount} {itemCount === 1 ? "item" : "items"}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Cart Items */}
       <div className="flex-1 overflow-auto p-4 space-y-2">
         <AnimatePresence mode="popLayout">
-          {items.length === 0 ? (
+          {!hasHydrated ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+              <p className="text-[#8a867c] text-xs">Restoring cart…</p>
+            </div>
+          ) : items.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center h-full text-center py-8"
             >
               <div className="w-16 h-16 rounded-full bg-white/[0.05] flex items-center justify-center mb-4">
-                <ShoppingCart className="w-8 h-8 text-[#6F7285]" />
+                <ShoppingCart className="w-8 h-8 text-[#8a867c]" />
               </div>
-              <p className="text-[#A1A4B3] text-sm">Cart is empty</p>
-              <p className="text-[#6F7285] text-xs mt-1">
+              <p className="text-[#c5c0b5] text-sm">Cart is empty</p>
+              <p className="text-[#8a867c] text-xs mt-1">
                 Scan or select products to add
               </p>
             </motion.div>
@@ -113,10 +144,10 @@ export function CartPanel() {
         {discountOptions?.discountEnabled !== false && (
           <div className="relative">
             {appliedDiscount ? (
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#6366F1]/10 border border-[#6366F1]/30">
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#c4a574]/10 border border-[#c4a574]/30">
                 <div className="flex items-center gap-2">
-                  <Percent className="w-4 h-4 text-[#6366F1]" />
-                  <span className="text-sm text-[#6366F1]">
+                  <Percent className="w-4 h-4 text-[#c4a574]" />
+                  <span className="text-sm text-[#c4a574]">
                     {appliedDiscount.label}
                   </span>
                 </div>
@@ -124,7 +155,7 @@ export function CartPanel() {
                   onClick={handleClearDiscount}
                   className="p-1 rounded hover:bg-white/[0.1] transition-colors"
                 >
-                  <X className="w-4 h-4 text-[#6366F1]" />
+                  <X className="w-4 h-4 text-[#c4a574]" />
                 </button>
               </div>
             ) : (
@@ -133,11 +164,11 @@ export function CartPanel() {
                 className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.05] transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Percent className="w-4 h-4 text-[#A1A4B3]" />
-                  <span className="text-sm text-[#A1A4B3]">Add Discount</span>
+                  <Percent className="w-4 h-4 text-[#c5c0b5]" />
+                  <span className="text-sm text-[#c5c0b5]">Add Discount</span>
                 </div>
                 <ChevronDown
-                  className={`w-4 h-4 text-[#6F7285] transition-transform ${showDiscountMenu ? "rotate-180" : ""}`}
+                  className={`w-4 h-4 text-[#8a867c] transition-transform ${showDiscountMenu ? "rotate-180" : ""}`}
                 />
               </button>
             )}
@@ -149,9 +180,9 @@ export function CartPanel() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute bottom-full left-0 right-0 mb-2 p-2 rounded-lg bg-[var(--bg-elevated)] border border-white/[0.12] shadow-lg z-10"
+                  className="absolute bottom-full left-0 right-0 mb-2 p-2 rounded-lg popover-panel shadow-lg z-[80]"
                 >
-                  <div className="text-xs text-[#6F7285] mb-2 px-2">
+                  <div className="text-xs text-[#8a867c] mb-2 px-2">
                     Select Discount
                   </div>
                   {(discountOptions?.availableDiscounts || []).map(
@@ -164,8 +195,8 @@ export function CartPanel() {
                         <span
                           className={
                             preset.type === "PERCENT"
-                              ? "text-[#6366F1]"
-                              : "text-[#A855F7]"
+                              ? "text-[#c4a574]"
+                              : "text-[#d4b88a]"
                           }
                         >
                           {preset.type === "PERCENT" ? "%" : "₹"}
@@ -176,7 +207,7 @@ export function CartPanel() {
                   )}
                   {(!discountOptions?.availableDiscounts ||
                     discountOptions.availableDiscounts.length === 0) && (
-                    <p className="text-xs text-[#6F7285] px-3 py-2">
+                    <p className="text-xs text-[#8a867c] px-3 py-2">
                       No discounts available
                     </p>
                   )}
@@ -189,7 +220,7 @@ export function CartPanel() {
         {/* Summary */}
         <div className="space-y-2 pt-2">
           <div className="flex justify-between text-sm">
-            <span className="text-[#A1A4B3]">Subtotal</span>
+            <span className="text-[#c5c0b5]">Subtotal</span>
             <span className="text-[var(--text-primary)] tabular-nums font-medium">
               {formatCurrency(subtotal)}
             </span>
@@ -201,10 +232,10 @@ export function CartPanel() {
               exit={{ opacity: 0, height: 0 }}
               className="flex justify-between text-sm"
             >
-              <span className="text-[#6366F1]">
+              <span className="text-[#c4a574]">
                 {appliedDiscount?.label || "Discount"}
               </span>
-              <span className="text-[#6366F1] tabular-nums font-medium">
+              <span className="text-[#c4a574] tabular-nums font-medium">
                 -{formatCurrency(discount)}
               </span>
             </motion.div>
@@ -216,7 +247,7 @@ export function CartPanel() {
               key={total}
               initial={{ scale: 1.1 }}
               animate={{ scale: 1 }}
-              className="text-2xl font-bold text-[#6366F1] tabular-nums"
+              className="text-2xl font-bold text-[var(--brand)] tabular-nums"
             >
               {formatCurrency(total)}
             </motion.span>
@@ -294,11 +325,11 @@ function CartItemRow({
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             {variantLabel && (
-              <span className="px-1.5 py-0.5 rounded-md border border-indigo-400/35 bg-slate-900/90 text-indigo-100 text-[10px] font-semibold">
+              <span className="px-1.5 py-0.5 rounded-md border border-[var(--brand)]/35 bg-[var(--brand-muted)] text-[var(--brand)] text-[10px] font-semibold">
                 {variantLabel}
               </span>
             )}
-            <span className="text-xs text-[#6F7285]">
+            <span className="text-xs text-[var(--text-muted)]">
               {formatCurrency(item.product.pricing?.sellingPrice || 0)} each
             </span>
           </div>
@@ -315,7 +346,7 @@ function CartItemRow({
             }
             className="p-2 rounded-md hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors"
           >
-            <Minus className="w-4 h-4 text-[#A1A4B3]" />
+            <Minus className="w-4 h-4 text-[#c5c0b5]" />
           </button>
           <input
             type="text"
@@ -334,7 +365,7 @@ function CartItemRow({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="min-w-[2.25rem] max-w-[4.5rem] w-14 px-1 py-1.5 rounded-md bg-white/[0.06] border border-white/[0.12] text-center text-sm font-semibold text-[var(--text-primary)] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
+            className="min-w-[2.25rem] max-w-[4.5rem] w-14 px-1 py-1.5 rounded-md bg-white/[0.06] border border-white/[0.12] text-center text-sm font-semibold text-[var(--text-primary)] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
           />
           <button
             type="button"
@@ -345,7 +376,7 @@ function CartItemRow({
             }
             className="p-2 rounded-md hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors"
           >
-            <Plus className="w-4 h-4 text-[#A1A4B3]" />
+            <Plus className="w-4 h-4 text-[#c5c0b5]" />
           </button>
         </div>
 
@@ -363,7 +394,7 @@ function CartItemRow({
 
       {/* Line Total */}
       <div className="flex justify-end mt-2 pt-2 border-t border-white/[0.04]">
-        <span className="text-sm font-medium text-[#6366F1] tabular-nums">
+        <span className="text-sm font-medium text-[#c4a574] tabular-nums">
           {formatCurrency(
             (item.product.pricing?.sellingPrice || 0) * item.quantity,
           )}

@@ -69,20 +69,48 @@ export interface LowStockResponse {
 }
 
 export interface NotificationSettings {
-  email_low_stock_alerts: boolean;
-  email_daily_summary: boolean;
-  low_stock_email_recipients: string;
-  whatsapp_invoice_enabled: boolean;
-  whatsapp_business_number: string;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_use_tls: boolean;
-  smtp_from_email: string;
+  emailLowStockAlerts?: boolean;
+  emailDailySummary?: boolean;
+  lowStockEmailRecipients?: string;
+  whatsappInvoiceEnabled?: boolean;
+  whatsappPhoneNumberId?: string;
+  whatsappBusinessAccountId?: string;
+  whatsappTokenConfigured?: boolean;
+  /** Legacy snake keys (if any client bypasses camelCase) */
+  email_low_stock_alerts?: boolean;
+  email_daily_summary?: boolean;
+  low_stock_email_recipients?: string;
+  whatsapp_invoice_enabled?: boolean;
+  whatsapp_business_number?: string;
+  whatsapp_phone_number_id?: string;
+  whatsapp_business_account_id?: string;
+  whatsapp_token_configured?: boolean;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_use_tls?: boolean;
+  smtp_from_email?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpUseTls?: boolean;
+  smtpFromEmail?: string;
 }
 
-export interface NotificationSettingsUpdate extends Partial<NotificationSettings> {
+export interface NotificationSettingsUpdate {
+  email_low_stock_alerts?: boolean;
+  email_daily_summary?: boolean;
+  low_stock_email_recipients?: string;
+  whatsapp_invoice_enabled?: boolean;
+  whatsapp_phone_number_id?: string;
+  whatsapp_access_token?: string;
+  whatsapp_business_account_id?: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
   smtp_password?: string;
+  smtp_use_tls?: boolean;
+  smtp_from_email?: string;
 }
 
 // API Functions

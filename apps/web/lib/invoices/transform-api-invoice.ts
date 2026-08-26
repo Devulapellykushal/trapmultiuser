@@ -32,6 +32,15 @@ export interface InvoiceWarehouse {
   bankIfsc?: string;
 }
 
+/** Selling shop on the sale (shared godown — stock from godown, bill from shop). */
+export interface InvoiceStore {
+  id?: string;
+  name: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -61,6 +70,8 @@ export interface Invoice {
   cashier?: string;
   /** Seller / dispatch location from the invoice warehouse (detail API). */
   warehouse?: InvoiceWarehouse | null;
+  /** Shop that sold (when attributed); preferred over warehouse for seller block. */
+  store?: InvoiceStore | null;
 }
 
 export interface ApiInvoice {
@@ -312,6 +323,20 @@ function warehouseFromDetailRecord(
   };
 }
 
+function storeFromDetailRecord(
+  r: Record<string, unknown>,
+): Invoice["store"] | undefined {
+  const name = pickStr(r, "saleStoreName", "sale_store_name").trim();
+  if (!name) return undefined;
+  return {
+    id: pickOptionalStr(r, "saleStoreId", "sale_store_id"),
+    name,
+    address: pickOptionalStr(r, "saleStoreAddress", "sale_store_address"),
+    email: pickOptionalStr(r, "saleStoreEmail", "sale_store_email"),
+    phone: pickOptionalStr(r, "saleStorePhone", "sale_store_phone"),
+  };
+}
+
 function parseSaleIdFromApi(api: ApiInvoice): string | undefined {
   const r = pickRecord(api);
   const sid =
@@ -358,6 +383,7 @@ export function transformInvoiceList(apiInvoice: ApiInvoice): Invoice {
       pickStr(r, "saleCreatedByName", "sale_created_by_name") ||
       "Admin",
     warehouse: warehouseFromDetailRecord(r),
+    store: storeFromDetailRecord(r),
   };
 }
 
@@ -413,5 +439,6 @@ export function transformInvoiceDetail(apiInvoice: ApiInvoice): Invoice {
     status: mapInvoiceStatusFromSale(r),
     cashier: cashierName,
     warehouse: warehouseFromDetailRecord(r),
+    store: storeFromDetailRecord(r),
   };
 }

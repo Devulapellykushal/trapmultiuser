@@ -37,20 +37,20 @@ export function PerformanceList({ title, products, type }: PerformanceListProps)
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: type === "top" ? 0.4 : 0.45 }}
-      className="p-5 rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08]"
+      className="p-5 rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08]"
     >
       <div className="flex items-center gap-2 mb-4">
         {type === "top" ? (
-          <TrendingUp className="w-4 h-4 text-[#2ECC71]" />
+          <TrendingUp className="w-4 h-4 text-[#3f9d7a]" />
         ) : (
-          <TrendingDown className="w-4 h-4 text-[#E74C3C]" />
+          <TrendingDown className="w-4 h-4 text-[#c45c5c]" />
         )}
-        <h3 className="text-lg font-semibold text-[#F5F6FA]">{title}</h3>
+        <h3 className="text-lg font-semibold text-[#f3eee4]">{title}</h3>
       </div>
 
       <div className="space-y-3">
         {products.length === 0 ? (
-          <p className="text-sm text-[#6F7285] text-center py-4">No data available</p>
+          <p className="text-sm text-[#8a867c] text-center py-4">No data available</p>
         ) : (
           products.map((product, index) => {
             const unitsSold = product.unitsSold || product.units_sold || 0;
@@ -63,8 +63,8 @@ export function PerformanceList({ title, products, type }: PerformanceListProps)
                 <div className={`
                   w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold
                   ${type === "top" 
-                    ? index < 3 ? "bg-[#6366F1]/20 text-[#6366F1]" : "bg-white/[0.05] text-[#6F7285]"
-                    : "bg-white/[0.05] text-[#6F7285]"
+                    ? index < 3 ? "bg-[#c4a574]/20 text-[#c4a574]" : "bg-white/[0.05] text-[#8a867c]"
+                    : "bg-white/[0.05] text-[#8a867c]"
                   }
                 `}>
                   {index + 1}
@@ -72,23 +72,23 @@ export function PerformanceList({ title, products, type }: PerformanceListProps)
 
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#F5F6FA] truncate">
+                  <p className="text-sm font-medium text-[#f3eee4] truncate">
                     {product.name}
                   </p>
-                  {product.sku && <p className="text-xs text-[#6F7285]">{product.sku}</p>}
+                  {product.sku && <p className="text-xs text-[#8a867c]">{product.sku}</p>}
                 </div>
 
                 {/* Metrics */}
                 <div className="text-right">
                   <p className={`text-sm font-semibold tabular-nums ${
-                    type === "top" ? "text-[#2ECC71]" : "text-[#A1A4B3]"
+                    type === "top" ? "text-[#3f9d7a]" : "text-[#c5c0b5]"
                   }`}>
                     {type === "top" ? formatCurrency(product.revenue || 0) : `${unitsSold} sold`}
                   </p>
                   {type === "top" ? (
-                    <p className="text-xs text-[#6F7285] tabular-nums">{unitsSold} units</p>
+                    <p className="text-xs text-[#8a867c] tabular-nums">{unitsSold} units</p>
                   ) : product.stockAge ? (
-                    <p className="text-xs text-[#F5A623] flex items-center justify-end gap-1">
+                    <p className="text-xs text-[#d4a054] flex items-center justify-end gap-1">
                       <Clock className="w-3 h-3" />
                       {product.stockAge}d old
                     </p>

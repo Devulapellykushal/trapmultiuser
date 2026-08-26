@@ -1,25 +1,53 @@
 /**
- * Centralized API Client
- * Uses environment-based configuration for production safety
+ * Centralized API Client — attaches the token for the active session scope.
+ * Tenant and platform refresh/logout never cross.
  */
 import axios, {
-    AxiosError,
-    AxiosResponse,
-    InternalAxiosRequestConfig,
+  AxiosError,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
 } from "axios";
+import {
+  AuthScope,
+  accessTokenKey,
+  clearSessionTokens,
+  getAuthScopeFromPath,
+  loginPathForScope,
+  readAccessToken,
+  readRefreshToken,
+} from "@/lib/auth/session-scope";
 
-// API base URL from environment
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   (process.env.NODE_ENV === "development"
     ? "http://localhost:8000/api/v1"
     : "https://trapmultiuser.onrender.com/api/v1");
 
-// Token storage keys (must match auth.service.ts)
-const TOKEN_KEY = "Quake_access_token";
-const REFRESH_KEY = "Quake_refresh_token";
+type ScopedConfig = InternalAxiosRequestConfig & {
+  __quakeAuthScope?: AuthScope;
+  _retry?: boolean;
+};
 
-// Create axios instance with defaults
+/** Optional override while a store validates its own session (e.g. /auth/me/). */
+let forcedAuthScope: AuthScope | null = null;
+
+export async function withAuthScope<T>(
+  scope: AuthScope,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = forcedAuthScope;
+  forcedAuthScope = scope;
+  try {
+    return await fn();
+  } finally {
+    forcedAuthScope = prev;
+  }
+}
+
+function activeScope(): AuthScope {
+  return forcedAuthScope ?? getAuthScopeFromPath();
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -29,55 +57,64 @@ export const apiClient = axios.create({
   },
 });
 
-// Flag to prevent multiple refresh attempts
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value: unknown) => void;
-  reject: (error: unknown) => void;
-}> = [];
-
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
+const isRefreshing: Record<AuthScope, boolean> = {
+  tenant: false,
+  platform: false,
 };
 
-// Request interceptor for auth token
+const failedQueue: Record<
+  AuthScope,
+  Array<{
+    resolve: (value: unknown) => void;
+    reject: (error: unknown) => void;
+  }>
+> = {
+  tenant: [],
+  platform: [],
+};
+
+const processQueue = (
+  scope: AuthScope,
+  error: unknown,
+  token: string | null = null,
+) => {
+  failedQueue[scope].forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue[scope] = [];
+};
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+    const scoped = config as ScopedConfig;
+    const scope = activeScope();
+    scoped.__quakeAuthScope = scope;
 
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const token = readAccessToken(scope);
+    if (token && scoped.headers) {
+      scoped.headers.Authorization = `Bearer ${token}`;
     }
-
-    return config;
+    return scoped;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 
-// Response interceptor for error handling and token refresh
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+    const originalRequest = error.config as ScopedConfig | undefined;
 
-    // Handle 401 Unauthorized
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        // Queue this request while refresh is in progress
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry
+    ) {
+      const scope = originalRequest.__quakeAuthScope ?? activeScope();
+
+      if (isRefreshing[scope]) {
         return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
+          failedQueue[scope].push({ resolve, reject });
         }).then((token) => {
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${token}`;
@@ -87,61 +124,44 @@ apiClient.interceptors.response.use(
       }
 
       originalRequest._retry = true;
-      isRefreshing = true;
+      isRefreshing[scope] = true;
 
-      const refreshToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem(REFRESH_KEY)
-          : null;
-
+      const refreshToken = readRefreshToken(scope);
       if (!refreshToken) {
-        // No refresh token, force logout
-        handleLogout();
+        expireSessionQuietly(scope);
         return Promise.reject(error);
       }
 
       try {
-        // Try to refresh the token
         const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
           refresh: refreshToken,
         });
-
-        const newAccessToken = response.data.access;
-
+        const newAccessToken = response.data.access as string;
         if (typeof window !== "undefined") {
-          localStorage.setItem(TOKEN_KEY, newAccessToken);
+          localStorage.setItem(accessTokenKey(scope), newAccessToken);
         }
-
-        processQueue(null, newAccessToken);
-
+        processQueue(scope, null, newAccessToken);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
-
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        handleLogout();
+        processQueue(scope, refreshError, null);
+        expireSessionQuietly(scope);
         return Promise.reject(refreshError);
       } finally {
-        isRefreshing = false;
+        isRefreshing[scope] = false;
       }
     }
 
-    // Handle other errors
     if (error.response) {
       const { status } = error.response;
-
-      switch (status) {
-        case 403:
-          console.error("Access forbidden - insufficient permissions");
-          break;
-        case 404:
-          console.error("Resource not found");
-          break;
-        case 500:
-          console.error("Server error");
-          break;
+      if (status === 403) {
+        console.error("Access forbidden - insufficient permissions");
+      } else if (status === 404) {
+        console.error("Resource not found");
+      } else if (status === 500) {
+        console.error("Server error");
       }
     } else if (error.request) {
       console.error("Network error - no response received");
@@ -151,24 +171,28 @@ apiClient.interceptors.response.use(
   },
 );
 
-// Helper to clear tokens and redirect
-function handleLogout() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    // Redirect to login
-    window.location.href = "/login";
+/**
+ * Clear one session's tokens. Only hard-redirect when the user is currently
+ * on that session's routes — never yank a shop user to platform login (or
+ * the reverse) because the other session expired in the background.
+ */
+function expireSessionQuietly(scope: AuthScope) {
+  if (typeof window === "undefined") return;
+  clearSessionTokens(scope);
+  if (scope === "tenant") {
+    localStorage.removeItem("quake-pos-v1");
+  }
+  if (getAuthScopeFromPath() === scope) {
+    window.location.assign(loginPathForScope(scope));
   }
 }
 
-// Type-safe API response wrapper
 export interface ApiResponse<T> {
   data: T;
   message?: string;
   success: boolean;
 }
 
-// Generic request helpers
 export const api = {
   get: <T>(url: string, params?: object) =>
     apiClient.get<T>(url, { params }).then((res) => res.data),

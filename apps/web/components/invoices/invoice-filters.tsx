@@ -35,20 +35,20 @@ export function InvoiceFilters({
     <div className="flex flex-col lg:flex-row gap-3">
       {/* Search */}
       <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c]" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search invoice ID or customer..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] transition-all"
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] transition-all"
         />
         {searchQuery && (
           <button
             onClick={() => onSearchChange("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/[0.1]"
           >
-            <X className="w-4 h-4 text-[#6F7285]" />
+            <X className="w-4 h-4 text-[#8a867c]" />
           </button>
         )}
       </div>
@@ -60,15 +60,15 @@ export function InvoiceFilters({
           <select
             value={dateRange}
             onChange={(e) => onDateRangeChange(e.target.value)}
-            className="appearance-none pl-9 pr-8 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] cursor-pointer"
+            className="appearance-none pl-9 pr-8 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] cursor-pointer"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
           </select>
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285] pointer-events-none" />
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285] pointer-events-none" />
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c] pointer-events-none" />
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c] pointer-events-none" />
         </div>
 
         {/* Payment Method */}
@@ -77,8 +77,8 @@ export function InvoiceFilters({
             onClick={() => onPaymentChange("all")}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               paymentFilter === "all"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             All
@@ -87,8 +87,8 @@ export function InvoiceFilters({
             onClick={() => onPaymentChange("cash")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               paymentFilter === "cash"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <Banknote className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -98,8 +98,8 @@ export function InvoiceFilters({
             onClick={() => onPaymentChange("card")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               paymentFilter === "card"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <CreditCard className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -109,8 +109,8 @@ export function InvoiceFilters({
             onClick={() => onPaymentChange("upi")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               paymentFilter === "upi"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <Smartphone className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -120,8 +120,8 @@ export function InvoiceFilters({
             onClick={() => onPaymentChange("credit")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               paymentFilter === "credit"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <Clock className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -135,8 +135,8 @@ export function InvoiceFilters({
             onClick={() => onStatusChange("all")}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               statusFilter === "all"
-                ? "bg-[#C6A15B] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c4a574] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             All
@@ -145,8 +145,8 @@ export function InvoiceFilters({
             onClick={() => onStatusChange("paid")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               statusFilter === "paid"
-                ? "bg-[#2ECC71] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#3f9d7a] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <CheckCircle className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -156,8 +156,8 @@ export function InvoiceFilters({
             onClick={() => onStatusChange("credit")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               statusFilter === "credit"
-                ? "bg-[#F5A623] text-[#0E0F13]"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#d4a054] text-[#0c0d10]"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <Clock className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -167,8 +167,8 @@ export function InvoiceFilters({
             onClick={() => onStatusChange("cancelled")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               statusFilter === "cancelled"
-                ? "bg-[#E74C3C] text-white"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#c45c5c] text-white"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <XCircle className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -178,8 +178,8 @@ export function InvoiceFilters({
             onClick={() => onStatusChange("refunded")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               statusFilter === "refunded"
-                ? "bg-[#9B59B6] text-white"
-                : "text-[#A1A4B3] hover:text-[#F5F6FA] hover:bg-white/[0.05]"
+                ? "bg-[#b8956a] text-white"
+                : "text-[#c5c0b5] hover:text-[#f3eee4] hover:bg-white/[0.05]"
             }`}
           >
             <CreditCard className="w-3.5 h-3.5 shrink-0 opacity-95" strokeWidth={2.25} />
@@ -191,7 +191,7 @@ export function InvoiceFilters({
         {hasActiveFilters && (
           <button
             onClick={onReset}
-            className="px-3 py-2 rounded-lg text-sm text-[#E74C3C] hover:bg-[#E74C3C]/10 transition-colors"
+            className="px-3 py-2 rounded-lg text-sm text-[#c45c5c] hover:bg-[#c45c5c]/10 transition-colors"
           >
             Reset
           </button>

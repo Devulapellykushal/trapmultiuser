@@ -44,7 +44,7 @@ function PurchaseOrdersPageSkeleton() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <ClipboardList className="w-6 h-6 text-[#6366F1]" />
+              <ClipboardList className="w-6 h-6 text-[#c4a574]" />
               Purchase Orders
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
@@ -166,7 +166,7 @@ function PurchaseOrdersPageContent() {
       <PageTransition>
         <div className="space-y-6">
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-[#6366F1]" />
+            <ClipboardList className="w-6 h-6 text-[#c4a574]" />
             Purchase Orders
           </h1>
           <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
@@ -187,7 +187,7 @@ function PurchaseOrdersPageContent() {
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <ClipboardList className="w-6 h-6 text-[#6366F1]" />
+              <ClipboardList className="w-6 h-6 text-[#c4a574]" />
               Purchase Orders
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -196,7 +196,7 @@ function PurchaseOrdersPageContent() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#6366F1] text-white text-sm font-medium hover:bg-[#7376FF] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#c4a574] text-white text-sm font-medium hover:bg-[#c4a574] transition-colors"
           >
             <Plus className="w-4 h-4 stroke-[2]" />
             New Purchase Order
@@ -240,7 +240,7 @@ function PurchaseOrdersPageContent() {
             label="Draft"
             value={statusCounts.draft}
             icon={ClipboardList}
-            color="#6F7285"
+            color="#8a867c"
             active={statusFilter === "DRAFT"}
             onClick={() =>
               setStatusFilter(statusFilter === "DRAFT" ? "" : "DRAFT")
@@ -250,7 +250,7 @@ function PurchaseOrdersPageContent() {
             label="Submitted"
             value={statusCounts.submitted}
             icon={Send}
-            color="#3498DB"
+            color="#c4a574"
             active={statusFilter === "SUBMITTED"}
             onClick={() =>
               setStatusFilter(statusFilter === "SUBMITTED" ? "" : "SUBMITTED")
@@ -260,7 +260,7 @@ function PurchaseOrdersPageContent() {
             label="Partial"
             value={statusCounts.partial}
             icon={Package}
-            color="#F5A623"
+            color="#d4a054"
             active={statusFilter === "PARTIAL"}
             onClick={() =>
               setStatusFilter(statusFilter === "PARTIAL" ? "" : "PARTIAL")
@@ -270,7 +270,7 @@ function PurchaseOrdersPageContent() {
             label="Received"
             value={statusCounts.received}
             icon={CheckCircle}
-            color="#2ECC71"
+            color="#3f9d7a"
             active={statusFilter === "RECEIVED"}
             onClick={() =>
               setStatusFilter(statusFilter === "RECEIVED" ? "" : "RECEIVED")
@@ -280,7 +280,7 @@ function PurchaseOrdersPageContent() {
             label="Cancelled"
             value={statusCounts.cancelled}
             icon={XCircle}
-            color="#E74C3C"
+            color="#c45c5c"
             active={statusFilter === "CANCELLED"}
             onClick={() =>
               setStatusFilter(statusFilter === "CANCELLED" ? "" : "CANCELLED")
@@ -297,13 +297,13 @@ function PurchaseOrdersPageContent() {
               placeholder="Search by PO number or supplier..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
             />
           </div>
           {statusFilter && (
             <button
               onClick={() => setStatusFilter("")}
-              className="text-sm text-[#6366F1] hover:underline"
+              className="text-sm text-[#c4a574] hover:underline"
             >
               Clear filter
             </button>
@@ -378,7 +378,7 @@ function StatusCard({
       className={cn(
         "p-4 rounded-xl backdrop-blur-xl border transition-all duration-200 text-left",
         active
-          ? "bg-[#6366F1]/20 border-[#6366F1] ring-2 ring-[#6366F1]/30"
+          ? "bg-[#c4a574]/20 border-[#c4a574] ring-2 ring-[#c4a574]/30"
           : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-white/[0.03]",
       )}
     >
@@ -390,7 +390,7 @@ function StatusCard({
       </div>
       <p
         className="text-2xl font-bold tabular-nums"
-        style={{ color: active ? "#6366F1" : "var(--text-primary)" }}
+        style={{ color: active ? "#c4a574" : "var(--text-primary)" }}
       >
         {value}
       </p>
@@ -418,23 +418,23 @@ function PurchaseOrdersTable({
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       DRAFT: {
-        color: "bg-[#6F7285]/20 text-[#A1A4B3]",
+        color: "bg-[#8a867c]/20 text-[#c5c0b5]",
         label: "Draft",
       },
       SUBMITTED: {
-        color: "bg-[#3498DB]/20 text-[#3498DB]",
+        color: "bg-[#c4a574]/20 text-[#c4a574]",
         label: "Submitted",
       },
       PARTIAL: {
-        color: "bg-[#F5A623]/20 text-[#F5A623]",
+        color: "bg-[#d4a054]/20 text-[#d4a054]",
         label: "Partial",
       },
       RECEIVED: {
-        color: "bg-[#2ECC71]/20 text-[#2ECC71]",
+        color: "bg-[#3f9d7a]/20 text-[#3f9d7a]",
         label: "Received",
       },
       CANCELLED: {
-        color: "bg-[#E74C3C]/20 text-[#E74C3C]",
+        color: "bg-[#c45c5c]/20 text-[#c45c5c]",
         label: "Cancelled",
       },
     };
@@ -481,28 +481,28 @@ function PurchaseOrdersTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/[0.08]">
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 PO Number
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Supplier
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Warehouse
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Order Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Items
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-right px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Total
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+              <th className="text-right px-4 py-3 text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -516,7 +516,7 @@ function PurchaseOrdersTable({
                 className="hover:bg-white/[0.02] cursor-pointer transition-colors"
               >
                 <td className="px-4 py-4">
-                  <span className="font-mono text-sm text-[#6366F1]">
+                  <span className="font-mono text-sm text-[#c4a574]">
                     {order.poNumber || "N/A"}
                   </span>
                 </td>
@@ -526,18 +526,18 @@ function PurchaseOrdersTable({
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {order.warehouseName || "N/A"}
                   </span>
                 </td>
                 <td className="px-4 py-4">{getStatusBadge(order.status)}</td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {order.orderDate ? formatDate(order.orderDate) : "N/A"}
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm text-[#A1A4B3]">
+                  <span className="text-sm text-[#c5c0b5]">
                     {order.itemCount || 0} items
                   </span>
                 </td>

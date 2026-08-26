@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { PageTransition } from "@/components/layout";
 import {
@@ -21,6 +22,7 @@ import {
   ProductDrawer,
   AddProductModal,
   ImportModal,
+  AdjustStockModal,
   StockFilter,
   SortOption,
 } from "@/components/inventory";
@@ -242,7 +244,7 @@ function InventoryPageSkeleton() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <Package className="w-6 h-6 text-[#6366F1]" />
+              <Package className="w-6 h-6 text-[#c4a574]" />
               Products
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">Loading products...</p>
@@ -292,6 +294,9 @@ function InventoryPageContent() {
   // Modal state
   const [addProductOpen, setAddProductOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [adjustStockOpen, setAdjustStockOpen] = React.useState(false);
+  const [adjustStockProduct, setAdjustStockProduct] =
+    React.useState<InventoryProduct | null>(null);
 
   /** Row checkboxes in the product table (bulk actions can use this later). */
   const [selectedProductIds, setSelectedProductIds] = React.useState<
@@ -467,7 +472,7 @@ function InventoryPageContent() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <Package className="w-6 h-6 text-[#6366F1]" />
+                <Package className="w-6 h-6 text-[#c4a574]" />
                 Products
               </h1>
               <p className="text-sm text-[var(--text-muted)] mt-1">Loading products...</p>
@@ -485,7 +490,7 @@ function InventoryPageContent() {
       <PageTransition>
         <div className="space-y-6">
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Package className="w-6 h-6 text-[#6366F1]" />
+            <Package className="w-6 h-6 text-[#c4a574]" />
             Products
           </h1>
           <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
@@ -514,7 +519,7 @@ function InventoryPageContent() {
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <Package className="w-6 h-6 text-[#6366F1]" />
+              <Package className="w-6 h-6 text-[#c4a574]" />
               Products
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -535,6 +540,20 @@ function InventoryPageContent() {
               </button>
             </Tooltip>
 
+            {/* Update stock - Admin only (select existing tyre + qty) */}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setAdjustStockProduct(null);
+                  setAdjustStockOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[var(--text-primary)] text-sm hover:bg-white/[0.08] transition-colors"
+              >
+                <SlidersHorizontal className="w-4 h-4 stroke-[1.5]" />
+                Update stock
+              </button>
+            )}
+
             {/* Import - Admin only */}
             {isAdmin && (
               <button
@@ -550,7 +569,7 @@ function InventoryPageContent() {
             {isAdmin && (
               <button
                 onClick={() => setAddProductOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#6366F1] text-white text-sm font-medium hover:bg-[#7376FF] transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#c4a574] text-white text-sm font-medium hover:bg-[#c4a574] transition-colors"
               >
                 <Plus className="w-4 h-4 stroke-[2]" />
                 Add a product
@@ -568,17 +587,17 @@ function InventoryPageContent() {
           <StockCard
             label="In Stock"
             value={summary.in_stock || 0}
-            color="#2ECC71"
+            color="#3f9d7a"
           />
           <StockCard
             label="Low Stock"
             value={summary.low_stock || 0}
-            color="#F5A623"
+            color="#d4a054"
           />
           <StockCard
             label="Out of Stock"
             value={summary.out_of_stock || 0}
-            color="#E74C3C"
+            color="#c45c5c"
           />
         </div>
         <p className="text-xs text-[var(--text-muted)] max-w-3xl">
@@ -599,7 +618,7 @@ function InventoryPageContent() {
               className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#6366F1] shadow-sm">
+                <div className="p-2 rounded-lg bg-[#c4a574] shadow-sm">
                   <Layers className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
@@ -612,15 +631,15 @@ function InventoryPageContent() {
                 </div>
               </div>
               {showVariantBreakdown ? (
-                <ChevronUp className="w-5 h-5 text-[#6F7285]" />
+                <ChevronUp className="w-5 h-5 text-[#8a867c]" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-[#6F7285]" />
+                <ChevronDown className="w-5 h-5 text-[#8a867c]" />
               )}
             </button>
             {showVariantBreakdown && (
               <div className="px-4 pb-4 space-y-2 max-h-64 overflow-auto">
                 {variantSummary.length === 0 ? (
-                  <p className="text-sm text-[#6F7285] text-center py-4">
+                  <p className="text-sm text-[#8a867c] text-center py-4">
                     No products to summarize
                   </p>
                 ) : (
@@ -630,20 +649,20 @@ function InventoryPageContent() {
                       className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[#F5F6FA]">
+                        <span className="text-sm font-medium text-[#f3eee4]">
                           {item.bucket}
                         </span>
-                        <span className="text-xs text-[#6F7285]">
+                        <span className="text-xs text-[#8a867c]">
                           ({item.count} products)
                         </span>
                       </div>
                       <span
                         className={`text-sm font-semibold tabular-nums ${
                           item.stock === 0
-                            ? "text-[#E74C3C]"
+                            ? "text-[#c45c5c]"
                             : item.stock <= 5
-                              ? "text-[#F5A623]"
-                              : "text-[#2ECC71]"
+                              ? "text-[#d4a054]"
+                              : "text-[#3f9d7a]"
                         }`}
                       >
                         {item.stock} units
@@ -662,7 +681,7 @@ function InventoryPageContent() {
               className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#A855F7] shadow-sm">
+                <div className="p-2 rounded-lg bg-[#d4b88a] shadow-sm">
                   <Truck className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
@@ -675,15 +694,15 @@ function InventoryPageContent() {
                 </div>
               </div>
               {showSupplierDetails ? (
-                <ChevronUp className="w-5 h-5 text-[#6F7285]" />
+                <ChevronUp className="w-5 h-5 text-[#8a867c]" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-[#6F7285]" />
+                <ChevronDown className="w-5 h-5 text-[#8a867c]" />
               )}
             </button>
             {showSupplierDetails && (
               <div className="px-4 pb-4 space-y-2 max-h-64 overflow-auto">
                 {supplierSummary.length === 0 ? (
-                  <p className="text-sm text-[#6F7285] text-center py-4">
+                  <p className="text-sm text-[#8a867c] text-center py-4">
                     No supplier data available
                   </p>
                 ) : (
@@ -693,20 +712,20 @@ function InventoryPageContent() {
                       className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[#F5F6FA]">
+                        <span className="text-sm font-medium text-[#f3eee4]">
                           {item.supplier}
                         </span>
-                        <span className="text-xs text-[#6F7285]">
+                        <span className="text-xs text-[#8a867c]">
                           ({item.count} products)
                         </span>
                       </div>
                       <span
                         className={`text-sm font-semibold tabular-nums ${
                           item.stock === 0
-                            ? "text-[#E74C3C]"
+                            ? "text-[#c45c5c]"
                             : item.stock <= 5
-                              ? "text-[#F5A623]"
-                              : "text-[#2ECC71]"
+                              ? "text-[#d4a054]"
+                              : "text-[#3f9d7a]"
                         }`}
                       >
                         {item.stock} units
@@ -797,6 +816,14 @@ function InventoryPageContent() {
           isOpen={drawerOpen}
           onClose={handleDrawerClose}
           onDeleted={handleProductAdded}
+          onAdjustStock={
+            isAdmin
+              ? (product) => {
+                  setAdjustStockProduct(product);
+                  setAdjustStockOpen(true);
+                }
+              : undefined
+          }
         />
 
         {/* Add Product Modal */}
@@ -815,6 +842,32 @@ function InventoryPageContent() {
             void refetch();
           }}
         />
+
+        {/* Admin: select tyre + add/remove quantity */}
+        {isAdmin && (
+          <AdjustStockModal
+            isOpen={adjustStockOpen}
+            onClose={() => {
+              setAdjustStockOpen(false);
+              setAdjustStockProduct(null);
+            }}
+            onSuccess={() => {
+              void refetch();
+            }}
+            product={
+              adjustStockProduct
+                ? {
+                    id: adjustStockProduct.id,
+                    name: adjustStockProduct.name,
+                    sku: adjustStockProduct.sku,
+                    brand: adjustStockProduct.brand,
+                    stock: adjustStockProduct.stock,
+                  }
+                : null
+            }
+            warehouseId={warehouseFilter || null}
+          />
+        )}
       </div>
     </PageTransition>
   );

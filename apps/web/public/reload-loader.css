@@ -11,13 +11,13 @@ body {
 
 #reload-loader {
   font-size: clamp(12px, 2.1vmin, 17px);
-  --loader-rail: #161616;
-  --loader-rail-mid: #202020;
-  --loader-border: #2a2a2a;
+  --loader-rail: #0c0d10;
+  --loader-rail-mid: #111318;
+  --loader-border: #1c1d22;
   --loader-inset-light: rgba(255, 255, 255, 0.1);
   --loader-inset-dark: rgba(0, 0, 0, 0.55);
-  --ball-base: #cdcdcd;
-  --ball-highlight: #f3f3f3;
+  --ball-base: #c5c0b5;
+  --ball-highlight: #f3eee4;
   --ball-glow: rgba(255, 255, 255, 0.1);
 
   position: fixed;
@@ -26,7 +26,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse 100% 80% at 50% 20%, rgba(20, 20, 20, 0.96), #050505 58%, #000000);
+  background: radial-gradient(ellipse 100% 80% at 50% 20%, rgba(20, 20, 20, 0.96), #08090b 58%, #000000);
   transition:
     opacity 0.5s ease,
     visibility 0.5s ease;

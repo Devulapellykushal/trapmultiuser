@@ -74,7 +74,7 @@ export function StoreSelector({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-64 bg-[#1A1B23] border border-white/10 rounded-xl shadow-xl z-50 py-1 max-h-80 overflow-y-auto"
+            className="absolute right-0 mt-2 w-64 popover-panel rounded-xl z-[80] py-1 max-h-80 overflow-y-auto"
           >
             {/* All option */}
             {showAllOption && (

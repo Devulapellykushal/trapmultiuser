@@ -282,7 +282,7 @@ export function EditProductModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 modal-scrim"
             onClick={onClose}
           />
 
@@ -295,20 +295,20 @@ export function EditProductModal({
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
             <div
-              className="relative w-full max-w-2xl max-h-[90vh] bg-[#1A1B23] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl max-h-[90vh] bg-[#111318] rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#C6A15B]/20 flex items-center justify-center">
-                    <Package className="w-5 h-5 text-[#C6A15B]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#c4a574]/20 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-[#c4a574]" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-[#F5F6FA]">
+                    <h2 className="text-lg font-semibold text-[#f3eee4]">
                       Edit Product
                     </h2>
-                    <p className="text-sm text-[#6F7285]">
+                    <p className="text-sm text-[#8a867c]">
                       Update product details and pricing
                     </p>
                   </div>
@@ -317,7 +317,7 @@ export function EditProductModal({
                   onClick={onClose}
                   className="p-2 rounded-lg hover:bg-white/[0.05] transition-colors"
                 >
-                  <X className="w-5 h-5 text-[#6F7285]" />
+                  <X className="w-5 h-5 text-[#8a867c]" />
                 </button>
               </div>
 
@@ -329,28 +329,28 @@ export function EditProductModal({
                 <div className="p-6 space-y-6">
                   {/* Success Message */}
                   {successMessage && (
-                    <div className="p-4 rounded-lg bg-[#2ECC71]/10 border border-[#2ECC71]/20 text-[#2ECC71] text-sm">
+                    <div className="p-4 rounded-lg bg-[#3f9d7a]/10 border border-[#3f9d7a]/20 text-[#3f9d7a] text-sm">
                       {successMessage}
                     </div>
                   )}
 
                   {/* Error Message */}
                   {error && (
-                    <div className="p-4 rounded-lg bg-[#E74C3C]/10 border border-[#E74C3C]/20 text-[#E74C3C] text-sm">
+                    <div className="p-4 rounded-lg bg-[#c45c5c]/10 border border-[#c45c5c]/20 text-[#c45c5c] text-sm">
                       {error}
                     </div>
                   )}
 
                   {/* Basic Info Section */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide flex items-center gap-2">
                       <Tag className="w-4 h-4" />
                       Basic Information
                     </h3>
 
                     {/* Product Name */}
                     <div>
-                      <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                      <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                         Product Name *
                       </label>
                       <input
@@ -360,13 +360,13 @@ export function EditProductModal({
                         onChange={handleInputChange}
                         className={`w-full px-4 py-3 rounded-lg bg-white/[0.03] border ${
                           fieldErrors.name
-                            ? "border-[#E74C3C]"
+                            ? "border-[#c45c5c]"
                             : "border-white/[0.08]"
-                        } text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                        } text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors`}
                         placeholder="Enter product name"
                       />
                       {fieldErrors.name && (
-                        <p className="mt-1 text-xs text-[#E74C3C]">
+                        <p className="mt-1 text-xs text-[#c45c5c]">
                           {fieldErrors.name}
                         </p>
                       )}
@@ -375,7 +375,7 @@ export function EditProductModal({
                     {/* Brand & Category */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                           Brand *
                         </label>
                         <input
@@ -385,19 +385,19 @@ export function EditProductModal({
                           onChange={handleInputChange}
                           className={`w-full px-4 py-3 rounded-lg bg-white/[0.03] border ${
                             fieldErrors.brand
-                              ? "border-[#E74C3C]"
+                              ? "border-[#c45c5c]"
                               : "border-white/[0.08]"
-                          } text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                          } text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors`}
                           placeholder="Brand name"
                         />
                         {fieldErrors.brand && (
-                          <p className="mt-1 text-xs text-[#E74C3C]">
+                          <p className="mt-1 text-xs text-[#c45c5c]">
                             {fieldErrors.brand}
                           </p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                           Category *
                         </label>
                         <select
@@ -406,18 +406,18 @@ export function EditProductModal({
                           onChange={handleInputChange}
                           className={`w-full px-4 py-3 rounded-lg bg-white/[0.03] border ${
                             fieldErrors.category
-                              ? "border-[#E74C3C]"
+                              ? "border-[#c45c5c]"
                               : "border-white/[0.08]"
-                          } text-[#F5F6FA] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                          } text-[#f3eee4] focus:outline-none focus:border-[#c4a574] transition-colors`}
                         >
-                          <option value="" className="bg-[#1A1B23]">
+                          <option value="" className="bg-[#111318]">
                             Select category
                           </option>
                           {categories.map((cat) => (
                             <option
                               key={cat.id}
                               value={cat.name}
-                              className="bg-[#1A1B23]"
+                              className="bg-[#111318]"
                             >
                               {cat.name}
                             </option>
@@ -429,14 +429,14 @@ export function EditProductModal({
                             ) && (
                               <option
                                 value={formData.category}
-                                className="bg-[#1A1B23]"
+                                className="bg-[#111318]"
                               >
                                 {formData.category}
                               </option>
                             )}
                         </select>
                         {fieldErrors.category && (
-                          <p className="mt-1 text-xs text-[#E74C3C]">
+                          <p className="mt-1 text-xs text-[#c45c5c]">
                             {fieldErrors.category}
                           </p>
                         )}
@@ -445,7 +445,7 @@ export function EditProductModal({
 
                     {/* Description */}
                     <div>
-                      <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                      <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                         Description
                       </label>
                       <textarea
@@ -453,7 +453,7 @@ export function EditProductModal({
                         value={formData.description}
                         onChange={handleInputChange}
                         rows={3}
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors resize-none"
+                        className="w-full px-4 py-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors resize-none"
                         placeholder="Optional product description"
                       />
                     </div>
@@ -461,7 +461,7 @@ export function EditProductModal({
 
                   {/* Pricing Section */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-[#A1A4B3] uppercase tracking-wide flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-[#c5c0b5] uppercase tracking-wide flex items-center gap-2">
                       <DollarSign className="w-4 h-4" />
                       Pricing
                     </h3>
@@ -469,11 +469,11 @@ export function EditProductModal({
                     {/* Price Inputs */}
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                           Cost Price
                         </label>
                         <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6F7285]">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a867c]">
                             ₹
                           </span>
                           <input
@@ -485,24 +485,24 @@ export function EditProductModal({
                             step="0.01"
                             className={`w-full pl-8 pr-4 py-3 rounded-lg bg-white/[0.03] border ${
                               fieldErrors.costPrice
-                                ? "border-[#E74C3C]"
+                                ? "border-[#c45c5c]"
                                 : "border-white/[0.08]"
-                            } text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                            } text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors`}
                             placeholder="0"
                           />
                         </div>
                         {fieldErrors.costPrice && (
-                          <p className="mt-1 text-xs text-[#E74C3C]">
+                          <p className="mt-1 text-xs text-[#c45c5c]">
                             {fieldErrors.costPrice}
                           </p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                           MRP
                         </label>
                         <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6F7285]">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a867c]">
                             ₹
                           </span>
                           <input
@@ -514,24 +514,24 @@ export function EditProductModal({
                             step="0.01"
                             className={`w-full pl-8 pr-4 py-3 rounded-lg bg-white/[0.03] border ${
                               fieldErrors.mrp
-                                ? "border-[#E74C3C]"
+                                ? "border-[#c45c5c]"
                                 : "border-white/[0.08]"
-                            } text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                            } text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors`}
                             placeholder="0"
                           />
                         </div>
                         {fieldErrors.mrp && (
-                          <p className="mt-1 text-xs text-[#E74C3C]">
+                          <p className="mt-1 text-xs text-[#c45c5c]">
                             {fieldErrors.mrp}
                           </p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                        <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                           Selling Price
                         </label>
                         <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6F7285]">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a867c]">
                             ₹
                           </span>
                           <input
@@ -543,14 +543,14 @@ export function EditProductModal({
                             step="0.01"
                             className={`w-full pl-8 pr-4 py-3 rounded-lg bg-white/[0.03] border ${
                               fieldErrors.sellingPrice
-                                ? "border-[#E74C3C]"
+                                ? "border-[#c45c5c]"
                                 : "border-white/[0.08]"
-                            } text-[#F5F6FA] placeholder-[#6F7285] focus:outline-none focus:border-[#C6A15B] transition-colors`}
+                            } text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors`}
                             placeholder="0"
                           />
                         </div>
                         {fieldErrors.sellingPrice && (
-                          <p className="mt-1 text-xs text-[#E74C3C]">
+                          <p className="mt-1 text-xs text-[#c45c5c]">
                             {fieldErrors.sellingPrice}
                           </p>
                         )}
@@ -559,28 +559,28 @@ export function EditProductModal({
 
                     {/* GST */}
                     <div className="w-1/3">
-                      <label className="block text-sm font-medium text-[#A1A4B3] mb-2">
+                      <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                         GST Percentage
                       </label>
                       <select
                         name="gstPercentage"
                         value={formData.gstPercentage}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#F5F6FA] focus:outline-none focus:border-[#C6A15B] transition-colors"
+                        className="w-full px-4 py-3 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#f3eee4] focus:outline-none focus:border-[#c4a574] transition-colors"
                       >
-                        <option value="0" className="bg-[#1A1B23]">
+                        <option value="0" className="bg-[#111318]">
                           0%
                         </option>
-                        <option value="5" className="bg-[#1A1B23]">
+                        <option value="5" className="bg-[#111318]">
                           5%
                         </option>
-                        <option value="12" className="bg-[#1A1B23]">
+                        <option value="12" className="bg-[#111318]">
                           12%
                         </option>
-                        <option value="18" className="bg-[#1A1B23]">
+                        <option value="18" className="bg-[#111318]">
                           18%
                         </option>
-                        <option value="28" className="bg-[#1A1B23]">
+                        <option value="28" className="bg-[#111318]">
                           28%
                         </option>
                       </select>
@@ -590,28 +590,28 @@ export function EditProductModal({
                     {(formData.costPrice || formData.sellingPrice) && (
                       <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]">
                         <div>
-                          <p className="text-xs text-[#6F7285] mb-1">
+                          <p className="text-xs text-[#8a867c] mb-1">
                             Profit Amount
                           </p>
                           <p
                             className={`text-lg font-semibold ${
                               profitAmount >= 0
-                                ? "text-[#2ECC71]"
-                                : "text-[#E74C3C]"
+                                ? "text-[#3f9d7a]"
+                                : "text-[#c45c5c]"
                             }`}
                           >
                             {formatCurrency(profitAmount)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-[#6F7285] mb-1">
+                          <p className="text-xs text-[#8a867c] mb-1">
                             Margin Percentage
                           </p>
                           <p
                             className={`text-lg font-semibold ${
                               marginPercentage >= 0
-                                ? "text-[#2ECC71]"
-                                : "text-[#E74C3C]"
+                                ? "text-[#3f9d7a]"
+                                : "text-[#c45c5c]"
                             }`}
                           >
                             {marginPercentage.toFixed(1)}%
@@ -623,19 +623,19 @@ export function EditProductModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.08] bg-[#1A1B23]">
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.08] bg-[#111318]">
                   <button
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="px-6 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#A1A4B3] font-medium hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] font-medium hover:bg-white/[0.08] transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#C6A15B] text-[#1A1B23] font-semibold hover:bg-[#D4AF6A] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#c4a574] text-[#111318] font-semibold hover:bg-[#d4b88a] transition-colors disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <>

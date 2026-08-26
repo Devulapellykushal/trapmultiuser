@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart, Product } from "./cart-context";
 import { useProducts } from "@/hooks";
 import { salesService } from "@/services/sales.service";
+import { usePosStore } from "@/features/pos/store/usePosStore";
 
 interface BarcodeInputProps {
   onProductFound?: (product: Product) => void;
@@ -103,33 +104,57 @@ export function BarcodeInput({ onProductFound, warehouseId }: BarcodeInputProps)
     e.preventDefault();
     if (!value.trim()) return;
 
+    const code = value.trim();
+    const cartQtyFor = (productId: string) =>
+      usePosStore
+        .getState()
+        .cart.items.find((i) => i.product.id === productId)?.quantity ?? 0;
+
     if (warehouseId) {
       try {
         const row = await salesService.scanBarcode({
-          barcode: value.trim(),
+          barcode: code,
           warehouse_id: warehouseId,
         });
-        if (!row.can_fulfill) {
+        const inCart = cartQtyFor(row.product_id);
+        const available = row.available_stock;
+        if (!row.can_fulfill || available <= 0) {
           setStatus("error");
           setErrorMessage("Insufficient stock or unavailable");
+        } else if (inCart >= available) {
+          setStatus("error");
+          setErrorMessage(`Only ${available} in stock (already in cart)`);
         } else {
           const product = scanResponseToProduct(row);
-          addItem(product);
-          setStatus("success");
-          onProductFound?.(product);
+          const result = addItem(product);
+          if (!result.ok) {
+            setStatus("error");
+            setErrorMessage(
+              result.reason === "out_of_stock"
+                ? "Product is out of stock"
+                : `Only ${result.available} in stock`,
+            );
+          } else {
+            setStatus("success");
+            onProductFound?.(product);
+          }
         }
       } catch {
         setStatus("error");
         setErrorMessage("Product not found");
       }
     } else {
-      const product = findProductByCode(value);
+      const product = findProductByCode(code);
       if (product) {
-        if (product.stock === 0) {
+        const result = addItem(product);
+        if (!result.ok) {
           setStatus("error");
-          setErrorMessage("Product is out of stock");
+          setErrorMessage(
+            result.reason === "out_of_stock"
+              ? "Product is out of stock"
+              : `Only ${result.available} in stock`,
+          );
         } else {
-          addItem(product);
           setStatus("success");
           onProductFound?.(product);
         }
@@ -167,10 +192,10 @@ export function BarcodeInput({ onProductFound, warehouseId }: BarcodeInputProps)
             text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
             focus:outline-none
             ${status === "success"
-              ? "border-[#6366F1] ring-4 ring-[#6366F1]/20"
+              ? "border-[#c4a574] ring-4 ring-[#c4a574]/20"
               : status === "error"
-                ? "border-[#EC4899] ring-4 ring-[#EC4899]/20"
-                : "border-white/[0.08] focus:border-[#6366F1] focus:ring-4 focus:ring-[#6366F1]/20"
+                ? "border-[#c45c5c] ring-4 ring-[#c45c5c]/20"
+                : "border-white/[0.08] focus:border-[#c4a574] focus:ring-4 focus:ring-[#c4a574]/20"
             }
           `}
         />
@@ -184,9 +209,9 @@ export function BarcodeInput({ onProductFound, warehouseId }: BarcodeInputProps)
               className="absolute right-4 top-1/2 -translate-y-1/2"
             >
               {status === "success" ? (
-                <CheckCircle className="w-6 h-6 text-[#6366F1]" />
+                <CheckCircle className="w-6 h-6 text-[#c4a574]" />
               ) : (
-                <AlertCircle className="w-6 h-6 text-[#EC4899]" />
+                <AlertCircle className="w-6 h-6 text-[#c45c5c]" />
               )}
             </motion.div>
           )}
@@ -199,7 +224,7 @@ export function BarcodeInput({ onProductFound, warehouseId }: BarcodeInputProps)
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute left-0 top-full mt-2 text-sm text-[#EC4899]"
+            className="absolute left-0 top-full mt-2 text-sm text-[#c45c5c]"
           >
             {errorMessage}
           </motion.p>

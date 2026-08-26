@@ -33,6 +33,8 @@ import {
   Store as StoreType,
 } from "@/services";
 import { usersService, User as UserType } from "@/services/users.service";
+import { useLocationLabels } from "@/hooks/use-business-setup";
+import { adminHref } from "@/lib/admin-routes";
 
 // =============================================================================
 // CREATE STORE MODAL
@@ -101,7 +103,7 @@ function CreateStoreModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={onClose}
       />
       <motion.div
@@ -408,7 +410,7 @@ function EditStoreModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={onClose}
       />
       <motion.div
@@ -682,7 +684,7 @@ function DeleteConfirmModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={onClose}
       />
       <motion.div
@@ -835,7 +837,7 @@ function StoreCard({ store, onClick, onEdit, onDelete }: StoreCardProps) {
               <MoreVertical className="w-4 h-4 text-[var(--text-muted)]" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-8 z-20 w-36 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-xl overflow-hidden">
+              <div className="absolute right-0 top-8 z-20 w-36 popover-panel rounded-lg overflow-hidden">
                 <button
                   onClick={handleEdit}
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors"
@@ -983,6 +985,8 @@ function StoreCard({ store, onClick, onEdit, onDelete }: StoreCardProps) {
 
 export default function StoresPage() {
   const router = useRouter();
+  const { isSingleShop, isSharedGodown, isLoading: setupLoading } =
+    useLocationLabels();
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [editingStore, setEditingStore] = React.useState<StoreType | null>(
     null,
@@ -991,6 +995,13 @@ export default function StoresPage() {
     React.useState<StoreListItem | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const queryClient = useQueryClient();
+
+  // One-shop businesses should not land on Shops (godown+shops feature)
+  React.useEffect(() => {
+    if (!setupLoading && isSingleShop) {
+      router.replace(adminHref("/settings"));
+    }
+  }, [setupLoading, isSingleShop, router]);
 
   const {
     data: stores = [],
@@ -1035,6 +1046,14 @@ export default function StoresPage() {
   const activeStores = stores.filter((s) => s.isActive).length;
   const inactiveStores = stores.filter((s) => !s.isActive).length;
 
+  if (setupLoading || isSingleShop) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-[#c4a574]" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
         {/* Header — uses layout padding; inherits --bg-primary from dashboard shell */}
@@ -1042,10 +1061,10 @@ export default function StoresPage() {
           <div>
             <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
               <Store className="w-7 h-7 text-[var(--accent-primary)]" aria-hidden />
-              Stores
+              Shops
             </h1>
             <p className="text-[var(--text-muted)]">
-              Manage your retail stores and stock transfers
+              Retail counters and stock sent from the godown
             </p>
           </div>
 
@@ -1168,7 +1187,9 @@ export default function StoresPage() {
                 threshold
               </p>
               <p className="text-[var(--text-muted)] text-sm">
-                Transfer stock from warehouse to replenish inventory
+                {isSharedGodown
+                  ? "Add stock in Godown — all shops share the same pool"
+                  : "Send stock from the godown to replenish shops"}
               </p>
             </div>
             <button

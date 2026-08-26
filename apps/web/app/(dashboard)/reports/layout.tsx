@@ -139,7 +139,7 @@ export default function ReportsLayout({
         {/* Sidebar Navigation */}
         <nav className="lg:w-64 flex-shrink-0">
           <div className="sticky top-6 space-y-1">
-            <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-3">
+            <h2 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3 px-3">
               Reports
             </h2>
 
@@ -155,36 +155,40 @@ export default function ReportsLayout({
                     flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group
                     ${
                       active
-                        ? "bg-[#6366F1]/10 text-[#6366F1]"
-                        : "text-white/60 hover:bg-white/5 hover:text-white"
+                        ? "bg-[var(--brand-muted)] text-[var(--brand)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
                     }
                   `}
                 >
                   <div
                     className={`p-1.5 rounded-md transition-colors ${
                       active
-                        ? "bg-[#6366F1]/20"
-                        : "bg-white/5 group-hover:bg-white/10"
+                        ? "bg-[var(--brand)]/20"
+                        : "bg-[var(--bg-elevated)] group-hover:bg-[var(--brand-muted)]"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-sm font-medium text-inherit">{item.label}</p>
                     <p
-                      className={`text-xs truncate ${active ? "text-[#6366F1]/60" : "text-white/30"}`}
+                      className={`text-xs truncate ${
+                        active
+                          ? "text-[var(--text-secondary)]"
+                          : "text-[var(--text-muted)]"
+                      }`}
                     >
                       {item.description}
                     </p>
                   </div>
-                  {active && <ChevronRight className="w-4 h-4 opacity-50" />}
+                  {active && <ChevronRight className="w-4 h-4 opacity-60" />}
                 </Link>
               );
             })}
 
             {/* Data source info */}
-            <div className="mt-6 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <p className="text-xs text-white/30">
+            <div className="mt-6 p-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-default)]">
+              <p className="text-xs text-[var(--text-muted)]">
                 All data derived from Phase 16 report APIs. No frontend
                 calculations.
               </p>

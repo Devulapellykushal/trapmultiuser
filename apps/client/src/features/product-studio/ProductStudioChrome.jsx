@@ -16,7 +16,7 @@ export default function ProductStudioChrome({ workspace }) {
       <div className="bottle-brandbar">
         <div className="bottle-brandbar-left">
           <a href="/" className="bottle-brand-logo" aria-label="Studio home">
-            <img src="/assets/2d/aio.png" alt="" />
+            <img src="/assets/2d/Quake_Logo.png" alt="" />
           </a>
           <button type="button" className="bottle-back-btn" onClick={goBack} aria-label="Go back">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

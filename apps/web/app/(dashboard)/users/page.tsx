@@ -64,17 +64,18 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-[#F5F6FA] flex items-center gap-2">
-              <UserIcon className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-semibold text-[#f3eee4] flex items-center gap-2">
+              <UserIcon className="w-6 h-6 text-[#c4a574]" />
               User Management
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">
-              Manage staff and admin accounts
+            <p className="text-sm text-[#8a867c] mt-1">
+              Invite people to your business. Each email is one account with one
+              role (Admin or Staff) in your organization.
             </p>
           </div>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
           >
             <UserPlus className="w-4 h-4" />
             Add User
@@ -83,22 +84,22 @@ export default function UsersPage() {
 
         {/* Search */}
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F7285]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a867c]" />
           <input
             type="text"
             placeholder="Search users..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
           />
         </div>
 
         {/* Users Table */}
-        <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+        <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
           {isLoading ? (
             <div className="p-12 text-center">
-              <div className="inline-block w-8 h-8 border-2 border-[#C6A15B] border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-[#6F7285] mt-4">Loading users...</p>
+              <div className="inline-block w-8 h-8 border-2 border-[#c4a574] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[#8a867c] mt-4">Loading users...</p>
             </div>
           ) : error ? (
             <div className="p-12 text-center">
@@ -106,27 +107,27 @@ export default function UsersPage() {
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="p-12 text-center">
-              <UserIcon className="w-12 h-12 text-[#6F7285] mx-auto mb-4" />
-              <p className="text-sm text-[#A1A4B3]">No users found</p>
+              <UserIcon className="w-12 h-12 text-[#8a867c] mx-auto mb-4" />
+              <p className="text-sm text-[#c5c0b5]">No users found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/[0.08]">
-                    <th className="px-6 py-4 text-left text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       User
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Last Login
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-[#6F7285] uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-medium text-[#8a867c] uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -204,17 +205,17 @@ function UserRow({
     <tr className="hover:bg-white/[0.02] transition-colors">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366F1]/20 via-[#A855F7]/20 to-[#EC4899]/20 ring-1 ring-[#6366F1]/30 flex items-center justify-center">
-            <UserCircle2 className="w-5 h-5 text-[#6366F1]" />
+          <div className="w-10 h-10 rounded-full bg-[var(--brand-muted)] ring-1 ring-[var(--brand)]/30 flex items-center justify-center">
+            <UserCircle2 className="w-5 h-5 text-[#c4a574]" />
           </div>
           <div>
-            <p className="text-sm font-medium text-[#F5F6FA]">
+            <p className="text-sm font-medium text-[#f3eee4]">
               {user.name || user.username}
               {isCurrentUser && (
-                <span className="ml-2 text-xs text-[#6F7285]">(You)</span>
+                <span className="ml-2 text-xs text-[#8a867c]">(You)</span>
               )}
             </p>
-            <p className="text-xs text-[#6F7285]">{user.email}</p>
+            <p className="text-xs text-[#8a867c]">{user.email}</p>
           </div>
         </div>
       </td>
@@ -245,7 +246,7 @@ function UserRow({
           {user.isActive ? "Active" : "Inactive"}
         </span>
       </td>
-      <td className="px-6 py-4 text-sm text-[#A1A4B3]">
+      <td className="px-6 py-4 text-sm text-[#c5c0b5]">
         {user.lastLogin
           ? formatDistanceToNow(new Date(user.lastLogin), { addSuffix: true })
           : "Never"}
@@ -254,14 +255,14 @@ function UserRow({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onEdit}
-            className="p-2 rounded-lg hover:bg-white/[0.05] text-[#A1A4B3] hover:text-[#F5F6FA] transition-colors"
+            className="p-2 rounded-lg hover:bg-white/[0.05] text-[#c5c0b5] hover:text-[#f3eee4] transition-colors"
           >
             <Pencil className="w-4 h-4" />
           </button>
           {!isCurrentUser && (
             <button
               onClick={onDelete}
-              className="p-2 rounded-lg hover:bg-red-500/10 text-[#A1A4B3] hover:text-red-400 transition-colors"
+              className="p-2 rounded-lg hover:bg-red-500/10 text-[#c5c0b5] hover:text-red-400 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -331,13 +332,13 @@ function UserFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl bg-[#1A1B23] border border-white/[0.08] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-scrim">
+      <div className="w-full max-w-md rounded-xl bg-[#111318] border border-white/[0.08] shadow-2xl">
         <div className="px-6 py-5 border-b border-white/[0.08]">
-          <h2 className="text-lg font-semibold text-[#F5F6FA]">
+          <h2 className="text-lg font-semibold text-[#f3eee4]">
             {isEditing ? "Edit User" : "Add New User"}
           </h2>
-          <p className="text-sm text-[#6F7285] mt-1">
+          <p className="text-sm text-[#8a867c] mt-1">
             {isEditing
               ? "Update user details"
               : "Create a new staff or admin account"}
@@ -346,7 +347,7 @@ function UserFormModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Name */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#A1A4B3]">
+            <label className="text-sm font-medium text-[#c5c0b5]">
               Full Name
             </label>
             <input
@@ -356,13 +357,13 @@ function UserFormModal({
                 setFormData({ ...formData, name: e.target.value })
               }
               placeholder="John Doe"
-              className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
             />
           </div>
 
           {/* Email */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#A1A4B3]">
+            <label className="text-sm font-medium text-[#c5c0b5]">
               Email *
             </label>
             <input
@@ -373,13 +374,13 @@ function UserFormModal({
                 setFormData({ ...formData, email: e.target.value })
               }
               placeholder="john@example.com"
-              className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
             />
           </div>
 
           {/* Password */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#A1A4B3]">
+            <label className="text-sm font-medium text-[#c5c0b5]">
               {isEditing
                 ? "New Password (leave blank to keep current)"
                 : "Password *"}
@@ -394,12 +395,12 @@ function UserFormModal({
                   setFormData({ ...formData, password: e.target.value })
                 }
                 placeholder={isEditing ? "••••••••" : "Min. 8 characters"}
-                className="flex-1 px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:ring-2 focus:ring-[#C6A15B] focus:border-transparent transition-all"
+                className="flex-1 px-4 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent transition-all"
               />
               <button
                 type="button"
                 onClick={generatePassword}
-                className="px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-[#A1A4B3] hover:bg-white/[0.08] transition-colors"
+                className="px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-[#c5c0b5] hover:bg-white/[0.08] transition-colors"
               >
                 Generate
               </button>
@@ -408,7 +409,7 @@ function UserFormModal({
               <button
                 type="button"
                 onClick={copyCredentials}
-                className="inline-flex items-center gap-1.5 text-xs text-[#C6A15B] hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs text-[#c4a574] hover:underline"
               >
                 {copied ? (
                   <Check className="w-3 h-3" />
@@ -422,7 +423,7 @@ function UserFormModal({
 
           {/* Role */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#A1A4B3]">Role *</label>
+            <label className="text-sm font-medium text-[#c5c0b5]">Role *</label>
             <div className="flex gap-3">
               {(["STAFF", "ADMIN"] as const).map((role) => (
                 <button
@@ -431,8 +432,8 @@ function UserFormModal({
                   onClick={() => setFormData({ ...formData, role })}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
                     formData.role === role
-                      ? "bg-[#C6A15B]/20 border-[#C6A15B] text-[#C6A15B]"
-                      : "bg-white/[0.05] border-white/[0.08] text-[#A1A4B3] hover:bg-white/[0.08]"
+                      ? "bg-[#c4a574]/20 border-[#c4a574] text-[#c4a574]"
+                      : "bg-white/[0.05] border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
                   }`}
                 >
                   {role === "ADMIN" ? (
@@ -450,10 +451,10 @@ function UserFormModal({
           {isEditing && (
             <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/[0.02] border border-white/[0.05]">
               <div>
-                <p className="text-sm font-medium text-[#F5F6FA]">
+                <p className="text-sm font-medium text-[#f3eee4]">
                   Account Active
                 </p>
-                <p className="text-xs text-[#6F7285]">
+                <p className="text-xs text-[#8a867c]">
                   Inactive users cannot log in
                 </p>
               </div>
@@ -463,7 +464,7 @@ function UserFormModal({
                   setFormData({ ...formData, is_active: !formData.is_active })
                 }
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  formData.is_active ? "bg-[#C6A15B]" : "bg-white/[0.1]"
+                  formData.is_active ? "bg-[#c4a574]" : "bg-white/[0.1]"
                 }`}
               >
                 <span
@@ -480,14 +481,14 @@ function UserFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm font-medium text-[#A1A4B3] hover:bg-white/[0.08] transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm font-medium text-[#c5c0b5] hover:bg-white/[0.08] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-[#C6A15B] text-[#0E0F13] text-sm font-medium hover:bg-[#D4B06A] transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors disabled:opacity-50"
             >
               {isLoading
                 ? "Saving..."
@@ -514,16 +515,16 @@ function DeleteConfirmModal({
   isLoading: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-xl bg-[#1A1B23] border border-white/[0.08] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-scrim">
+      <div className="w-full max-w-sm rounded-xl bg-[#111318] border border-white/[0.08] shadow-2xl">
         <div className="p-6 text-center">
           <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
             <Trash2 className="w-6 h-6 text-red-400" />
           </div>
-          <h3 className="text-lg font-semibold text-[#F5F6FA]">Delete User</h3>
-          <p className="text-sm text-[#6F7285] mt-2">
+          <h3 className="text-lg font-semibold text-[#f3eee4]">Delete User</h3>
+          <p className="text-sm text-[#8a867c] mt-2">
             Are you sure you want to delete{" "}
-            <span className="text-[#F5F6FA]">{user.name || user.email}</span>?
+            <span className="text-[#f3eee4]">{user.name || user.email}</span>?
             This action cannot be undone.
           </p>
         </div>
@@ -531,7 +532,7 @@ function DeleteConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm font-medium text-[#A1A4B3] hover:bg-white/[0.08] transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-sm font-medium text-[#c5c0b5] hover:bg-white/[0.08] transition-colors"
           >
             Cancel
           </button>

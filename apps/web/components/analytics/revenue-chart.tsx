@@ -30,9 +30,9 @@ export function RevenueChart({ data }: RevenueChartProps) {
   // Handle empty data
   if (!data || data.length === 0) {
     return (
-      <div className="p-5 rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08]">
-        <h3 className="text-lg font-semibold text-[#F5F6FA] mb-4">Revenue Trend</h3>
-        <p className="text-sm text-[#6F7285] text-center py-12">No revenue data available</p>
+      <div className="p-5 rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08]">
+        <h3 className="text-lg font-semibold text-[#f3eee4] mb-4">Revenue Trend</h3>
+        <p className="text-sm text-[#8a867c] text-center py-12">No revenue data available</p>
       </div>
     );
   }
@@ -93,11 +93,11 @@ export function RevenueChart({ data }: RevenueChartProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="p-5 rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08]"
+      className="p-5 rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08]"
     >
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-[#F5F6FA]">Revenue Trend</h3>
-        <p className="text-sm text-[#6F7285]">Last 30 days</p>
+        <h3 className="text-lg font-semibold text-[#f3eee4]">Revenue Trend</h3>
+        <p className="text-sm text-[#8a867c]">Last 30 days</p>
       </div>
 
       <div ref={containerRef} className="relative overflow-x-auto">
@@ -122,7 +122,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
               <text
                 x={chartPadding.left - 8}
                 y={label.y + 4}
-                fill="#6F7285"
+                fill="#8a867c"
                 fontSize="10"
                 textAnchor="end"
               >
@@ -135,7 +135,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <motion.path
             d={generatePath()}
             fill="none"
-            stroke="#6366F1"
+            stroke="#c4a574"
             strokeWidth="2"
             strokeLinecap="round"
             initial={{ pathLength: 0 }}
@@ -167,8 +167,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
                   cx={x}
                   cy={y}
                   r={isHovered ? 5 : 3}
-                  fill={isHovered ? "#6366F1" : "#111111"}
-                  stroke="#6366F1"
+                  fill={isHovered ? "#c4a574" : "#0c0d10"}
+                  stroke="#c4a574"
                   strokeWidth="2"
                   style={{ transition: "r 0.15s" }}
                 />
@@ -182,13 +182,13 @@ export function RevenueChart({ data }: RevenueChartProps) {
                       width={100}
                       height={35}
                       rx={6}
-                      fill="#1A1B23"
+                      fill="#111318"
                       stroke="rgba(255,255,255,0.1)"
                     />
-                    <text x={x} y={y - 30} fill="#F5F6FA" fontSize="11" textAnchor="middle" fontWeight="600">
+                    <text x={x} y={y - 30} fill="#f3eee4" fontSize="11" textAnchor="middle" fontWeight="600">
                       {formatCurrency(d.revenue)}
                     </text>
-                    <text x={x} y={y - 17} fill="#6F7285" fontSize="9" textAnchor="middle">
+                    <text x={x} y={y - 17} fill="#8a867c" fontSize="9" textAnchor="middle">
                       {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                     </text>
                   </g>
@@ -206,7 +206,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 key={i}
                 x={x}
                 y={chartHeight - 8}
-                fill="#6F7285"
+                fill="#8a867c"
                 fontSize="10"
                 textAnchor="middle"
               >

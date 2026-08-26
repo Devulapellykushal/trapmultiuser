@@ -18,7 +18,11 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
 from .services import inventory, sales, revenue, discounts, performance, summary
-from users.permissions import IsAdmin
+from users.permissions import HasAnalyticsService, IsAdmin
+
+
+def _org(request):
+    return getattr(request.user, "organization_id", None)
 
 
 # Common parameters for all analytics endpoints
@@ -48,7 +52,7 @@ DATE_PARAMS = [
 
 class InventoryOverviewView(APIView):
     """Get inventory overview metrics."""
-    permission_classes = [IsAdmin]  # TODO: IsAdminUser
+    permission_classes = [IsAdmin, HasAnalyticsService]  # TODO: IsAdminUser
     
     @extend_schema(
         summary="Inventory Overview",
@@ -60,14 +64,15 @@ class InventoryOverviewView(APIView):
         result = inventory.get_inventory_overview(
             warehouse_id=request.query_params.get('warehouse_id'),
             start_date=request.query_params.get('start_date'),
-            end_date=request.query_params.get('end_date')
+            end_date=request.query_params.get('end_date'),
+            organization_id=_org(request),
         )
         return Response(result)
 
 
 class LowStockView(APIView):
     """Get low stock items."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Low Stock Items",
@@ -86,14 +91,15 @@ class LowStockView(APIView):
         threshold = int(request.query_params.get('threshold', 10))
         result = inventory.get_low_stock_items(
             warehouse_id=request.query_params.get('warehouse_id'),
-            threshold=threshold
+            threshold=threshold,
+            organization_id=_org(request),
         )
         return Response({'items': result, 'threshold': threshold, 'count': len(result)})
 
 
 class DeadStockView(APIView):
     """Get dead stock items."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Dead Stock Items",
@@ -112,7 +118,8 @@ class DeadStockView(APIView):
         days = int(request.query_params.get('days', 30))
         result = inventory.get_dead_stock_items(
             days_threshold=days,
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response({'items': result, 'days_inactive': days, 'count': len(result)})
 
@@ -121,7 +128,7 @@ class DeadStockView(APIView):
 
 class SalesSummaryView(APIView):
     """Get sales summary."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Sales Summary",
@@ -133,14 +140,15 @@ class SalesSummaryView(APIView):
         result = sales.get_sales_summary(
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response(result)
 
 
 class SalesTrendsView(APIView):
     """Get sales trends."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Sales Trends",
@@ -160,14 +168,15 @@ class SalesTrendsView(APIView):
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
             granularity=request.query_params.get('granularity', 'day'),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response(result)
 
 
 class TopProductsView(APIView):
     """Get top selling products."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Top Selling Products",
@@ -188,7 +197,8 @@ class TopProductsView(APIView):
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
             warehouse_id=request.query_params.get('warehouse_id'),
-            limit=limit
+            limit=limit,
+            organization_id=_org(request),
         )
         return Response({'products': result, 'count': len(result)})
 
@@ -197,7 +207,7 @@ class TopProductsView(APIView):
 
 class RevenueOverviewView(APIView):
     """Get revenue overview."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Revenue Overview",
@@ -209,14 +219,15 @@ class RevenueOverviewView(APIView):
         result = revenue.get_revenue_overview(
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response(result)
 
 
 class RevenueByProductView(APIView):
     """Get revenue by product."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Revenue by Product",
@@ -237,14 +248,15 @@ class RevenueByProductView(APIView):
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
             warehouse_id=request.query_params.get('warehouse_id'),
-            limit=limit
+            limit=limit,
+            organization_id=_org(request),
         )
         return Response({'products': result, 'count': len(result)})
 
 
 class RevenueByWarehouseView(APIView):
     """Get revenue by warehouse."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Revenue by Warehouse",
@@ -268,7 +280,8 @@ class RevenueByWarehouseView(APIView):
     def get(self, request):
         result = revenue.get_revenue_by_warehouse(
             start_date=request.query_params.get('start_date'),
-            end_date=request.query_params.get('end_date')
+            end_date=request.query_params.get('end_date'),
+            organization_id=_org(request),
         )
         return Response(result)
 
@@ -277,7 +290,7 @@ class RevenueByWarehouseView(APIView):
 
 class DiscountOverviewView(APIView):
     """Get discount analytics."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Discount Overview",
@@ -292,7 +305,8 @@ class DiscountOverviewView(APIView):
         result = discounts.get_discount_overview(
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response(result)
 
@@ -301,7 +315,7 @@ class DiscountOverviewView(APIView):
 
 class PerformanceOverviewView(APIView):
     """Get unified dashboard performance metrics."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Performance Overview",
@@ -316,7 +330,8 @@ class PerformanceOverviewView(APIView):
         result = performance.get_dashboard_overview(
             start_date=request.query_params.get('start_date'),
             end_date=request.query_params.get('end_date'),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org(request),
         )
         return Response(result)
 
@@ -325,7 +340,7 @@ class PerformanceOverviewView(APIView):
 
 class AnalyticsSummaryView(APIView):
     """Get unified analytics summary for dashboard."""
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, HasAnalyticsService]
     
     @extend_schema(
         summary="Analytics Summary",
@@ -351,6 +366,7 @@ class AnalyticsSummaryView(APIView):
     )
     def get(self, request):
         result = summary.get_analytics_summary(
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=getattr(request.user, 'organization_id', None),
         )
         return Response(result)

@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 // Routes that don't require authentication (marketing + auth)
-const publicRoutes = ['/', '/login'];
+const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/reset-password'];
 
 /** Dashboard segments that live under `/admin/*` (legacy `/foo` → `/admin/foo`). */
 const ADMIN_LEGACY_PREFIXES = [
@@ -59,6 +59,9 @@ export function middleware(request: NextRequest) {
     !pathname.startsWith(adminBase) &&
     pathname !== '/' &&
     !pathname.startsWith('/login') &&
+    !pathname.startsWith('/signup') &&
+    !pathname.startsWith('/forgot-password') &&
+    !pathname.startsWith('/reset-password') &&
     !pathname.startsWith('/pos') &&
     !pathname.startsWith('/design-system')
   ) {

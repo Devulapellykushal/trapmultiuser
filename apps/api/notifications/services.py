@@ -66,12 +66,16 @@ class LowStockService:
     """
     
     @staticmethod
-    def check_low_stock(warehouse_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def check_low_stock(
+        warehouse_id: Optional[str] = None,
+        organization_id=None,
+    ) -> List[Dict[str, Any]]:
         """
         Check for products with stock below reorder threshold.
         
         Args:
             warehouse_id: Optional warehouse ID to filter by
+            organization_id: Required tenancy scope
             
         Returns:
             List of low stock products with details
@@ -86,14 +90,31 @@ class LowStockService:
             product__is_active=True,
             product__is_deleted=False
         ).select_related('product', 'product__supplier', 'product__pricing')
+        if organization_id is not None:
+            variants = variants.filter(product__organization_id=organization_id)
+        else:
+            variants = variants.none()
         
         low_stock_items = []
         
         # Get warehouses to check
         if warehouse_id:
-            warehouses = Warehouse.objects.filter(id=warehouse_id, is_active=True)
+            warehouses = Warehouse.objects.filter(
+                id=warehouse_id,
+                is_active=True,
+            )
+            if organization_id is not None:
+                warehouses = warehouses.filter(organization_id=organization_id)
+            else:
+                warehouses = warehouses.none()
         else:
-            warehouses = Warehouse.objects.filter(is_active=True)
+            if organization_id is None:
+                warehouses = Warehouse.objects.none()
+            else:
+                warehouses = Warehouse.objects.filter(
+                    is_active=True,
+                    organization_id=organization_id,
+                )
         
         for variant in variants:
             for warehouse in warehouses:

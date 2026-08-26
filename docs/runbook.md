@@ -8,11 +8,13 @@ Quick reference for common operational tasks and troubleshooting.
 
 | Resource | URL |
 |----------|-----|
+| Product overview | Repo root `README.md` |
+| Architecture / tenancy | `docs/architecture/README.md` |
+| ADR — org tenancy & RBAC | `docs/adr/0003-organization-tenancy-rbac.md` |
+| Customers (business) | `CUSTOMERS.md` |
+| Env vars | `docs/env-vars.md` |
 | Cloud Run Console | `https://console.cloud.google.com/run?project=Quake-inventory` |
-| Cloud SQL Console | `https://console.cloud.google.com/sql?project=Quake-inventory` |
-| Cloud Logging | `https://console.cloud.google.com/logs?project=Quake-inventory` |
 | Vercel Dashboard | `https://vercel.com/dashboard` |
-| GitHub Actions | `https://github.com/YOUR_ORG/Quake/actions` |
 
 ---
 

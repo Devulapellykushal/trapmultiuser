@@ -46,6 +46,7 @@ from .serializers import (
 from . import services
 from core.pagination import StandardResultsSetPagination
 from users.permissions import IsAdmin, IsStaffOrAdmin, IsAdminOrReadOnly
+from users.organization import filter_queryset_for_user
 
 
 class SoftDeleteMixin:
@@ -149,8 +150,13 @@ class WarehouseViewSet(IncludeInactiveMixin, SoftDeleteMixin, viewsets.ModelView
         """
         detail_actions = frozenset(("retrieve", "update", "partial_update", "destroy"))
         if getattr(self, "action", None) in detail_actions:
-            return Warehouse.objects.all()
-        return super().get_queryset()
+            qs = Warehouse.objects.all()
+        else:
+            qs = super().get_queryset()
+        return filter_queryset_for_user(qs, self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(organization_id=getattr(self.request.user, "organization_id", None))
 
 
 @extend_schema_view(
@@ -341,7 +347,7 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         from django.db.models import F
 
-        queryset = super().get_queryset()
+        queryset = filter_queryset_for_user(super().get_queryset(), self.request.user)
         params = self.request.query_params
 
         # Phase 10A: is_deleted filter (admin only) — pick base queryset first
@@ -349,9 +355,12 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
         if is_deleted is not None:
             if hasattr(self.request.user, 'role') and self.request.user.role == 'ADMIN':
                 if is_deleted.lower() == 'true':
-                    queryset = Product.objects.prefetch_related(
-                        'variants', 'images'
-                    ).select_related('pricing').filter(is_deleted=True)
+                    queryset = filter_queryset_for_user(
+                        Product.objects.prefetch_related(
+                            'variants', 'images'
+                        ).select_related('pricing').filter(is_deleted=True),
+                        self.request.user,
+                    )
                 elif is_deleted.lower() == 'false':
                     queryset = queryset.filter(is_deleted=False)
 
@@ -428,6 +437,9 @@ class ProductViewSet(IncludeInactiveMixin, viewsets.ModelViewSet):
 
         # Stable ordering for pagination (avoids UnorderedObjectListWarning / flaky pages)
         return queryset.order_by('name', 'id')
+
+    def perform_create(self, serializer):
+        serializer.save(organization_id=getattr(self.request.user, "organization_id", None))
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -681,7 +693,9 @@ class StockSummaryView(APIView):
         tags=['Stock Operations']
     )
     def get(self, request):
-        summary = services.get_stock_summary()
+        summary = services.get_stock_summary(
+            organization_id=getattr(request.user, "organization_id", None),
+        )
         serializer = StockSummarySerializer(summary)
         return Response(serializer.data)
 
@@ -715,6 +729,9 @@ class StockLedgerViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset = filter_queryset_for_user(
+            queryset, self.request.user, field="variant__product__organization_id"
+        )
         
         # Optional filters
         warehouse_id = self.request.query_params.get('warehouse_id')
@@ -903,6 +920,8 @@ class POSProductsView(APIView):
         in_stock_only = request.query_params.get('in_stock_only', 'false').lower() == 'true'
         
         # Base queryset - active variants with active, non-deleted products
+        # CRITICAL: scope to caller's organization — never leak other tenants' catalog
+        org_id = getattr(request.user, "organization_id", None)
         variants = ProductVariant.objects.select_related(
             'product', 'product__pricing', 'product__supplier'
         ).filter(
@@ -910,6 +929,10 @@ class POSProductsView(APIView):
             product__is_active=True,
             product__is_deleted=False
         )
+        if org_id is None:
+            variants = variants.none()
+        else:
+            variants = variants.filter(product__organization_id=org_id)
         
         # Apply search filter
         if search:
@@ -978,6 +1001,26 @@ class POSProductsView(APIView):
             except Exception:
                 pass
             
+            # Primary product image (POS grid thumbnail) — values() avoids ORM/DB drift
+            image_url = None
+            try:
+                from .models import ProductImage
+                img_rows = list(
+                    ProductImage.objects.filter(product_id=variant.product_id)
+                    .order_by('-is_primary', '-created_at')
+                    .values('image_url', 'is_primary')[:5]
+                )
+                chosen = next(
+                    (r for r in img_rows if r.get('is_primary') and r.get('image_url')),
+                    None,
+                ) or next((r for r in img_rows if r.get('image_url')), None)
+                if chosen and chosen.get('image_url'):
+                    image_url = chosen['image_url']
+                    if image_url.startswith('/') and not image_url.startswith('//'):
+                        image_url = request.build_absolute_uri(image_url)
+            except Exception:
+                image_url = None
+
             results.append({
                 'id': str(variant.id),
                 'product_id': str(variant.product_id),
@@ -998,6 +1041,7 @@ class POSProductsView(APIView):
                 'stock_status': stock_status,
                 'reorder_threshold': variant.reorder_threshold,
                 'barcode_image_url': barcode_url,
+                'image_url': image_url,
                 # Supplier tracking - shows which supplier this product came from
                 'supplier_id': str(variant.product.supplier_id) if variant.product.supplier_id else None,
                 'supplier_name': variant.product.supplier.name if variant.product.supplier else None,
@@ -1617,7 +1661,10 @@ class StoreViewSet(viewsets.ModelViewSet):
         return StoreSerializer
     
     def get_queryset(self):
-        queryset = Store.objects.select_related('operator')
+        queryset = filter_queryset_for_user(
+            Store.objects.select_related('operator'),
+            self.request.user,
+        )
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active')
@@ -1640,6 +1687,9 @@ class StoreViewSet(viewsets.ModelViewSet):
             )
         
         return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(organization_id=getattr(self.request.user, "organization_id", None))
     
     def destroy(self, request, *args, **kwargs):
         """Soft delete by setting is_active=False."""

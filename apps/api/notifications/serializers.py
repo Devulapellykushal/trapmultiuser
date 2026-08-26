@@ -107,7 +107,9 @@ class WhatsAppNotificationSerializer(serializers.ModelSerializer):
 
 class NotificationSettingSerializer(serializers.ModelSerializer):
     """Serializer for NotificationSetting model."""
-    
+
+    whatsapp_token_configured = serializers.SerializerMethodField()
+
     class Meta:
         model = NotificationSetting
         fields = [
@@ -117,16 +119,16 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
             'whatsapp_invoice_enabled',
             'whatsapp_phone_number_id',
             'whatsapp_business_account_id',
+            'whatsapp_token_configured',
             'smtp_host',
             'smtp_port',
             'smtp_username',
             'smtp_use_tls',
             'smtp_from_email',
         ]
-    
-    # Don't expose sensitive tokens in reads
-    smtp_password = serializers.CharField(write_only=True, required=False)
-    whatsapp_access_token = serializers.CharField(write_only=True, required=False)
+
+    def get_whatsapp_token_configured(self, obj):
+        return bool((obj.whatsapp_access_token or '').strip())
 
 
 class NotificationSettingUpdateSerializer(serializers.ModelSerializer):

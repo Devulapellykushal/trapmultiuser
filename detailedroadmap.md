@@ -1,4 +1,6 @@
-Your **TRAP / Quake Inventory** repo already encodes many of the non‑negotiables you described: **append-only `InventoryMovement`**, **stock = Σ(movements)** in `get_product_stock`, a **POS-oriented `Sale` / `SaleItem` / `Payment`** stack with **immutable line items**, **credit / partial payment concepts**, **`transaction.atomic` + `select_for_update`** patterns (invoice sequence, inventory movement), **ADMIN / STAFF** permissions, and **drf-spectacular** at `/api/docs/`. The architecture below is written as an **upgrade and convergence plan** on that foundation—not a greenfield rewrite.
+Your **TRAP / Quake Inventory** repo already encodes many of the non‑negotiables you described: **append-only `InventoryMovement`**, **stock = Σ(movements)** in `get_product_stock`, a **POS-oriented `Sale` / `SaleItem` / `Payment`** stack with **immutable line items**, **credit / partial payment concepts**, **`transaction.atomic` + `select_for_update`** patterns (invoice sequence, inventory movement), **ADMIN / STAFF** permissions, **organization tenancy** (each signup gets its own empty workspace — ADR 0003), and **drf-spectacular** at `/api/docs/`. The architecture below is written as an **upgrade and convergence plan** on that foundation—not a greenfield rewrite.
+
+**Shipped product docs:** root [`README.md`](./README.md), [`docs/architecture/README.md`](./docs/architecture/README.md), [`CUSTOMERS.md`](./CUSTOMERS.md), [`docs/adr/0003-organization-tenancy-rbac.md`](./docs/adr/0003-organization-tenancy-rbac.md).
 
 ---
 

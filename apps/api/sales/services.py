@@ -597,6 +597,7 @@ def process_sale(
     customer_address: str = '',
     default_gst_percentage: Decimal = Decimal('0.00'),
     apply_automatic_gst: bool = True,
+    store_id: Optional[Union[str, UUID]] = None,
 ) -> Sale:
     """
     Process a complete sale transaction atomically.
@@ -625,7 +626,7 @@ def process_sale(
     
     Any failure → rollback everything.
     
-    Args:
+        Args:
         idempotency_key: Client-provided UUID for duplicate prevention
         warehouse_id: Warehouse UUID
         items: List of {'barcode': str, 'quantity': int, 'gst_percentage': Decimal (optional)}
@@ -641,6 +642,8 @@ def process_sale(
         apply_automatic_gst: If True, extract CGST/SGST from GST-inclusive line
             amounts (product GST%). If False (default), line GST snapshots are zero;
             amount due is unchanged.
+        store_id: Optional shop counter UUID for sale attribution (stock still
+            moves on warehouse_id)
     
     Returns:
         Sale object
@@ -653,6 +656,7 @@ def process_sale(
         InvalidDiscountError: If discount is invalid
         InvalidGSTError: If GST percentage is invalid
         WarehouseNotFoundError: If warehouse not found
+        SaleError: If store_id is invalid
     """
     # 1. Check idempotency
     existing = _check_existing_sale(idempotency_key)
@@ -664,16 +668,34 @@ def process_sale(
         # If FAILED, we can retry (but use same id)
     
     # 2. Validate warehouse
+    org_id = getattr(user, "organization_id", None) if user else None
     try:
-        warehouse = Warehouse.objects.select_for_update().get(pk=warehouse_id, is_active=True)
+        wh_qs = Warehouse.objects.select_for_update().filter(pk=warehouse_id, is_active=True)
+        if org_id:
+            wh_qs = wh_qs.filter(organization_id=org_id)
+        warehouse = wh_qs.get()
     except Warehouse.DoesNotExist:
         raise WarehouseNotFoundError(f"Warehouse {warehouse_id} not found or inactive")
+
+    store = None
+    if store_id is not None:
+        from inventory.models import Store
+        try:
+            store_qs = Store.objects.filter(pk=store_id, is_active=True)
+            if org_id:
+                store_qs = store_qs.filter(organization_id=org_id)
+            store = store_qs.get()
+        except Store.DoesNotExist:
+            raise SaleError(f"Shop {store_id} not found or inactive")
 
     customer = None
     if customer_id is not None:
         from customers.models import Customer
         try:
-            customer = Customer.objects.get(pk=customer_id, is_active=True)
+            cust_qs = Customer.objects.filter(pk=customer_id, is_active=True)
+            if org_id:
+                cust_qs = cust_qs.filter(organization_id=org_id)
+            customer = cust_qs.get()
         except Customer.DoesNotExist:
             raise SaleError(f"Customer {customer_id} not found or inactive")
 
@@ -686,6 +708,17 @@ def process_sale(
     req_mobile = _snap(customer_mobile)
     req_email = _snap(customer_email)
     req_address = _snap(customer_address)
+
+    # Auto-collect invoice buyers into CRM — unique by mobile or email (per org)
+    if customer is None and (req_mobile or req_email or req_name):
+        from customers.services import upsert_from_checkout
+        customer = upsert_from_checkout(
+            name=req_name,
+            phone=req_mobile,
+            email=req_email,
+            address=req_address,
+            organization_id=org_id,
+        )
 
     if customer is not None:
         snapshot_name = req_name or (customer.name or '').strip()
@@ -706,21 +739,31 @@ def process_sale(
     # 3. Resolve products and validate stock
     resolved_items = []
     for item in items:
-        barcode = item.get('barcode')
+        barcode = (item.get('barcode') or '').strip()
+        product_id = item.get('product_id')
         quantity = item.get('quantity', 1)
         gst_percentage = Decimal(str(item.get('gst_percentage', default_gst_percentage)))
         
-        if not barcode:
-            raise InvalidBarcodeError("Barcode is required for each item")
+        if not barcode and not product_id:
+            raise InvalidBarcodeError("Each item needs a barcode or product id")
         
         if quantity < 1:
-            raise SaleError(f"Invalid quantity for {barcode}: {quantity}")
+            label = barcode or str(product_id)
+            raise SaleError(f"Invalid quantity for {label}: {quantity}")
         
         # Validate GST percentage
         validate_gst_percentage(gst_percentage)
         
-        # Lookup product
-        product = lookup_product_by_barcode(barcode)
+        # Lookup product by barcode, else by id (barcode-optional mode)
+        if barcode:
+            product = lookup_product_by_barcode(barcode)
+        else:
+            try:
+                product = Product.objects.get(pk=product_id)
+            except Product.DoesNotExist:
+                raise InvalidBarcodeError(f"No product found with id: {product_id}")
+            if not product.is_active:
+                raise InactiveProductError(f"Product {product_id} is inactive")
         
         # Check stock
         check_stock_availability(product, warehouse, quantity)
@@ -750,7 +793,8 @@ def process_sale(
                     cost_price = variant.cost_price or Decimal('0.00')
         
         if selling_price <= 0:
-            raise SaleError(f"Product {barcode} has no valid selling price. Please set pricing first.")
+            label = barcode or product.name or str(product_id)
+            raise SaleError(f"Product {label} has no valid selling price. Please set pricing first.")
         
         # Calculate line total (before GST)
         line_total = (selling_price * quantity).quantize(Decimal('0.01'))
@@ -852,7 +896,9 @@ def process_sale(
         idempotency_key=idempotency_key,
         invoice_number=invoice_number,
         warehouse=warehouse,
+        store=store,
         customer=customer,
+        organization_id=org_id,
         customer_name=snapshot_name,
         customer_mobile=snapshot_mobile,
         customer_email=snapshot_email,
@@ -975,6 +1021,9 @@ def get_sale_details(sale_id: Union[str, UUID]) -> dict:
         'invoice_number': sale.invoice_number,
         'warehouse_id': str(sale.warehouse.id),
         'warehouse_name': sale.warehouse.name,
+        'store_id': str(sale.store_id) if sale.store_id else None,
+        'store_name': sale.store.name if sale.store_id else None,
+        'store_code': sale.store.code if sale.store_id else None,
         'customer_id': str(sale.customer_id) if sale.customer_id else None,
         'customer_name': sale.customer_name,
         'customer_mobile': sale.customer_mobile,

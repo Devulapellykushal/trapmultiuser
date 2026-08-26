@@ -87,6 +87,14 @@ export interface StockMovementReport {
 }
 
 // Sales Reports
+export interface SalesSummaryStoreRow {
+  storeId: string | null;
+  storeName: string;
+  totalSales: string;
+  invoiceCount: number;
+  totalItemsSold: number;
+}
+
 export interface SalesSummaryReport {
   period: {
     from: string | null;
@@ -98,6 +106,7 @@ export interface SalesSummaryReport {
   totalGst: string;
   invoiceCount: number;
   totalItemsSold: number;
+  byStore?: SalesSummaryStoreRow[];
 }
 
 export interface ProductSalesItem {

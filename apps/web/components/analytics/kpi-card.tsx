@@ -14,10 +14,10 @@ interface KPICardProps {
 
 export function KPICard({ label, value, delta, icon, delay = 0 }: KPICardProps) {
   const getDeltaColor = () => {
-    if (!delta) return "text-[#A1A4B3]";
-    if (delta > 0) return "text-[#2ECC71]";
-    if (delta < 0) return "text-[#E74C3C]";
-    return "text-[#A1A4B3]";
+    if (!delta) return "text-[#c5c0b5]";
+    if (delta > 0) return "text-[#3f9d7a]";
+    if (delta < 0) return "text-[#c45c5c]";
+    return "text-[#c5c0b5]";
   };
 
   const getDeltaIcon = () => {
@@ -31,20 +31,20 @@ export function KPICard({ label, value, delta, icon, delay = 0 }: KPICardProps) 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3 }}
-      className="p-5 rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08]"
+      className="p-5 rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08]"
     >
       <div className="flex items-start justify-between mb-3">
-        <span className="text-xs font-medium text-[#6F7285] uppercase tracking-wide">
+        <span className="text-xs font-medium text-[#8a867c] uppercase tracking-wide">
           {label}
         </span>
         {icon && (
-          <div className="p-2 rounded-lg bg-[#6366F1]/10">
+          <div className="p-2 rounded-lg bg-[#c4a574]/10">
             {icon}
           </div>
         )}
       </div>
       
-      <p className="text-3xl font-bold text-[#F5F6FA] tabular-nums mb-2">
+      <p className="text-3xl font-bold text-[#f3eee4] tabular-nums mb-2">
         {value}
       </p>
       
@@ -52,7 +52,7 @@ export function KPICard({ label, value, delta, icon, delay = 0 }: KPICardProps) 
         <div className={`flex items-center gap-1 text-sm ${getDeltaColor()}`}>
           {getDeltaIcon()}
           <span className="tabular-nums">{Math.abs(delta)}%</span>
-          <span className="text-[#6F7285]">vs last month</span>
+          <span className="text-[#8a867c]">vs last month</span>
         </div>
       )}
     </motion.div>

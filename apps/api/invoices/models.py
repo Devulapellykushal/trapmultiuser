@@ -91,7 +91,28 @@ class BusinessSettings(models.Model):
     Singleton model for business/store settings used in invoices.
     Also includes discount configuration for POS operations.
     """
+
+    class InventoryLocationMode(models.TextChoices):
+        # One counter / shop — stock lives on a single warehouse row; UI never says "warehouse".
+        SINGLE_SHOP = "SINGLE_SHOP", "One shop only"
+        # Central godown (warehouse) plus retail shops (stores) with transfers.
+        GODOWN_AND_SHOPS = "GODOWN_AND_SHOPS", "Godown and shops"
+
+    class ShopStockMode(models.TextChoices):
+        # Current: send stock godown → each shop; sell from that shop's stock.
+        TRANSFER = "TRANSFER", "Send stock to each shop"
+        # All shops sell from the same godown pool; sales +/- godown directly.
+        SHARED_GODOWN = "SHARED_GODOWN", "All shops use godown stock"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'users.Organization',
+        on_delete=models.PROTECT,
+        related_name='business_settings',
+        null=True,
+        blank=True,
+        help_text='Business workspace these settings belong to',
+    )
     business_name = models.CharField(max_length=200, default="Quake")
     tagline = models.CharField(max_length=200, blank=True, default="")
     address_line1 = models.CharField(max_length=200, blank=True)
@@ -105,6 +126,36 @@ class BusinessSettings(models.Model):
     gstin = models.CharField(max_length=20, blank=True, help_text="GST Identification Number (optional)")
     footer_text = models.TextField(blank=True, default="Thank you for shopping with us!")
     terms_text = models.TextField(blank=True, default="All items are non-refundable. Exchange within 7 days with receipt.")
+
+    inventory_location_mode = models.CharField(
+        max_length=32,
+        choices=InventoryLocationMode.choices,
+        default=InventoryLocationMode.SINGLE_SHOP,
+        help_text=(
+            "SINGLE_SHOP: one shop UI (no godown/shop split). "
+            "GODOWN_AND_SHOPS: godown + shops + transfers."
+        ),
+    )
+
+    shop_stock_mode = models.CharField(
+        max_length=32,
+        choices=ShopStockMode.choices,
+        default=ShopStockMode.TRANSFER,
+        help_text=(
+            "Only for Godown + shops. "
+            "TRANSFER: move stock to each shop before selling. "
+            "SHARED_GODOWN: every shop sells from the same godown stock."
+        ),
+    )
+
+    # When True: auto-create barcodes and show POS scan. When False: barcodes optional.
+    barcode_enabled = models.BooleanField(
+        default=True,
+        help_text=(
+            "If True, every product gets a barcode and POS shows scan. "
+            "If False, barcodes are optional — sell by search/tap."
+        ),
+    )
     
     # Discount Configuration
     discount_enabled = models.BooleanField(
@@ -139,11 +190,23 @@ class BusinessSettings(models.Model):
         return self.business_name
     
     @classmethod
-    def get_settings(cls):
-        """Get or create singleton settings instance."""
-        settings, created = cls.objects.get_or_create(pk='00000000-0000-0000-0000-000000000001')
+    def get_settings(cls, organization=None):
+        """Get or create settings for an organization (falls back to legacy singleton)."""
+        if organization is not None:
+            org_id = getattr(organization, "id", organization)
+            settings = cls.objects.filter(organization_id=org_id).order_by("id").first()
+            created = False
+            if settings is None:
+                settings = cls.objects.create(
+                    organization_id=org_id,
+                    business_name="Quake",
+                )
+                created = True
+        else:
+            settings, created = cls.objects.get_or_create(
+                pk="00000000-0000-0000-0000-000000000001"
+            )
         if created or not settings.available_discounts:
-            # Set default discount presets
             settings.available_discounts = [
                 {"type": "PERCENTAGE", "value": 5, "label": "5% Off"},
                 {"type": "PERCENTAGE", "value": 10, "label": "10% Off"},

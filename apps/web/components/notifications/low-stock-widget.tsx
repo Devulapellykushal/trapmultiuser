@@ -84,7 +84,7 @@ export function LowStockWidget({
         )}
       >
         <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-2 border-[#6366F1] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[#c4a574] border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -99,11 +99,11 @@ export function LowStockWidget({
         )}
       >
         <div className="flex flex-col items-center justify-center py-8">
-          <AlertTriangle className="w-8 h-8 text-[#EC4899] mb-2" />
+          <AlertTriangle className="w-8 h-8 text-[#c45c5c] mb-2" />
           <p className="text-sm text-[var(--text-muted)]">{error}</p>
           <button
             onClick={fetchData}
-            className="mt-2 text-xs text-[#6366F1] hover:text-[#A855F7] flex items-center gap-1"
+            className="mt-2 text-xs text-[#c4a574] hover:text-[#d4b88a] flex items-center gap-1"
           >
             <RefreshCw className="w-3 h-3" /> Retry
           </button>
@@ -122,8 +122,8 @@ export function LowStockWidget({
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-default)]">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-[#EC4899]/10">
-            <AlertTriangle className="w-4 h-4 text-[#EC4899]" />
+          <div className="p-2 rounded-lg bg-[#c45c5c]/10">
+            <AlertTriangle className="w-4 h-4 text-[#c45c5c]" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -176,7 +176,7 @@ export function LowStockWidget({
       <div className="divide-y divide-white/[0.05]">
         {displayItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-5">
-            <Package className="w-10 h-10 text-[#3A3D4A] mb-2" />
+            <Package className="w-10 h-10 text-[#1c1d22] mb-2" />
             <p className="text-sm text-[var(--text-muted)]">
               All products are well-stocked!
             </p>
@@ -246,7 +246,7 @@ export function LowStockWidget({
         <div className="px-5 py-3 border-t border-[var(--border-default)]">
           <Link
             href={`${adminHref("/inventory")}?filter=low-stock`}
-            className="flex items-center justify-center gap-1 text-xs text-[#6366F1] hover:text-[#A855F7] transition-colors"
+            className="flex items-center justify-center gap-1 text-xs text-[#c4a574] hover:text-[#d4b88a] transition-colors"
           >
             View all {data?.count} low stock products
             <ArrowRight className="w-3 h-3" />

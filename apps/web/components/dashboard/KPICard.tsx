@@ -69,11 +69,11 @@ export function KPICard({
                 <Info className="w-3.5 h-3.5" />
               </button>
               {showTooltip && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 w-48">
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 popover-panel rounded-lg z-[80] w-48">
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {tooltip}
                   </p>
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-[var(--bg-elevated)] border-r border-b border-[var(--border-default)] transform rotate-45 -mt-1"></div>
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-[var(--bg-modal)] border-r border-b border-[var(--border-default)] transform rotate-45 -mt-1"></div>
                 </div>
               )}
             </div>

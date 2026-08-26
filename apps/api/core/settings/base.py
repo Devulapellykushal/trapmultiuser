@@ -81,9 +81,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
+# Internationalization — Indian tyre shops: calendar day = IST business day
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -158,3 +158,17 @@ EMAIL_HOST_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('SMTP_USE_TLS', 'True').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('SMTP_USE_SSL', 'False').lower() == 'true'
 DEFAULT_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@Quake-inventory.com')
+
+# App branding & auth mail
+APP_NAME = os.getenv('APP_NAME', 'Quake Inventory')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', '')
+SUPPORT_PHONE = os.getenv('SUPPORT_PHONE', '')
+
+# Pluggable mail: smtp | console (console logs only — no delivery)
+EMAIL_ADAPTER = os.getenv('EMAIL_ADAPTER', 'smtp')
+
+# Public signup + password reset
+AUTH_ALLOW_PUBLIC_SIGNUP = os.getenv('AUTH_ALLOW_PUBLIC_SIGNUP', 'true').lower() == 'true'
+AUTH_DEV_RETURN_RESET_TOKEN = os.getenv('AUTH_DEV_RETURN_RESET_TOKEN', 'false').lower() == 'true'
+PASSWORD_RESET_TIMEOUT_MINUTES = int(os.getenv('PASSWORD_RESET_TIMEOUT_MINUTES', '60'))

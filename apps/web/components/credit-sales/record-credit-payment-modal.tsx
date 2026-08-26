@@ -135,7 +135,7 @@ export function RecordCreditPaymentModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 modal-scrim z-50"
             onClick={handleClose}
           />
 
@@ -148,21 +148,21 @@ export function RecordCreditPaymentModal({
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-[#1A1B23] border border-[#2A2B35] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="bg-[#111318] border border-[#1c1d22] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-[#2A2B35]">
+              <div className="flex items-center justify-between p-6 border-b border-[#1c1d22]">
                 <div>
-                  <h2 className="text-xl font-semibold text-[#F5F6FA]">
+                  <h2 className="text-xl font-semibold text-[#f3eee4]">
                     Record Payment
                   </h2>
-                  <p className="text-sm text-[#6F7285] mt-1">
+                  <p className="text-sm text-[#8a867c] mt-1">
                     Invoice: {creditSale.invoiceNumber}
                   </p>
                 </div>
                 <button
                   onClick={handleClose}
                   disabled={recordMutation.isPending}
-                  className="p-2 text-[#6F7285] hover:text-[#F5F6FA] hover:bg-[#2A2B35] rounded-lg transition-colors disabled:opacity-50"
+                  className="p-2 text-[#8a867c] hover:text-[#f3eee4] hover:bg-[#1c1d22] rounded-lg transition-colors disabled:opacity-50"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -189,14 +189,14 @@ export function RecordCreditPaymentModal({
                         )}
                       />
                     </div>
-                    <h3 className="text-lg font-semibold text-[#F5F6FA] mt-4">
+                    <h3 className="text-lg font-semibold text-[#f3eee4] mt-4">
                       {success.isFullyPaid
                         ? "Payment Complete!"
                         : "Payment Recorded"}
                     </h3>
-                    <p className="text-[#6F7285] mt-2">{success.message}</p>
+                    <p className="text-[#8a867c] mt-2">{success.message}</p>
                     {!success.isFullyPaid && (
-                      <p className="text-sm text-[#6F7285] mt-1">
+                      <p className="text-sm text-[#8a867c] mt-1">
                         Remaining balance:{" "}
                         <span className="text-amber-400 font-medium">
                           {formatCurrency(parseFloat(success.newBalance))}
@@ -206,7 +206,7 @@ export function RecordCreditPaymentModal({
                   </div>
                   <button
                     onClick={handleClose}
-                    className="w-full py-3 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white font-medium rounded-xl transition-colors"
+                    className="w-full py-3 bg-[#c4a574] hover:bg-[#8f7349] text-white font-medium rounded-xl transition-colors"
                   >
                     Done
                   </button>
@@ -214,17 +214,17 @@ export function RecordCreditPaymentModal({
               ) : (
                 <form onSubmit={handleSubmit}>
                   {/* Customer Info */}
-                  <div className="p-6 space-y-4 border-b border-[#2A2B35]">
+                  <div className="p-6 space-y-4 border-b border-[#1c1d22]">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#2A2B35] rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-[#6F7285]" />
+                      <div className="w-10 h-10 bg-[#1c1d22] rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-[#8a867c]" />
                       </div>
                       <div>
-                        <p className="text-[#F5F6FA] font-medium">
+                        <p className="text-[#f3eee4] font-medium">
                           {creditSale.customerName || "Walk-in Customer"}
                         </p>
                         {creditSale.customerMobile && (
-                          <p className="text-sm text-[#6F7285] flex items-center gap-1">
+                          <p className="text-sm text-[#8a867c] flex items-center gap-1">
                             <Phone className="w-3 h-3" />
                             {creditSale.customerMobile}
                           </p>
@@ -233,22 +233,22 @@ export function RecordCreditPaymentModal({
                     </div>
 
                     {/* Balance Summary */}
-                    <div className="bg-[#23242F] rounded-xl p-4 space-y-2">
+                    <div className="bg-[#1c1d22] rounded-xl p-4 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#6F7285]">Sale Total</span>
-                        <span className="text-[#F5F6FA]">
+                        <span className="text-[#8a867c]">Sale Total</span>
+                        <span className="text-[#f3eee4]">
                           {formatCurrency(parseFloat(creditSale.total))}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#6F7285]">Credit Amount</span>
-                        <span className="text-[#F5F6FA]">
+                        <span className="text-[#8a867c]">Credit Amount</span>
+                        <span className="text-[#f3eee4]">
                           {formatCurrency(parseFloat(creditSale.creditAmount))}
                         </span>
                       </div>
-                      <div className="h-px bg-[#2A2B35] my-2" />
+                      <div className="h-px bg-[#1c1d22] my-2" />
                       <div className="flex justify-between">
-                        <span className="text-[#6F7285] font-medium">
+                        <span className="text-[#8a867c] font-medium">
                           Outstanding Balance
                         </span>
                         <span className="text-amber-400 font-semibold text-lg">
@@ -270,11 +270,11 @@ export function RecordCreditPaymentModal({
 
                     {/* Amount Input */}
                     <div>
-                      <label className="block text-sm font-medium text-[#F5F6FA] mb-2">
+                      <label className="block text-sm font-medium text-[#f3eee4] mb-2">
                         Payment Amount
                       </label>
                       <div className="relative">
-                        <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6F7285]" />
+                        <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8a867c]" />
                         <input
                           type="number"
                           step="0.01"
@@ -283,20 +283,20 @@ export function RecordCreditPaymentModal({
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           placeholder="0.00"
-                          className="w-full pl-12 pr-4 py-3 bg-[#23242F] border border-[#2A2B35] rounded-xl text-[#F5F6FA] text-lg font-medium placeholder:text-[#6F7285] focus:outline-none focus:border-[#6C5DD3] transition-colors"
+                          className="w-full pl-12 pr-4 py-3 bg-[#1c1d22] border border-[#1c1d22] rounded-xl text-[#f3eee4] text-lg font-medium placeholder:text-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
                           disabled={recordMutation.isPending}
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={handlePayFullBalance}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-medium bg-[#6C5DD3]/20 text-[#6C5DD3] rounded-lg hover:bg-[#6C5DD3]/30 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-medium bg-[#c4a574]/20 text-[#c4a574] rounded-lg hover:bg-[#c4a574]/30 transition-colors"
                         >
                           Pay Full
                         </button>
                       </div>
                       {enteredAmount > 0 && enteredAmount <= balance && (
-                        <p className="text-xs text-[#6F7285] mt-2">
+                        <p className="text-xs text-[#8a867c] mt-2">
                           Balance after payment:{" "}
                           <span className="text-emerald-400">
                             {formatCurrency(remainingAfterPayment)}
@@ -307,7 +307,7 @@ export function RecordCreditPaymentModal({
 
                     {/* Payment Method */}
                     <div>
-                      <label className="block text-sm font-medium text-[#F5F6FA] mb-2">
+                      <label className="block text-sm font-medium text-[#f3eee4] mb-2">
                         Payment Method
                       </label>
                       <div className="grid grid-cols-3 gap-3">
@@ -320,8 +320,8 @@ export function RecordCreditPaymentModal({
                             className={cn(
                               "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
                               method === value
-                                ? "bg-[#6C5DD3]/20 border-[#6C5DD3] text-[#6C5DD3]"
-                                : "bg-[#23242F] border-[#2A2B35] text-[#6F7285] hover:border-[#6F7285]",
+                                ? "bg-[#c4a574]/20 border-[#c4a574] text-[#c4a574]"
+                                : "bg-[#1c1d22] border-[#1c1d22] text-[#8a867c] hover:border-[#8a867c]",
                             )}
                           >
                             <Icon className="w-5 h-5" />
@@ -333,20 +333,20 @@ export function RecordCreditPaymentModal({
 
                     {/* Notes (Optional) */}
                     <div>
-                      <label className="block text-sm font-medium text-[#F5F6FA] mb-2">
+                      <label className="block text-sm font-medium text-[#f3eee4] mb-2">
                         Notes{" "}
-                        <span className="text-[#6F7285] font-normal">
+                        <span className="text-[#8a867c] font-normal">
                           (Optional)
                         </span>
                       </label>
                       <div className="relative">
-                        <FileText className="absolute left-4 top-3 w-4 h-4 text-[#6F7285]" />
+                        <FileText className="absolute left-4 top-3 w-4 h-4 text-[#8a867c]" />
                         <textarea
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="Add a note about this payment..."
                           rows={2}
-                          className="w-full pl-11 pr-4 py-3 bg-[#23242F] border border-[#2A2B35] rounded-xl text-[#F5F6FA] placeholder:text-[#6F7285] focus:outline-none focus:border-[#6C5DD3] transition-colors resize-none"
+                          className="w-full pl-11 pr-4 py-3 bg-[#1c1d22] border border-[#1c1d22] rounded-xl text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors resize-none"
                           disabled={recordMutation.isPending}
                         />
                       </div>
@@ -354,12 +354,12 @@ export function RecordCreditPaymentModal({
                   </div>
 
                   {/* Footer */}
-                  <div className="flex gap-3 p-6 border-t border-[#2A2B35]">
+                  <div className="flex gap-3 p-6 border-t border-[#1c1d22]">
                     <button
                       type="button"
                       onClick={handleClose}
                       disabled={recordMutation.isPending}
-                      className="flex-1 py-3 bg-[#23242F] hover:bg-[#2A2B35] text-[#F5F6FA] font-medium rounded-xl transition-colors disabled:opacity-50"
+                      className="flex-1 py-3 bg-[#1c1d22] hover:bg-[#1c1d22] text-[#f3eee4] font-medium rounded-xl transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -370,7 +370,7 @@ export function RecordCreditPaymentModal({
                         !amount ||
                         parseFloat(amount) <= 0
                       }
-                      className="flex-1 py-3 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 py-3 bg-[#c4a574] hover:bg-[#8f7349] text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {recordMutation.isPending ? (
                         <>

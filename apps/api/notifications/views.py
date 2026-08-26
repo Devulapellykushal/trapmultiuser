@@ -171,7 +171,10 @@ class LowStockView(APIView):
         """Get current low stock products."""
         warehouse_id = request.query_params.get('warehouse_id')
         
-        low_stock_items = LowStockService.check_low_stock(warehouse_id)
+        low_stock_items = LowStockService.check_low_stock(
+            warehouse_id,
+            organization_id=getattr(request.user, "organization_id", None),
+        )
         
         return Response({
             'count': len(low_stock_items),
@@ -190,7 +193,10 @@ class LowStockView(APIView):
         send_email = request.data.get('send_email', False)
         
         # Check low stock
-        low_stock_items = LowStockService.check_low_stock(warehouse_id)
+        low_stock_items = LowStockService.check_low_stock(
+            warehouse_id,
+            organization_id=getattr(request.user, "organization_id", None),
+        )
         
         # Create notifications
         notifications_created = LowStockService.create_low_stock_notifications(low_stock_items)

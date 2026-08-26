@@ -27,6 +27,21 @@ export function normalizeSalesSummary(raw: SalesSummaryReport): SalesSummaryRepo
     Number(d[camel] ?? d[snake] ?? 0);
   const str = (camel: string, snake: string) =>
     String(d[camel] ?? d[snake] ?? "0");
+  const byStoreRaw = (d.byStore ?? d.by_store ?? []) as Record<
+    string,
+    unknown
+  >[];
+  const byStore = Array.isArray(byStoreRaw)
+    ? byStoreRaw.map((row) => ({
+        storeId: (row.storeId ?? row.store_id ?? null) as string | null,
+        storeName: String(row.storeName ?? row.store_name ?? "Unassigned"),
+        totalSales: String(row.totalSales ?? row.total_sales ?? "0"),
+        invoiceCount: Number(row.invoiceCount ?? row.invoice_count ?? 0),
+        totalItemsSold: Number(
+          row.totalItemsSold ?? row.total_items_sold ?? 0,
+        ),
+      }))
+    : [];
   return {
     period: {
       from: (period.from as string | null) ?? null,
@@ -38,6 +53,7 @@ export function normalizeSalesSummary(raw: SalesSummaryReport): SalesSummaryRepo
     totalGst: str("totalGst", "total_gst"),
     invoiceCount: num("invoiceCount", "invoice_count"),
     totalItemsSold: num("totalItemsSold", "total_items_sold"),
+    byStore,
   };
 }
 

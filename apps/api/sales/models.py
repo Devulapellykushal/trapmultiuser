@@ -131,6 +131,15 @@ class Sale(models.Model):
 
     # Primary key
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    organization = models.ForeignKey(
+        'users.Organization',
+        on_delete=models.PROTECT,
+        related_name='sales',
+        null=True,
+        blank=True,
+        help_text='Business workspace that owns this sale',
+    )
     
     # Idempotency for duplicate prevention
     idempotency_key = models.UUIDField(
@@ -152,6 +161,17 @@ class Sale(models.Model):
         Warehouse,
         on_delete=models.PROTECT,
         related_name='sales'
+    )
+
+    # Optional shop counter that made the sale (attribution).
+    # Stock may still move on warehouse (shared godown mode).
+    store = models.ForeignKey(
+        'inventory.Store',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sales',
+        help_text="Shop counter that sold this (when using shared godown or multi-shop POS)",
     )
     
     # Customer info (optional)
@@ -326,6 +346,10 @@ class Sale(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['idempotency_key']),
             models.Index(fields=['warehouse', 'created_at']),
+            models.Index(
+                fields=['store', 'created_at'],
+                name='sales_sale_store_i_created_idx',
+            ),
             models.Index(fields=['is_credit_sale', 'credit_status']),
         ]
 

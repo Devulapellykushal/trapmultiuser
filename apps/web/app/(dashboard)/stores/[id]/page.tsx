@@ -37,10 +37,10 @@ import {
   StoreAnalytics,
 } from "@/services";
 import { inventoryService, Warehouse } from "@/services";
-import { inventoryKeys } from "@/hooks";
+import { inventoryKeys, useLocationLabels } from "@/hooks";
 
 // =============================================================================
-// TRANSFER STOCK MODAL
+// TRANSFER STOCK MODAL — multi tyre + qty each (one trip to the shop)
 // =============================================================================
 
 interface TransferStockModalProps {
@@ -51,6 +51,55 @@ interface TransferStockModalProps {
   onSuccess: () => void;
 }
 
+type TransferProductRow = {
+  id: string;
+  name: string;
+  sku: string;
+  brand?: string;
+  /** Stock by godown id */
+  stockByWarehouse: Record<string, number>;
+};
+
+type LineQty = Record<string, number>;
+
+function mapTransferProduct(raw: Record<string, unknown>): TransferProductRow {
+  const breakdown = (raw.warehouseStock ??
+    raw.warehouse_stock ??
+    []) as Array<Record<string, unknown>>;
+  const stockByWarehouse: Record<string, number> = {};
+  for (const row of breakdown) {
+    const wid = String(row.warehouseId ?? row.warehouse_id ?? "");
+    if (wid) stockByWarehouse[wid] = Number(row.quantity ?? 0);
+  }
+  return {
+    id: String(raw.id),
+    name: String(raw.name ?? "Product"),
+    sku: String(raw.sku ?? ""),
+    brand: raw.brand != null ? String(raw.brand) : undefined,
+    stockByWarehouse,
+  };
+}
+
+function extractTransferError(error: unknown): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const data = (error as { response?: { data?: unknown } }).response?.data as
+      | {
+          error?: string;
+          detail?: string;
+          items?: string | string[];
+          non_field_errors?: string[];
+        }
+      | undefined;
+    if (typeof data?.error === "string") return data.error;
+    if (typeof data?.detail === "string") return data.detail;
+    if (typeof data?.items === "string") return data.items;
+    if (Array.isArray(data?.items) && data.items[0]) return String(data.items[0]);
+    if (data?.non_field_errors?.[0]) return data.non_field_errors[0];
+  }
+  if (error instanceof Error) return error.message;
+  return "Could not create transfer. Check quantities against godown stock.";
+}
+
 function TransferStockModal({
   isOpen,
   onClose,
@@ -59,8 +108,12 @@ function TransferStockModal({
   onSuccess,
 }: TransferStockModalProps) {
   const [selectedWarehouse, setSelectedWarehouse] = React.useState("");
-  const [selectedProduct, setSelectedProduct] = React.useState("");
-  const [quantity, setQuantity] = React.useState(1);
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [quantities, setQuantities] = React.useState<LineQty>({});
+  const [search, setSearch] = React.useState("");
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const { data: warehouses = [] } = useQuery({
     queryKey: inventoryKeys.warehouses(),
@@ -68,144 +121,373 @@ function TransferStockModal({
     enabled: isOpen,
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["products-for-transfer"],
     queryFn: async () => {
       const response = await inventoryService.getProducts({ page_size: 1000 });
-      return response.results || [];
+      const rows = response.results || [];
+      return rows.map((p) =>
+        mapTransferProduct(p as unknown as Record<string, unknown>),
+      );
     },
     enabled: isOpen,
   });
+
+  // Auto-pick single godown
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (warehouses.length === 1 && !selectedWarehouse) {
+      setSelectedWarehouse(warehouses[0].id);
+    }
+  }, [isOpen, warehouses, selectedWarehouse]);
+
+  // Reset when closed
+  React.useEffect(() => {
+    if (isOpen) return;
+    setSelectedWarehouse("");
+    setSelectedIds(new Set());
+    setQuantities({});
+    setSearch("");
+    setFormError(null);
+  }, [isOpen]);
 
   const createMutation = useMutation({
     mutationFn: stockTransfersService.createTransfer,
     onSuccess: () => {
       onSuccess();
       onClose();
-      setSelectedWarehouse("");
-      setSelectedProduct("");
-      setQuantity(1);
     },
   });
 
+  const filteredProducts = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = products;
+    if (selectedWarehouse) {
+      // Prefer showing items that have stock in this godown first
+      list = [...list].sort((a, b) => {
+        const sa = a.stockByWarehouse[selectedWarehouse] ?? 0;
+        const sb = b.stockByWarehouse[selectedWarehouse] ?? 0;
+        if (sa > 0 && sb <= 0) return -1;
+        if (sb > 0 && sa <= 0) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    if (!q) return list;
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        (p.brand && p.brand.toLowerCase().includes(q)),
+    );
+  }, [products, search, selectedWarehouse]);
+
+  const selectedLines = React.useMemo(() => {
+    return products.filter((p) => selectedIds.has(p.id));
+  }, [products, selectedIds]);
+
+  const toggleProduct = (id: string) => {
+    setFormError(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        setQuantities((q) => {
+          const copy = { ...q };
+          delete copy[id];
+          return copy;
+        });
+      } else {
+        next.add(id);
+        setQuantities((q) => ({ ...q, [id]: q[id] ?? 1 }));
+      }
+      return next;
+    });
+  };
+
+  const setLineQty = (id: string, qty: number) => {
+    setFormError(null);
+    const available = selectedWarehouse
+      ? (products.find((p) => p.id === id)?.stockByWarehouse[selectedWarehouse] ??
+        0)
+      : Infinity;
+    const safe = Math.max(1, Math.min(Math.floor(qty) || 1, available || 1));
+    setQuantities((q) => ({ ...q, [id]: safe }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedWarehouse || !selectedProduct) return;
+    setFormError(null);
 
-    createMutation.mutate({
-      sourceWarehouse: selectedWarehouse,
-      destinationStore: storeId,
-      transferDate: new Date().toISOString().split("T")[0],
-      items: [{ product: selectedProduct, quantity }],
-    });
+    if (!selectedWarehouse) {
+      setFormError("Select the godown to send from.");
+      return;
+    }
+    if (selectedLines.length === 0) {
+      setFormError("Tick at least one tyre to send.");
+      return;
+    }
+
+    const items: { product: string; quantity: number }[] = [];
+    for (const line of selectedLines) {
+      const qty = quantities[line.id] ?? 0;
+      const available = line.stockByWarehouse[selectedWarehouse] ?? 0;
+      if (qty < 1) {
+        setFormError(`Enter quantity for ${line.name}.`);
+        return;
+      }
+      if (qty > available) {
+        setFormError(
+          `${line.name}: only ${available} in godown, you asked for ${qty}.`,
+        );
+        return;
+      }
+      items.push({ product: line.id, quantity: qty });
+    }
+
+    createMutation.mutate(
+      {
+        sourceWarehouse: selectedWarehouse,
+        destinationStore: storeId,
+        transferDate: new Date().toISOString().split("T")[0],
+        items,
+      },
+      {
+        onError: (err) => setFormError(extractTransferError(err)),
+      },
+    );
   };
 
   if (!isOpen) return null;
 
+  const totalUnits = selectedLines.reduce(
+    (sum, p) => sum + (quantities[p.id] ?? 0),
+    0,
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={onClose}
       />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative z-10 w-full max-w-lg bg-zinc-900 rounded-2xl border border-zinc-800 shadow-xl overflow-hidden"
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="relative z-10 w-full sm:max-w-xl max-h-[92vh] flex flex-col bg-zinc-900 rounded-t-2xl sm:rounded-2xl border border-zinc-800 shadow-xl overflow-hidden"
       >
-        <div className="p-6 border-b border-zinc-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20">
+        <div className="p-5 border-b border-zinc-800 shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 shrink-0">
                 <Truck className="w-5 h-5 text-blue-400" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-white">
-                  Transfer Stock
+                  Send stock to shop
                 </h2>
-                <p className="text-sm text-zinc-400">To {storeName}</p>
+                <p className="text-sm text-zinc-400 truncate">
+                  To <span className="text-zinc-200">{storeName}</span> — tick
+                  tyres, set how many
+                </p>
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors shrink-0"
+              aria-label="Close"
             >
               <X className="w-5 h-5 text-zinc-400" />
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Source Warehouse */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Source Warehouse *
-            </label>
-            <select
-              required
-              value={selectedWarehouse}
-              onChange={(e) => setSelectedWarehouse(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-            >
-              <option value="">Select warehouse...</option>
-              {warehouses.map((wh: Warehouse) => (
-                <option key={wh.id} value={wh.id}>
-                  {wh.name} ({wh.code})
-                </option>
-              ))}
-            </select>
-          </div>
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+        >
+          <div className="p-5 space-y-4 overflow-y-auto flex-1">
+            {/* Godown */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                From godown *
+              </label>
+              {warehouses.length === 1 ? (
+                <div className="px-4 py-3 bg-zinc-800/80 border border-zinc-700 rounded-xl text-white text-sm">
+                  {warehouses[0].name}
+                  {warehouses[0].code ? (
+                    <span className="text-zinc-500 ml-2">
+                      ({warehouses[0].code})
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <select
+                  required
+                  value={selectedWarehouse}
+                  onChange={(e) => {
+                    setSelectedWarehouse(e.target.value);
+                    setFormError(null);
+                  }}
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  <option value="">Select godown…</option>
+                  {warehouses.map((wh: Warehouse) => (
+                    <option key={wh.id} value={wh.id}>
+                      {wh.name}
+                      {wh.code ? ` (${wh.code})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
 
-          {/* Product */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Product *
-            </label>
-            <select
-              required
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-            >
-              <option value="">Select product...</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku})
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Search + multi select list */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <label className="block text-sm font-medium text-zinc-300">
+                  Tyres to send *
+                </label>
+                {selectedLines.length > 0 && (
+                  <span className="text-xs text-blue-300">
+                    {selectedLines.length} selected · {totalUnits} units
+                  </span>
+                )}
+              </div>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name, brand, size…"
+                className="w-full mb-2 px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
 
-          {/* Quantity */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Quantity *
-            </label>
-            <input
-              type="number"
-              min={1}
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-            />
-          </div>
-
-          {/* Error */}
-          {createMutation.isError && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-              <p className="text-red-400 text-sm">
-                Failed to create transfer. Check stock availability.
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/40 max-h-64 overflow-y-auto divide-y divide-zinc-800">
+                {productsLoading && (
+                  <div className="flex items-center gap-2 px-4 py-6 text-sm text-zinc-400 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading tyres…
+                  </div>
+                )}
+                {!productsLoading && filteredProducts.length === 0 && (
+                  <div className="px-4 py-6 text-sm text-zinc-500 text-center">
+                    No tyres found
+                  </div>
+                )}
+                {!productsLoading &&
+                  filteredProducts.map((p) => {
+                    const checked = selectedIds.has(p.id);
+                    const available = selectedWarehouse
+                      ? (p.stockByWarehouse[selectedWarehouse] ?? 0)
+                      : 0;
+                    const outOfStock = !!selectedWarehouse && available <= 0;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`flex items-start gap-3 px-3 py-3 ${
+                          outOfStock ? "opacity-50" : "hover:bg-zinc-800/80"
+                        }`}
+                      >
+                        <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={outOfStock}
+                            onChange={() => toggleProduct(p.id)}
+                            className="mt-1 w-4 h-4 rounded border-zinc-600 bg-zinc-900 text-blue-500 focus:ring-blue-500/40"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm text-white truncate">
+                              {p.name}
+                            </span>
+                            <span className="block text-[11px] text-zinc-500 truncate">
+                              {[p.brand, p.sku].filter(Boolean).join(" · ")}
+                              {selectedWarehouse
+                                ? ` · Godown: ${available}`
+                                : ""}
+                            </span>
+                          </span>
+                        </label>
+                        {checked && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLineQty(p.id, (quantities[p.id] ?? 1) - 1)
+                              }
+                              className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                              aria-label="Less"
+                            >
+                              <span className="text-sm font-bold leading-none">
+                                −
+                              </span>
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={available || undefined}
+                              value={quantities[p.id] ?? 1}
+                              onChange={(e) =>
+                                setLineQty(p.id, Number(e.target.value))
+                              }
+                              className="w-14 text-center px-1 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-white tabular-nums"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLineQty(p.id, (quantities[p.id] ?? 1) + 1)
+                              }
+                              disabled={
+                                !!selectedWarehouse &&
+                                (quantities[p.id] ?? 1) >= available
+                              }
+                              className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
+                              aria-label="More"
+                            >
+                              <span className="text-sm font-bold leading-none">
+                                +
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+              <p className="text-[11px] text-zinc-500 mt-2">
+                Tip: only send what the shop needs. Godown stock goes down; shop
+                stock goes up after receive.
               </p>
             </div>
-          )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
+            {/* Selected summary */}
+            {selectedLines.length > 0 && (
+              <div className="rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 space-y-1">
+                <p className="font-medium text-blue-200">Sending now</p>
+                {selectedLines.map((p) => (
+                  <p key={p.id} className="text-xs text-blue-100/80 truncate">
+                    {quantities[p.id] ?? 0} × {p.name}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {(formError || createMutation.isError) && (
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-red-400 text-sm">
+                  {formError ||
+                    extractTransferError(createMutation.error) ||
+                    "Failed to create transfer."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 p-5 border-t border-zinc-800 shrink-0 bg-zinc-900">
             <button
               type="button"
               onClick={onClose}
@@ -215,18 +497,23 @@ function TransferStockModal({
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={
+                createMutation.isPending ||
+                selectedLines.length === 0 ||
+                !selectedWarehouse
+              }
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  Creating…
                 </>
               ) : (
                 <>
                   <Truck className="w-4 h-4" />
-                  Create Transfer
+                  Send {selectedLines.length || ""}{" "}
+                  {selectedLines.length === 1 ? "tyre type" : "tyre types"}
                 </>
               )}
             </button>
@@ -305,7 +592,7 @@ function ReceiveTransferModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 modal-scrim"
         onClick={onClose}
       />
       <motion.div
@@ -452,9 +739,10 @@ function ReceiveTransferModal({
 interface StockTableProps {
   stock: StoreStock[];
   isLoading: boolean;
+  isSharedGodown?: boolean;
 }
 
-function StockTable({ stock, isLoading }: StockTableProps) {
+function StockTable({ stock, isLoading, isSharedGodown }: StockTableProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -467,9 +755,15 @@ function StockTable({ stock, isLoading }: StockTableProps) {
     return (
       <div className="text-center py-12">
         <Package className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-        <p className="text-zinc-400">No stock in this store yet</p>
+        <p className="text-zinc-400">
+          {isSharedGodown
+            ? "This shop has no local stock ledger"
+            : "No stock in this store yet"}
+        </p>
         <p className="text-zinc-500 text-sm">
-          Transfer products from warehouse to add stock
+          {isSharedGodown
+            ? "Sales use shared godown stock — open Godown to see and update qty"
+            : "Send stock from the godown to add inventory here"}
         </p>
       </div>
     );
@@ -875,6 +1169,7 @@ export default function StoreDetailPage() {
   const router = useRouter();
   const storeId = params.id as string;
   const queryClient = useQueryClient();
+  const { isSharedGodown, isTransferStock, labels } = useLocationLabels();
   const [isTransferModalOpen, setIsTransferModalOpen] = React.useState(false);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = React.useState(false);
   const [selectedTransfer, setSelectedTransfer] =
@@ -883,6 +1178,12 @@ export default function StoreDetailPage() {
   const [activeTab, setActiveTab] = React.useState<
     "stock" | "transfers" | "analytics"
   >("stock");
+
+  React.useEffect(() => {
+    if (isSharedGodown && activeTab === "transfers") {
+      setActiveTab("stock");
+    }
+  }, [isSharedGodown, activeTab]);
 
   const {
     data: store,
@@ -902,7 +1203,7 @@ export default function StoreDetailPage() {
   const { data: transfers = [], isLoading: transfersLoading } = useQuery({
     queryKey: ["store-transfers", storeId],
     queryFn: () => stockTransfersService.getTransfers({ store: storeId }),
-    enabled: !!storeId,
+    enabled: !!storeId && isTransferStock,
   });
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
@@ -1020,15 +1321,30 @@ export default function StoreDetailPage() {
             >
               <RefreshCcw className="w-5 h-5 text-zinc-400" />
             </button>
-            <button
-              onClick={() => setIsTransferModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium hover:from-blue-600 hover:to-indigo-700 transition-all"
-            >
-              <Truck className="w-5 h-5" />
-              Transfer Stock
-            </button>
+            {isTransferStock && (
+              <button
+                onClick={() => setIsTransferModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium hover:from-blue-600 hover:to-indigo-700 transition-all"
+              >
+                <Truck className="w-5 h-5" />
+                Send stock
+              </button>
+            )}
           </div>
         </div>
+
+        {isSharedGodown && (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">
+            <p className="font-medium text-emerald-200">
+              Shared godown stock is on
+            </p>
+            <p className="text-xs text-emerald-100/70 mt-1">
+              This shop sells from {labels.warehouseSingularTitle} stock. Sale
+              +/− happens on the godown — no sending needed. Change this in
+              Settings.
+            </p>
+          </div>
+        )}
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1178,15 +1494,19 @@ export default function StoreDetailPage() {
                 {store.lowStockThreshold})
               </p>
               <p className="text-amber-400/70 text-sm">
-                Consider transferring more stock from warehouse
+                {isSharedGodown
+                  ? "Add more stock in Godown (Update stock) — all shops share it"
+                  : "Consider sending more stock from the godown"}
               </p>
             </div>
-            <button
-              onClick={() => setIsTransferModalOpen(true)}
-              className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors text-sm font-medium"
-            >
-              Transfer Stock
-            </button>
+            {isTransferStock && (
+              <button
+                onClick={() => setIsTransferModalOpen(true)}
+                className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors text-sm font-medium"
+              >
+                Send stock
+              </button>
+            )}
           </motion.div>
         )}
 
@@ -1212,30 +1532,32 @@ export default function StoreDetailPage() {
                 />
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("transfers")}
-              className={`pb-4 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === "transfers"
-                  ? "text-emerald-400"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="w-4 h-4" />
-                Transfers
-                {transfers.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400">
-                    {transfers.length}
-                  </span>
+            {isTransferStock && (
+              <button
+                onClick={() => setActiveTab("transfers")}
+                className={`pb-4 px-1 text-sm font-medium transition-colors relative ${
+                  activeTab === "transfers"
+                    ? "text-emerald-400"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4" />
+                  Transfers
+                  {transfers.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400">
+                      {transfers.length}
+                    </span>
+                  )}
+                </div>
+                {activeTab === "transfers" && (
+                  <motion.div
+                    layoutId="tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400"
+                  />
                 )}
-              </div>
-              {activeTab === "transfers" && (
-                <motion.div
-                  layoutId="tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400"
-                />
-              )}
-            </button>
+              </button>
+            )}
             <button
               onClick={() => setActiveTab("analytics")}
               className={`pb-4 px-1 text-sm font-medium transition-colors relative ${
@@ -1266,8 +1588,12 @@ export default function StoreDetailPage() {
         {/* Tab Content */}
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl">
           {activeTab === "stock" ? (
-            <StockTable stock={stock} isLoading={stockLoading} />
-          ) : activeTab === "transfers" ? (
+            <StockTable
+              stock={stock}
+              isLoading={stockLoading}
+              isSharedGodown={isSharedGodown}
+            />
+          ) : activeTab === "transfers" && isTransferStock ? (
             <TransfersTable
               transfers={transfers}
               isLoading={transfersLoading}

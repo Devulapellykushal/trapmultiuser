@@ -61,11 +61,11 @@ export default function AnalyticsPage() {
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-[#c4a574]" />
               Analytics
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading analytics...</p>
+            <p className="text-sm text-[#8a867c] mt-1">Loading analytics...</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
@@ -81,11 +81,11 @@ export default function AnalyticsPage() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+          <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-[#c4a574]" />
             Analytics
           </h1>
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
             <ErrorState 
               message="Could not load analytics. Check if backend is running."
               onRetry={() => refetch()}
@@ -102,31 +102,31 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <BarChart3 className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-[#c4a574]" />
               Analytics
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Business intelligence & insights</p>
+            <p className="text-sm text-[#8a867c] mt-1">Business intelligence & insights</p>
           </div>
           
           {/* Selectors */}
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] text-sm hover:bg-white/[0.08] transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] text-sm hover:bg-white/[0.08] transition-colors">
               <Calendar className="w-4 h-4 stroke-[1.5]" />
               <span>Last 30 Days</span>
-              <ChevronDown className="w-4 h-4 text-[#6F7285]" />
+              <ChevronDown className="w-4 h-4 text-[#8a867c]" />
             </button>
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#F5F6FA] text-sm hover:bg-white/[0.08] transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] text-sm hover:bg-white/[0.08] transition-colors">
               <Building2 className="w-4 h-4 stroke-[1.5]" />
               <span>All Warehouses</span>
-              <ChevronDown className="w-4 h-4 text-[#6F7285]" />
+              <ChevronDown className="w-4 h-4 text-[#8a867c]" />
             </button>
           </div>
         </div>
 
         {/* Content or Empty State */}
         {!hasData ? (
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
             <EmptyState
               icon={BarChart3}
               title={emptyStates.analytics.title}
@@ -141,28 +141,28 @@ export default function AnalyticsPage() {
                 label="Total Revenue"
                 value={formatCurrency(data.kpis.total_revenue || 0)}
                 delta={data.kpis.revenue_delta || 0}
-                icon={<DollarSign className="w-4 h-4 text-[#C6A15B]" />}
+                icon={<DollarSign className="w-4 h-4 text-[#c4a574]" />}
                 delay={0}
               />
               <KPICard
                 label="Total Sales"
                 value={(data.kpis.total_sales || 0).toString()}
                 delta={data.kpis.sales_delta || 0}
-                icon={<ShoppingCart className="w-4 h-4 text-[#C6A15B]" />}
+                icon={<ShoppingCart className="w-4 h-4 text-[#c4a574]" />}
                 delay={0.05}
               />
               <KPICard
                 label="Avg Order Value"
                 value={formatCurrency(data.kpis.avg_order_value || 0)}
                 delta={data.kpis.aov_delta || 0}
-                icon={<TrendingUp className="w-4 h-4 text-[#C6A15B]" />}
+                icon={<TrendingUp className="w-4 h-4 text-[#c4a574]" />}
                 delay={0.1}
               />
               <KPICard
                 label="Profit"
                 value={formatCurrency(data.kpis.profit || 0)}
                 delta={data.kpis.profit_delta || 0}
-                icon={<Wallet className="w-4 h-4 text-[#C6A15B]" />}
+                icon={<Wallet className="w-4 h-4 text-[#c4a574]" />}
                 delay={0.15}
               />
             </div>

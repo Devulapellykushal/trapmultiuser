@@ -1,8 +1,8 @@
 "use client";
 
-import * as React from "react";
-import { Package, ChevronRight, Barcode, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Barcode, ChevronRight, Package, Trash2 } from "lucide-react";
+import * as React from "react";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -16,13 +16,13 @@ function formatCurrency(amount: number): string {
 function getStockColor(status: string): string {
   switch (status) {
     case "in_stock":
-      return "#2ECC71";
+      return "#3f9d7a";
     case "low_stock":
-      return "#F5A623";
+      return "#d4a054";
     case "out_of_stock":
-      return "#E74C3C";
+      return "#c45c5c";
     default:
-      return "#6F7285";
+      return "#8a867c";
   }
 }
 
@@ -148,12 +148,12 @@ export function InventoryList({
     return (
       <div className="py-16 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/[0.05] mb-4">
-          <Package className="w-8 h-8 text-[#6F7285] stroke-[1.5]" />
+          <Package className="w-8 h-8 text-[#8a867c] stroke-[1.5]" />
         </div>
-        <h3 className="text-lg font-semibold text-[#F5F6FA] mb-2">
+        <h3 className="text-lg font-semibold text-[#f3eee4] mb-2">
           No products found
         </h3>
-        <p className="text-sm text-[#A1A4B3]">
+        <p className="text-sm text-[#c5c0b5]">
           Try adjusting your filters or search query
         </p>
       </div>
@@ -161,7 +161,7 @@ export function InventoryList({
   }
 
   return (
-    <div className="rounded-xl bg-[#1A1B23]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+    <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
       <div className="max-h-[600px] overflow-x-auto overflow-y-auto">
         {/* Desktop: semantic table — header/body columns stay aligned */}
         <table
@@ -180,7 +180,7 @@ export function InventoryList({
             <col className="w-10" />
           </colgroup>
           <thead>
-            <tr className="bg-[#1A1B23] border-b border-white/[0.08] text-xs font-medium text-[#6F7285] uppercase tracking-wide sticky top-0 z-10 shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+            <tr className="bg-[#111318] border-b border-white/[0.08] text-xs font-medium text-[#8a867c] uppercase tracking-wide sticky top-0 z-10 shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <th scope="col" className="text-center align-middle">
                 <input
                   ref={headerCheckboxRef}
@@ -262,11 +262,11 @@ export function InventoryList({
                   aria-label={`Open ${product.name}`}
                   className={`
                     cursor-pointer transition-colors duration-150
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C6A15B]
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#c4a574]
                     ${isDeleted ? "opacity-50" : ""}
                     ${isHovered || isSelected ? "bg-white/[0.04]" : ""}
                     ${!isHovered && !isSelected ? "hover:bg-white/[0.03]" : ""}
-                    ${isSelected ? "bg-[#C6A15B]/5" : ""}
+                    ${isSelected ? "bg-[#c4a574]/5" : ""}
                   `}
                 >
                   <td className="align-middle text-center">
@@ -278,7 +278,7 @@ export function InventoryList({
                         aria-label={`Select ${product.name}`}
                         onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleRowSelection(product.id)}
-                        className={`w-4 h-4 rounded border-2 border-white/[0.2] bg-transparent checked:bg-[#C6A15B] checked:border-[#C6A15B] ${
+                        className={`w-4 h-4 rounded border-2 border-white/[0.2] bg-transparent checked:bg-[#c4a574] checked:border-[#c4a574] ${
                           onSelectionChange
                             ? "cursor-pointer"
                             : "cursor-not-allowed opacity-50"
@@ -289,22 +289,22 @@ export function InventoryList({
                   <td className="align-middle min-w-0">
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
                       <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        <Package className="w-5 h-5 text-[#6F7285] stroke-[1.5]" />
+                        <Package className="w-5 h-5 text-[#8a867c] stroke-[1.5]" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm font-medium text-[#F5F6FA] truncate">
+                          <span className="text-sm font-medium text-[#f3eee4] truncate">
                             {product.name}
                           </span>
                           {isDeleted && (
-                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#E74C3C]/20 text-[#E74C3C] flex items-center gap-1">
+                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#c45c5c]/20 text-[#c45c5c] flex items-center gap-1">
                               <Trash2 className="w-2.5 h-2.5" />
                               Deleted
                             </span>
                           )}
                         </div>
                         {product.barcode && isHovered && (
-                          <span className="flex items-center gap-1 text-xs text-[#6F7285] truncate">
+                          <span className="flex items-center gap-1 text-xs text-[#8a867c] truncate">
                             <Barcode className="w-3 h-3 flex-shrink-0" />
                             {product.barcode}
                           </span>
@@ -314,30 +314,30 @@ export function InventoryList({
                   </td>
                   <td className="align-middle min-w-0">
                     <span
-                      className="font-mono text-sm text-[#A1A4B3] break-all min-w-0"
+                      className="font-mono text-sm text-[#c5c0b5] break-all min-w-0"
                       title={product.sku}
                     >
                       {product.sku}
                     </span>
                   </td>
                   <td className="align-middle min-w-0">
-                    <span className="text-sm text-[#A1A4B3] truncate block">
+                    <span className="text-sm text-[#c5c0b5] truncate block">
                       {product.brand || "—"}
                     </span>
                   </td>
                   <td className="align-middle min-w-0">
-                    <span className="text-sm text-[#A1A4B3] truncate block">
+                    <span className="text-sm text-[#c5c0b5] truncate block">
                       {product.category}
                     </span>
                   </td>
                   <td className="align-middle text-right tabular-nums">
-                    <span className="text-sm text-[#F5F6FA]">
+                    <span className="text-sm text-[#f3eee4]">
                       {product.stock.total}
                     </span>
                   </td>
                   <td className="align-middle text-center">
                     <span
-                      className="text-sm text-[#A1A4B3]"
+                      className="text-sm text-[#c5c0b5]"
                       title={
                         product.firstPurchaseDate
                           ? `Since ${product.firstPurchaseDate}`
@@ -351,9 +351,9 @@ export function InventoryList({
                     <StockBadge status={product.status} />
                   </td>
                   <td className="align-middle text-right tabular-nums min-w-0">
-                    <span className="text-sm font-medium text-[#C6A15B]">
+                    <span className="text-sm font-medium text-[#c4a574]">
                       {product.sellingPriceUnset ? (
-                        <span className="text-[#6F7285] font-normal">—</span>
+                        <span className="text-[#8a867c] font-normal">—</span>
                       ) : (
                         formatCurrency(product.sellingPrice)
                       )}
@@ -361,7 +361,7 @@ export function InventoryList({
                   </td>
                   <td className="align-middle text-center pr-4">
                     <ChevronRight
-                      className={`inline w-4 h-4 text-[#6F7285] transition-opacity duration-150 ${
+                      className={`inline w-4 h-4 text-[#8a867c] transition-opacity duration-150 ${
                         isHovered ? "opacity-100" : "opacity-0"
                       }`}
                     />
@@ -392,10 +392,10 @@ export function InventoryList({
                 className={`
                   w-full grid grid-cols-1 gap-2 px-4 py-4 text-left cursor-pointer
                   transition-all duration-150 ease-out
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C6A15B]
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#c4a574]
                   ${isDeleted ? "opacity-50" : ""}
                   ${isHovered || isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.03]"}
-                  ${isSelected ? "bg-[#C6A15B]/5" : ""}
+                  ${isSelected ? "bg-[#c4a574]/5" : ""}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -406,7 +406,7 @@ export function InventoryList({
                       disabled={!onSelectionChange}
                       onClick={(e) => e.stopPropagation()}
                       onChange={() => toggleRowSelection(product.id)}
-                      className={`w-4 h-4 rounded border-2 border-white/[0.2] bg-transparent checked:bg-[#C6A15B] checked:border-[#C6A15B] ${
+                      className={`w-4 h-4 rounded border-2 border-white/[0.2] bg-transparent checked:bg-[#c4a574] checked:border-[#c4a574] ${
                         onSelectionChange
                           ? "cursor-pointer"
                           : "cursor-not-allowed opacity-50"
@@ -415,20 +415,20 @@ export function InventoryList({
                     />
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0">
-                    <Package className="w-5 h-5 text-[#6F7285] stroke-[1.5]" />
+                    <Package className="w-5 h-5 text-[#8a867c] stroke-[1.5]" />
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-[#F5F6FA]">
+                      <span className="text-sm font-medium text-[#f3eee4]">
                         {product.name}
                       </span>
                       {isDeleted && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#E74C3C]/20 text-[#E74C3C]">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#c45c5c]/20 text-[#c45c5c]">
                           Deleted
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 text-xs text-[#A1A4B3] mt-1">
+                    <div className="flex items-center justify-between gap-2 text-xs text-[#c5c0b5] mt-1">
                       <span className="font-mono break-all text-left flex-1 min-w-0">
                         {product.sku}
                       </span>
@@ -439,12 +439,12 @@ export function InventoryList({
                 </div>
 
                 <div className="flex items-center justify-between pl-14 pr-1 text-xs">
-                  <span className="text-[#6F7285]">
+                  <span className="text-[#8a867c]">
                     Stock: {product.stock.total}
                   </span>
-                  <span className="text-sm font-semibold text-[#C6A15B] tabular-nums">
+                  <span className="text-sm font-semibold text-[#c4a574] tabular-nums">
                     {product.sellingPriceUnset ? (
-                      <span className="text-[#6F7285] font-normal text-xs">
+                      <span className="text-[#8a867c] font-normal text-xs">
                         —
                       </span>
                     ) : (

@@ -1,230 +1,115 @@
 # Quake Inventory System
 
-Enterprise-grade inventory management system for luxury apparel brands.
+Multi-tenant retail POS and inventory for tyre / retail shops — Django API + Next.js admin & POS.
 
-## 🏗 Project Structure
+**Brand:** Quake (ink + champagne). Canonical mark: `apps/web/public/assets/2d/Quake_Logo.png`.
+
+## What it is
+
+- **Organization tenancy** — each business has its own workspace (warehouses, products, customers, sales, invoices). Public signup never shares another shop’s data.
+- **RBAC** — one email → one role (`ADMIN` or `STAFF`) inside that organization.
+- **POS** — GST billing, discounts, credit sales, barcode, shared godown / multi-shop modes.
+- **Customers CRM** — directory, segments, outreach; identity by mobile (preferred) or email. See [`CUSTOMERS.md`](./CUSTOMERS.md).
+- **Auth** — email login, public signup, password reset (SMTP or console adapter).
+- **Superadmin** — platform `is_superuser` console at `/superadmin` toggles which modules each organization can use (CRM, reports, etc.).
+
+## Project structure
 
 ```
-Quake-inventory/
+trapmultiuser/
 ├── apps/
-│   ├── api/                    # Django backend (API-only)
-│   │   ├── core/
-│   │   │   ├── settings/       # Split settings (base, dev, prod)
-│   │   │   ├── health.py       # Health check endpoint
-│   │   │   └── urls.py         # URL routing
-│   │   ├── manage.py
-│   │   ├── requirements.txt
-│   │   └── pyproject.toml
-│   │
-│   └── web/                    # Next.js 14 frontend
-│       ├── app/                # App Router
-│       ├── components/
-│       ├── lib/
-│       └── styles/
-│
-├── packages/
-│   ├── ui/                     # Shared UI components (future)
-│   ├── contracts/              # Shared TypeScript types (future)
-│   └── utils/                  # Shared utilities (future)
-│
-├── infra/
-│   └── postgres/               # Database setup docs
-│
+│   ├── api/          # Django + DRF (PostgreSQL)
+│   ├── web/          # Next.js App Router (admin + POS)
+│   └── client/       # Product studio / related client
 ├── docs/
-│   └── architecture/           # Architecture documentation
-│
-├── .env.example                # Environment template
-├── pnpm-workspace.yaml         # PNPM workspace config
-├── package.json                # Root package.json
+│   ├── architecture/ # System overview + tenancy
+│   ├── adr/          # Architecture decision records
+│   └── …
+├── CUSTOMERS.md      # Business guide — customer identity
+├── .env.example
 └── README.md
 ```
 
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **PNPM** 8+ (`npm install -g pnpm`)
-- **Python** 3.9+
-- **PostgreSQL** 12+
+- Node.js 18+, PNPM 8+
+- Python 3.9+
+- PostgreSQL 12+ (or SQLite via `USE_SQLITE` for local only)
 
-### 1. Clone and Install Dependencies
+### Install
 
 ```bash
-# Install all dependencies
 pnpm install
+cp .env.example .env   # set DATABASE_URL / secrets / FRONTEND_URL
 ```
 
-### 2. Database Setup
+### Backend (`apps/api`)
 
 ```bash
-# Install PostgreSQL (macOS)
-brew install postgresql@15
-brew services start postgresql@15
-
-# Create database
-createdb Quake_inventory
-```
-
-### 3. Environment Configuration
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your values
-# - Set POSTGRES_PASSWORD
-# - Update DJANGO_SECRET_KEY for production
-```
-
-### 4. Backend Setup
-
-```bash
-# Navigate to API directory
 cd apps/api
-
-# Create virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate
-
-# Install Python dependencies
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Run migrations
 python manage.py migrate
-
-# Start development server
 python manage.py runserver 0.0.0.0:8000
 ```
 
-**Backend runs at:** http://localhost:8000
+**API:** http://localhost:8000 · **Swagger:** http://localhost:8000/api/docs/
 
-### 5. Frontend Setup
+After migrate, seed logins:
+
+| Email | Role | Password |
+|-------|------|----------|
+| `superadmin@tracquake.com` | Platform superuser (`/superadmin/login`) | `Kushal@12` |
+| `admin@thirumalawheels.com` | Org ADMIN (Thirumala) | `Kushal@12` |
+| `staff@thirumalawheels.com` | Org STAFF (Thirumala) | `Kushal@12` |
+
+Public signup creates a **new empty organization** and an **ADMIN** owner for that workspace.
+
+### Frontend (`apps/web`)
 
 ```bash
-# From project root
 pnpm dev:web
-# Or from apps/web directory
-cd apps/web && pnpm dev
+# or: cd apps/web && pnpm dev
 ```
 
-**Frontend runs at:** http://localhost:3000
+**App:** http://localhost:3000 · Auth: `/login`, `/signup` · Admin: `/admin` · POS: `/pos` · Platform: `/superadmin/login`
 
-## 📡 API Endpoints
+## Tenancy & roles (short)
 
-### Health Check
+| Concept | Rule |
+|---------|------|
+| **Organization** | Data boundary — inventory, customers, sales, invoices, settings |
+| **ADMIN** | Full access in their org (catalog, users, reports, settings) |
+| **STAFF** | Day-to-day POS / read inventory in the same org |
+| **Signup** | Always new org + ADMIN |
+| **Invite user** | Same org; role chosen by an ADMIN |
+| **Superadmin** | Django `is_superuser` — org service toggles at `/superadmin` |
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Health check (root) |
-| `/health/` | GET | Health check |
+Engineering detail: [`docs/adr/0003-organization-tenancy-rbac.md`](./docs/adr/0003-organization-tenancy-rbac.md), [`docs/adr/0004-organization-service-entitlements.md`](./docs/adr/0004-organization-service-entitlements.md), [`docs/architecture/README.md`](./docs/architecture/README.md).
 
-**Response Format:**
-```json
-{
-  "status": "ok",
-  "service": "Quake Inventory API",
-  "version": "v1",
-  "environment": "development",
-  "database": "connected",
-  "timestamp": "2026-01-13T08:00:00.000Z"
-}
-```
-
-### API Documentation
-
-| URL | Description |
-|-----|-------------|
-| http://localhost:8000/api/docs/ | Swagger UI |
-| http://localhost:8000/api/redoc/ | ReDoc |
-
-## 🛠 Development Commands
-
-### Root Level
-
-```bash
-# Install all dependencies
-pnpm install
-
-# Run frontend
-pnpm dev:web
-
-# Run backend
-pnpm dev:api
-
-# Run migrations
-pnpm migrate
-```
-
-### Backend (apps/api)
-
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Run server
-python manage.py runserver
-
-# Make migrations
-python manage.py makemigrations
-
-# Apply migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-```
-
-### Frontend (apps/web)
-
-```bash
-# Development server
-pnpm dev
-
-# Build for production
-pnpm build
-
-# Start production server
-pnpm start
-
-# Lint
-pnpm lint
-```
-
-## 📦 Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js 14, TypeScript, TailwindCSS |
-| **Backend** | Django 4.2, Django REST Framework |
-| **Database** | PostgreSQL |
-| **API Docs** | drf-spectacular (Swagger/ReDoc) |
-| **Package Manager** | PNPM Workspaces |
+|-------|------------|
+| Frontend | Next.js 14, TypeScript, Tailwind |
+| Backend | Django 4.2, DRF, JWT |
+| Database | PostgreSQL |
+| API docs | drf-spectacular |
+| Packages | PNPM workspaces |
 
-## 🔐 Environment Variables
+## Docs map
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DJANGO_SECRET_KEY` | Django secret key | Required |
-| `DJANGO_ENV` | Environment (development/production) | development |
-| `POSTGRES_DB` | Database name | Quake_inventory |
-| `POSTGRES_USER` | Database user | postgres |
-| `POSTGRES_PASSWORD` | Database password | Required |
-| `POSTGRES_HOST` | Database host | localhost |
-| `POSTGRES_PORT` | Database port | 5432 |
-| `NEXT_PUBLIC_API_URL` | API URL for frontend | http://localhost:8000/api |
+| Doc | Audience |
+|-----|----------|
+| [`CUSTOMERS.md`](./CUSTOMERS.md) | Business — CRM identity |
+| [`docs/architecture/README.md`](./docs/architecture/README.md) | Engineering — architecture |
+| [`docs/adr/`](./docs/adr/) | Decisions (tax, customers, tenancy) |
+| [`docs/env-vars.md`](./docs/env-vars.md) | Environment variables |
+| [`apps/api/README.md`](./apps/api/README.md) | API runbook |
+| [`apps/web/README.md`](./apps/web/README.md) | Web app runbook |
 
-## 📋 Phase 1 Checklist
+## License
 
-- ✅ PNPM monorepo structure
-- ✅ Django backend with DRF
-- ✅ Next.js 14 frontend with App Router
-- ✅ PostgreSQL configuration
-- ✅ Production-grade health endpoint
-- ✅ Swagger UI & ReDoc documentation
-- ✅ Split settings (development/production)
-- ✅ JWT-ready configuration
-
-## 📄 License
-
-Private - All rights reserved.
+Proprietary — All rights reserved.

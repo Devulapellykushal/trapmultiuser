@@ -115,19 +115,16 @@ export default function InvoicesPage() {
     };
   }, [invoices]);
 
-  // Handlers
+  // Handlers — open immediately with list row, then hydrate full detail
   const handleInvoiceClick = async (invoice: Invoice) => {
-    // Fetch full invoice details
+    setSelectedInvoice(invoice);
+    setPreviewOpen(true);
     setLoadingDetail(true);
     try {
       const fullInvoice = await api.get<ApiInvoice>(`/invoices/${invoice.id}/`);
       setSelectedInvoice(transformInvoiceDetail(fullInvoice));
-      setPreviewOpen(true);
     } catch (error) {
       console.error("Failed to fetch invoice details:", error);
-      // Fall back to showing what we have
-      setSelectedInvoice(invoice);
-      setPreviewOpen(true);
     } finally {
       setLoadingDetail(false);
     }
@@ -196,11 +193,11 @@ export default function InvoicesPage() {
       <PageTransition>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-              <FileText className="w-6 h-6 text-[#6366F1]" />
+            <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+              <FileText className="w-6 h-6 text-[#c4a574]" />
               Invoices
             </h1>
-            <p className="text-sm text-[#6F7285] mt-1">Loading invoices...</p>
+            <p className="text-sm text-[#8a867c] mt-1">Loading invoices...</p>
           </div>
           <SkeletonTable rows={6} />
         </div>
@@ -213,11 +210,11 @@ export default function InvoicesPage() {
     return (
       <PageTransition>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-            <FileText className="w-6 h-6 text-[#6366F1]" />
+          <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+            <FileText className="w-6 h-6 text-[#c4a574]" />
             Invoices
           </h1>
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
             <ErrorState
               message="Could not load invoices. Check if backend is running."
               onRetry={() => refetch()}
@@ -233,27 +230,27 @@ export default function InvoicesPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-[#F5F6FA] flex items-center gap-2">
-            <FileText className="w-6 h-6 text-[#6366F1]" />
+          <h1 className="text-2xl font-bold text-[#f3eee4] flex items-center gap-2">
+            <FileText className="w-6 h-6 text-[#c4a574]" />
             Invoices
           </h1>
-          <p className="text-sm text-[#6F7285] mt-1">Sales & billing history</p>
+          <p className="text-sm text-[#8a867c] mt-1">Sales & billing history</p>
         </div>
 
         {/* Summary Strip */}
         <div className="grid grid-cols-3 gap-4">
           <SummaryCard
-            icon={<Receipt className="w-4 h-4 text-[#C6A15B]" />}
+            icon={<Receipt className="w-4 h-4 text-[#c4a574]" />}
             label="Total Invoices"
             value={summary.totalInvoices.toString()}
           />
           <SummaryCard
-            icon={<DollarSign className="w-4 h-4 text-[#C6A15B]" />}
+            icon={<DollarSign className="w-4 h-4 text-[#c4a574]" />}
             label="Total Revenue"
             value={formatCurrency(summary.totalRevenue)}
           />
           <SummaryCard
-            icon={<FileText className="w-4 h-4 text-[#C6A15B]" />}
+            icon={<FileText className="w-4 h-4 text-[#c4a574]" />}
             label="Avg Invoice"
             value={formatCurrency(summary.avgValue)}
           />
@@ -275,7 +272,7 @@ export default function InvoicesPage() {
 
         {/* Invoice Table or Empty State */}
         {invoices.length === 0 ? (
-          <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+          <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08]">
             <EmptyState
               icon={Receipt}
               title={emptyStates.invoices.title}
@@ -324,14 +321,14 @@ function SummaryCard({
   value: string;
 }) {
   return (
-    <div className="p-4 rounded-xl bg-[#1A1B23]/40 border border-white/[0.06]">
+    <div className="p-4 rounded-xl bg-[#111318]/40 border border-white/[0.06]">
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-xs font-medium text-[#6F7285] uppercase tracking-wide">
+        <span className="text-xs font-medium text-[#8a867c] uppercase tracking-wide">
           {label}
         </span>
       </div>
-      <p className="text-xl font-bold text-[#F5F6FA] tabular-nums">{value}</p>
+      <p className="text-xl font-bold text-[#f3eee4] tabular-nums">{value}</p>
     </div>
   );
 }

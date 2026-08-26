@@ -19,7 +19,7 @@ export function Skeleton({ className = "" }: SkeletonProps) {
 
 export function SkeletonCard() {
   return (
-    <div className="p-5 rounded-xl bg-[#1A1B23]/60 border border-white/[0.08] space-y-3">
+    <div className="p-5 rounded-xl bg-[#111318]/60 border border-white/[0.08] space-y-3">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-8 w-32" />
     </div>
@@ -28,7 +28,7 @@ export function SkeletonCard() {
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="rounded-xl bg-[#1A1B23]/60 border border-white/[0.08] overflow-hidden">
+    <div className="rounded-xl bg-[#111318]/60 border border-white/[0.08] overflow-hidden">
       {/* Header */}
       <div className="flex gap-4 px-4 py-3 border-b border-white/[0.08]">
         <Skeleton className="h-4 w-32" />
@@ -56,7 +56,7 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
 
 export function SkeletonChart() {
   return (
-    <div className="p-5 rounded-xl bg-[#1A1B23]/60 border border-white/[0.08]">
+    <div className="p-5 rounded-xl bg-[#111318]/60 border border-white/[0.08]">
       <Skeleton className="h-5 w-32 mb-4" />
       <Skeleton className="h-48 w-full rounded-lg" />
     </div>

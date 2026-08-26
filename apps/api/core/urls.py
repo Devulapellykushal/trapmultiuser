@@ -13,6 +13,7 @@ from drf_spectacular.views import (
 )
 from .health import health_check
 from users.urls import admin_urlpatterns as user_admin_urls
+from users.urls import superadmin_urlpatterns as user_superadmin_urls
 
 
 urlpatterns = [
@@ -28,6 +29,9 @@ urlpatterns = [
     
     # API v1 - Admin (user management)
     path('api/v1/admin/', include(user_admin_urls)),
+
+    # API v1 - Platform superadmin (is_superuser)
+    path('api/v1/superadmin/', include(user_superadmin_urls)),
     
     # API v1 - Inventory
     path('api/v1/inventory/', include('inventory.urls')),

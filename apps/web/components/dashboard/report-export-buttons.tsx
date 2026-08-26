@@ -166,7 +166,7 @@ export function ReportExportDropdown({
           ${
             disabled || config.data.length === 0
               ? "bg-white/5 text-white/30 cursor-not-allowed"
-              : "bg-[#C6A15B]/10 text-[#C6A15B] hover:bg-[#C6A15B]/20"
+              : "bg-[#c4a574]/10 text-[#c4a574] hover:bg-[#c4a574]/20"
           }
         `}
       >
@@ -175,7 +175,7 @@ export function ReportExportDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-[#1a1b23] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-48 popover-panel rounded-lg z-[80] overflow-hidden">
           <button
             onClick={handleExportPDF}
             disabled={exportingPDF}

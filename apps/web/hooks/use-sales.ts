@@ -41,6 +41,10 @@ export function useCheckout() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("quake:sales-updated"));
+      }
     },
   });
 }

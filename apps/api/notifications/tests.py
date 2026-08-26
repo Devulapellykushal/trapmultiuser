@@ -30,11 +30,17 @@ class VariantDetailJoinTest(TestCase):
 
 class LowStockServiceTest(TestCase):
     def setUp(self):
-        self.wh = Warehouse.objects.create(name="Main", code="MAIN")
+        from users.models import Organization
+
+        self.org = Organization.objects.create(name="Test Org", slug="test-org-notif")
+        self.wh = Warehouse.objects.create(
+            name="Main", code="MAIN", organization=self.org
+        )
         self.product = Product.objects.create(
             name="Bolt M8",
             brand="FastCo",
             category="Hardware",
+            organization=self.org,
         )
         self.variant = ProductVariant.objects.create(
             product=self.product,
@@ -47,7 +53,10 @@ class LowStockServiceTest(TestCase):
         )
 
     def test_check_low_stock_serializes_string_brand_category(self):
-        items = LowStockService.check_low_stock(str(self.wh.id))
+        items = LowStockService.check_low_stock(
+            str(self.wh.id),
+            organization_id=self.org.id,
+        )
         self.assertTrue(len(items) >= 1)
         match = next(
             (i for i in items if i["sku"] == "FC-BOLT-M8"), None
@@ -56,3 +65,7 @@ class LowStockServiceTest(TestCase):
         self.assertEqual(match["brand"], "FastCo")
         self.assertEqual(match["category"], "Hardware")
         self.assertEqual(match["variant_details"], "M8 · Zinc")
+
+    def test_check_low_stock_empty_without_org(self):
+        items = LowStockService.check_low_stock(str(self.wh.id))
+        self.assertEqual(items, [])
