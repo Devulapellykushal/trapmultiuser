@@ -39,6 +39,14 @@ def _completed_sales(*, organization_id=None):
     return qs.filter(organization_id=organization_id)
 
 
+def _completed_sale_items(*, organization_id=None):
+    """SaleItem queryset for completed sales, scoped to an organization."""
+    qs = SaleItem.objects.filter(sale__status=Sale.Status.COMPLETED)
+    if organization_id is None:
+        return qs.none()
+    return qs.filter(sale__organization_id=organization_id)
+
+
 # =============================================================================
 # A. INVENTORY REPORTS
 # =============================================================================
@@ -121,7 +129,8 @@ def get_current_stock_report(
 
 def get_stock_aging_report(
     warehouse_id: Optional[str] = None,
-    date_as_of: Optional[datetime] = None
+    date_as_of: Optional[datetime] = None,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Stock Aging Report.
@@ -140,6 +149,10 @@ def get_stock_aging_report(
     queryset = InventoryMovement.objects.filter(
         product__is_deleted=False
     )
+    if organization_id is not None:
+        queryset = queryset.filter(product__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if warehouse_id:
         queryset = queryset.filter(warehouse_id=warehouse_id)
@@ -208,7 +221,8 @@ def get_stock_movement_report(
     warehouse_id: Optional[str] = None,
     product_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Stock Movement Report.
@@ -218,6 +232,10 @@ def get_stock_movement_report(
     queryset = InventoryMovement.objects.select_related(
         'product', 'warehouse', 'created_by'
     ).filter(product__is_deleted=False)
+    if organization_id is not None:
+        queryset = queryset.filter(product__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)
@@ -481,7 +499,8 @@ def get_returns_summary(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Returns Summary Report.
@@ -492,6 +511,10 @@ def get_returns_summary(
     - Products with highest returns
     """
     queryset = Return.objects.filter(status=Return.Status.COMPLETED)
+    if organization_id is not None:
+        queryset = queryset.filter(original_sale__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)
@@ -511,6 +534,12 @@ def get_returns_summary(
     return_items = ReturnItem.objects.filter(
         return_record__status=Return.Status.COMPLETED
     )
+    if organization_id is not None:
+        return_items = return_items.filter(
+            return_record__original_sale__organization_id=organization_id
+        )
+    else:
+        return_items = return_items.none()
     if date_from:
         return_items = return_items.filter(return_record__created_at__gte=date_from)
     if date_to:
@@ -553,7 +582,8 @@ def get_adjustments_report(
     warehouse_id: Optional[str] = None,
     product_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Adjustments Report (Audit).
@@ -563,6 +593,10 @@ def get_adjustments_report(
     queryset = InventoryMovement.objects.filter(
         movement_type='ADJUSTMENT'
     ).select_related('product', 'warehouse', 'created_by')
+    if organization_id is not None:
+        queryset = queryset.filter(product__organization_id=organization_id)
+    else:
+        queryset = queryset.none()
     
     if date_from:
         queryset = queryset.filter(created_at__gte=date_from)
@@ -625,7 +659,8 @@ def get_gross_profit_report(
     warehouse_id: Optional[str] = None,
     product_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Gross Profit Report.
@@ -642,9 +677,9 @@ def get_gross_profit_report(
     from inventory.models import ProductVariant
     from django.db.models import Subquery, OuterRef
     
-    queryset = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    ).select_related('product')
+    queryset = _completed_sale_items(organization_id=organization_id).select_related(
+        'product'
+    )
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)
@@ -780,7 +815,9 @@ def get_gst_summary_report(
     # GST Refunded (from returns)
     returns_queryset = Return.objects.filter(status=Return.Status.COMPLETED)
     if organization_id is not None:
-        returns_queryset = returns_queryset.filter(sale__organization_id=organization_id)
+        returns_queryset = returns_queryset.filter(
+            original_sale__organization_id=organization_id
+        )
     else:
         returns_queryset = returns_queryset.none()
     if date_from:
@@ -798,9 +835,7 @@ def get_gst_summary_report(
     net_gst = gst_collected - gst_refunded
     
     # GST by rate (breakdown)
-    gst_by_rate = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    )
+    gst_by_rate = _completed_sale_items(organization_id=organization_id)
     if date_from:
         gst_by_rate = gst_by_rate.filter(sale__created_at__gte=date_from)
     if date_to:
@@ -842,16 +877,15 @@ def get_category_wise_sales_report(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Category-wise Sales Report.
     
     Aggregates sales by product category.
     """
-    queryset = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    )
+    queryset = _completed_sale_items(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)
@@ -913,16 +947,15 @@ def get_brand_wise_sales_report(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Brand-wise Sales Report.
     
     Aggregates sales by product brand.
     """
-    queryset = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    )
+    queryset = _completed_sale_items(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)
@@ -984,7 +1017,8 @@ def get_size_wise_sales_report(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Size-wise Sales Report.
@@ -995,9 +1029,7 @@ def get_size_wise_sales_report(
     """
     from inventory.models import ProductVariant
     
-    queryset = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    )
+    queryset = _completed_sale_items(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)
@@ -1114,18 +1146,25 @@ def get_supplier_wise_report(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Supplier-wise Purchase Report.
     
     Aggregates purchase orders by supplier.
     """
-    from inventory.models import PurchaseOrder, PurchaseOrderItem
+    from inventory.models import PurchaseOrderItem
     
     queryset = PurchaseOrderItem.objects.filter(
         purchase_order__status__in=['RECEIVED', 'PARTIALLY_RECEIVED', 'COMPLETED']
     )
+    if organization_id is not None:
+        queryset = queryset.filter(
+            purchase_order__warehouse__organization_id=organization_id
+        )
+    else:
+        queryset = queryset.none()
     
     if date_from:
         queryset = queryset.filter(purchase_order__created_at__gte=date_from)
@@ -1262,7 +1301,8 @@ def get_supplier_sales_report(
     date_to: Optional[datetime] = None,
     warehouse_id: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50
+    page_size: int = 50,
+    organization_id=None,
 ) -> Dict[str, Any]:
     """
     Supplier-wise Sales Report.
@@ -1275,11 +1315,7 @@ def get_supplier_sales_report(
     - Supplier product demand
     - Revenue contribution by supplier
     """
-    from sales.models import SaleItem, Sale
-    
-    queryset = SaleItem.objects.filter(
-        sale__status=Sale.Status.COMPLETED
-    )
+    queryset = _completed_sale_items(organization_id=organization_id)
     
     if date_from:
         queryset = queryset.filter(sale__created_at__gte=date_from)

@@ -40,6 +40,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { adminHref } from "@/lib/admin-routes";
 import { ProductListParams } from "@/services";
+import { useLocationLabels } from "@/hooks/use-business-setup";
+import Link from "next/link";
 
 // Types matching API
 interface InventoryProduct {
@@ -260,6 +262,10 @@ function InventoryPageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const { isSingleShop, labels } = useLocationLabels();
+  const storageNoun = isSingleShop
+    ? labels.warehouseSingular
+    : `${labels.warehouseSingular} / shop`;
 
   // Pagination state
   const [page, setPage] = React.useState(1);
@@ -349,6 +355,7 @@ function InventoryPageContent() {
 
   const { data: stockSummary } = useStockSummary();
   const { data: warehousesData = [] } = useWarehouses();
+  const hasNoStorage = warehousesData.length === 0;
 
   // Transform products
   const products: InventoryProduct[] = React.useMemo(() => {
@@ -577,6 +584,26 @@ function InventoryPageContent() {
             )}
           </div>
         </div>
+
+        {isAdmin && hasNoStorage && (
+          <div className="rounded-xl border border-[#d4a054]/40 bg-[#d4a054]/10 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                No {storageNoun} set up yet
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+                Create where stock lives before adding products — otherwise the
+                storage dropdown stays empty.
+              </p>
+            </div>
+            <Link
+              href={adminHref("/warehouses")}
+              className="inline-flex items-center justify-center gap-2 shrink-0 px-4 py-2 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
+            >
+              Create {storageNoun}
+            </Link>
+          </div>
+        )}
 
         {/* Stock Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -6,14 +6,16 @@
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
+  applyRotatedTokens,
+  markSessionStarted,
+} from './session-lifecycle';
+import {
   AuthScope,
   clearSessionTokens,
   readAccessToken,
   readRefreshToken,
   storeSessionTokens,
-  accessTokenKey,
 } from './session-scope';
-
 function formatAuthError(err: unknown, fallback = 'Request failed'): string {
   if (axios.isAxiosError(err)) {
     const d = err.response?.data as Record<string, unknown> | undefined;
@@ -53,6 +55,8 @@ export interface User {
   organizationId?: string | null;
   organizationName?: string | null;
   isSuperuser?: boolean;
+  /** UX profile of the *active* business: auto_tyre | fmcg | fnb | general (fixed per org) */
+  industry?: string | null;
   enabledServices?: Partial<
     Record<
       | 'pos'
@@ -68,6 +72,19 @@ export interface User {
   >;
 }
 
+export interface BusinessMembership {
+  organizationId: string;
+  name: string;
+  industry: string;
+  role: 'ADMIN' | 'STAFF';
+  isActive: boolean;
+}
+
+export interface CreateBusinessRequest {
+  name: string;
+  industry?: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -77,6 +94,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   name?: string;
+  industry?: string;
 }
 
 export interface LoginResponse {
@@ -87,6 +105,8 @@ export interface LoginResponse {
 
 export interface RefreshResponse {
   access: string;
+  /** Present when ROTATE_REFRESH_TOKENS is enabled on the API. */
+  refresh?: string;
 }
 
 export interface AuthCapabilities {
@@ -117,6 +137,7 @@ export const authService = {
         );
       }
       storeSessionTokens('tenant', response.access, response.refresh);
+      markSessionStarted('tenant');
       return response;
     } catch (err) {
       throw new Error(formatAuthError(err, 'Sign in failed'));
@@ -133,6 +154,7 @@ export const authService = {
         );
       }
       storeSessionTokens('platform', response.access, response.refresh);
+      markSessionStarted('platform');
       return response;
     } catch (err) {
       throw new Error(formatAuthError(err, 'Platform sign in failed'));
@@ -143,6 +165,7 @@ export const authService = {
     try {
       const response = await api.post<LoginResponse>('/auth/register/', data);
       storeSessionTokens('tenant', response.access, response.refresh);
+      markSessionStarted('tenant');
       return response;
     } catch (err) {
       throw new Error(formatAuthError(err, 'Sign up failed'));
@@ -179,6 +202,7 @@ export const authService = {
         new_password: newPassword,
       });
       storeSessionTokens('tenant', response.access, response.refresh);
+      markSessionStarted('tenant');
       return response;
     } catch (err) {
       throw new Error(formatAuthError(err, 'Password reset failed'));
@@ -219,11 +243,7 @@ export const authService = {
     }
 
     const response = await api.post<RefreshResponse>('/auth/refresh/', { refresh });
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(accessTokenKey(scope), response.access);
-    }
-
+    applyRotatedTokens(scope, response.access, response.refresh);
     return response;
   },
 
@@ -235,12 +255,49 @@ export const authService = {
     return readAccessToken(scope);
   },
 
+  /** True when either access or refresh is present (refresh keeps the session alive). */
   hasToken: (scope: AuthScope = 'tenant'): boolean => {
-    return !!readAccessToken(scope);
+    return !!readAccessToken(scope) || !!readRefreshToken(scope);
   },
 
   clearTokens: (scope: AuthScope = 'tenant'): void => {
     clearSessionTokens(scope);
+  },
+
+  /** Businesses this login can switch between (each has fixed industry + isolated data). */
+  listBusinesses: async (): Promise<BusinessMembership[]> => {
+    try {
+      return await api.get<BusinessMembership[]>('/auth/businesses/');
+    } catch (err) {
+      throw new Error(formatAuthError(err, 'Could not load businesses'));
+    }
+  },
+
+  /** Create another empty business and make it the active workspace. */
+  createBusiness: async (data: CreateBusinessRequest): Promise<User> => {
+    try {
+      return await api.post<User>('/auth/businesses/', data);
+    } catch (err) {
+      throw new Error(formatAuthError(err, 'Could not create business'));
+    }
+  },
+
+  /** Switch active business — scopes the whole app to that org's data. */
+  switchBusiness: async (organizationId: string): Promise<User> => {
+    try {
+      return await api.post<User>('/auth/businesses/switch/', { organizationId });
+    } catch (err) {
+      throw new Error(formatAuthError(err, 'Could not switch business'));
+    }
+  },
+
+  /** Unlink this login from a business (keeps org data; removes your access). */
+  leaveBusiness: async (organizationId: string): Promise<User> => {
+    try {
+      return await api.post<User>('/auth/businesses/leave/', { organizationId });
+    } catch (err) {
+      throw new Error(formatAuthError(err, 'Could not leave business'));
+    }
   },
 };
 

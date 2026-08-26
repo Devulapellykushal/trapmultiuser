@@ -31,7 +31,11 @@ Public `register_user`:
 
 ### 3. Invite stays in-org
 
-Admin “Add user” (`UserCreateSerializer`) assigns `organization = request.user.organization` and the chosen role (`STAFF` or `ADMIN`).
+Admin “Add user” (`UserCreateSerializer`) assigns `organization = request.user.organization`, creates an `OrganizationMembership`, and the chosen role (`STAFF` or `ADMIN`).
+
+### 3b. Multi-business (same login)
+
+A user may hold many memberships. Switching active business updates `User.organization` + `User.role` from the membership. Industry is fixed per org — see [ADR 0005](./0005-organization-industry-profile.md).
 
 ### 4. RBAC mapping (unchanged meanings, scoped)
 

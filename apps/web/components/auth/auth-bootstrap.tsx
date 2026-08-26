@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/auth/auth.store";
 import { usePlatformAuthStore } from "@/lib/auth/platform-auth.store";
 import { getAuthScopeFromPath } from "@/lib/auth/session-scope";
+import { SessionGuardian } from "./session-guardian";
 
 /**
  * Validate only the session for the current route family.
@@ -22,5 +23,5 @@ export function AuthBootstrap() {
     }
   }, [pathname]);
 
-  return null;
+  return <SessionGuardian />;
 }

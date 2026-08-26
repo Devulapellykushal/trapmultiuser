@@ -1,5 +1,5 @@
 /**
- * Business setup (stock layout + barcode preference) API
+ * Business setup (stock layout + barcode + GST preference) API
  */
 import { api } from "@/lib/api";
 import {
@@ -23,6 +23,8 @@ export interface BusinessSetup {
   shopStockMode: ShopStockMode;
   /** When true: auto barcodes + POS scan. When false: barcodes optional. */
   barcodeEnabled: boolean;
+  /** When true: GST on products/POS. When false: tax off everywhere. */
+  gstEnabled: boolean;
   businessName: string;
   consolidation?: StockConsolidationResult | null;
 }
@@ -34,6 +36,8 @@ type BusinessSetupApi = {
   shop_stock_mode?: string;
   barcodeEnabled?: boolean;
   barcode_enabled?: boolean;
+  gstEnabled?: boolean;
+  gst_enabled?: boolean;
   businessName?: string;
   business_name?: string;
   consolidation?: Record<string, unknown> | null;
@@ -57,6 +61,7 @@ function mapConsolidation(
 
 function mapBusinessSetup(raw: BusinessSetupApi): BusinessSetup {
   const barcodeRaw = raw.barcodeEnabled ?? raw.barcode_enabled;
+  const gstRaw = raw.gstEnabled ?? raw.gst_enabled;
   return {
     inventoryLocationMode: normalizeInventoryLocationMode(
       raw.inventoryLocationMode ?? raw.inventory_location_mode,
@@ -65,6 +70,7 @@ function mapBusinessSetup(raw: BusinessSetupApi): BusinessSetup {
       raw.shopStockMode ?? raw.shop_stock_mode,
     ),
     barcodeEnabled: barcodeRaw !== false,
+    gstEnabled: gstRaw !== false,
     businessName: String(raw.businessName ?? raw.business_name ?? "Quake"),
     consolidation: mapConsolidation(
       raw.consolidation as Record<string, unknown> | null | undefined,
@@ -84,6 +90,7 @@ export const businessSetupService = {
     inventory_location_mode?: InventoryLocationMode;
     shop_stock_mode?: ShopStockMode;
     barcode_enabled?: boolean;
+    gst_enabled?: boolean;
     primary_warehouse_id?: string;
   }): Promise<BusinessSetup> => {
     const raw = await api.patch<BusinessSetupApi>(

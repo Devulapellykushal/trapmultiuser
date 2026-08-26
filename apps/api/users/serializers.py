@@ -6,7 +6,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import User
-from .organization import get_enabled_services
+from .organization import get_enabled_services, get_organization_industry, INDUSTRY_CHOICES, ensure_membership
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -16,6 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
     organizationName = serializers.CharField(source='organization.name', read_only=True, allow_null=True)
     isSuperuser = serializers.BooleanField(source='is_superuser', read_only=True)
     enabledServices = serializers.SerializerMethodField()
+    industry = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -23,7 +24,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'name',
             'role', 'is_active', 'date_joined', 'last_login',
             'organizationId', 'organizationName',
-            'isSuperuser', 'enabledServices',
+            'isSuperuser', 'enabledServices', 'industry',
         ]
         read_only_fields = fields
     
@@ -32,6 +33,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_enabledServices(self, obj):
         return get_enabled_services(getattr(obj, "organization", None))
+
+    def get_industry(self, obj):
+        return get_organization_industry(getattr(obj, "organization", None))
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -76,6 +80,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
             role=validated_data.get('role', User.Role.STAFF),
             organization=org,
         )
+        if org is not None:
+            ensure_membership(user, org, role=user.role)
         return user
 
 
@@ -111,6 +117,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         
         instance.save()
+        if instance.organization_id and "role" in validated_data:
+            ensure_membership(
+                instance,
+                instance.organization,
+                role=instance.role,
+            )
         return instance
 
 
@@ -240,6 +252,11 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
     name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    industry = serializers.ChoiceField(
+        choices=[(c, c) for c in sorted(INDUSTRY_CHOICES)],
+        required=False,
+        default="auto_tyre",
+    )
 
     def validate_email(self, value):
         return value.strip().lower()
@@ -247,6 +264,54 @@ class RegisterSerializer(serializers.Serializer):
     def validate_password(self, value):
         validate_password(value)
         return value
+
+
+class BusinessMembershipSerializer(serializers.Serializer):
+    """One business the user can switch into."""
+
+    organizationId = serializers.UUIDField(source="organization_id")
+    name = serializers.CharField(source="organization.name")
+    industry = serializers.SerializerMethodField()
+    role = serializers.CharField()
+    isActive = serializers.SerializerMethodField()
+
+    def get_industry(self, obj):
+        return get_organization_industry(obj.organization)
+
+    def get_isActive(self, obj):
+        user = self.context.get("user")
+        if user is None:
+            return False
+        return str(user.organization_id) == str(obj.organization_id)
+
+
+class CreateBusinessSerializer(serializers.Serializer):
+    """Add another isolated business under the same login."""
+
+    name = serializers.CharField(max_length=200)
+    industry = serializers.ChoiceField(
+        choices=[(c, c) for c in sorted(INDUSTRY_CHOICES)],
+        required=False,
+        default="auto_tyre",
+    )
+
+    def validate_name(self, value):
+        label = (value or "").strip()
+        if not label:
+            raise serializers.ValidationError("Business name is required.")
+        return label
+
+
+class SwitchBusinessSerializer(serializers.Serializer):
+    """Switch the active business workspace for this session."""
+
+    organizationId = serializers.UUIDField()
+
+
+class LeaveBusinessSerializer(serializers.Serializer):
+    """Unlink this login from a business."""
+
+    organizationId = serializers.UUIDField()
 
 
 class PasswordForgotSerializer(serializers.Serializer):

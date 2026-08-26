@@ -4,6 +4,7 @@ import * as React from "react";
 import { X, Package, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "./cart-context";
+import { useIndustryProfile } from "@/lib/industry";
 
 export interface ProductVariant {
   id: string;
@@ -109,6 +110,7 @@ export function SizeSelectionModal({
   variants,
   onSelectVariant,
 }: SizeSelectionModalProps) {
+  const industry = useIndustryProfile();
   const { items } = useCart();
   const qtyByVariantId = React.useMemo(() => {
     const m = new Map<string, number>();
@@ -194,7 +196,7 @@ export function SizeSelectionModal({
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                    Select {hasSize ? "Size" : "Variant"}
+                    Select {hasSize ? industry.variantOptionLabel : "Variant"}
                   </h2>
                   <p className="text-sm text-[#8a867c]">
                     {brand} - {productName}
@@ -257,7 +259,7 @@ export function SizeSelectionModal({
               <div className="space-y-2">
                 {hasSize && (
                   <label className="text-sm font-medium text-[#c5c0b5]">
-                    Size
+                    {industry.variantOptionLabel}
                   </label>
                 )}
                 <div className="grid grid-cols-4 gap-2">

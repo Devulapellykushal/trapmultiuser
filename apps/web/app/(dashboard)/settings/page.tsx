@@ -1,6 +1,7 @@
 "use client";
 
 import { PageTransition } from "@/components/layout";
+import { BusinessMembershipManager } from "@/components/layout/business-membership-manager";
 import {
     useCategories,
     useCreateCategory,
@@ -13,6 +14,10 @@ import {
 } from "@/hooks/use-business-setup";
 import { useProfile, useUpdateProfile } from "@/hooks/use-users";
 import { useAuthStore } from "@/lib/auth";
+import {
+  INDUSTRY_OPTIONS,
+  useIndustryProfile,
+} from "@/lib/industry";
 import { Category, Warehouse } from "@/services";
 import { adminHref } from "@/lib/admin-routes";
 import type {
@@ -28,6 +33,7 @@ import {
     Monitor,
     Moon,
     Palette,
+    Percent,
     Plus,
     Store,
     Sun,
@@ -37,21 +43,35 @@ import {
     User,
     X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 type Theme = "dark" | "light" | "system";
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
+  );
+}
+
+function SettingsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const setupMode = searchParams.get("setup");
+  const isSetupFlow = setupMode === "new" || setupMode === "signup";
   const { user: authUser } = useAuthStore();
+  const industryProfile = useIndustryProfile();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: warehouses, isLoading: warehousesLoading } = useWarehouses();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
   const updateProfile = useUpdateProfile();
-  const { mode, shopStockMode, barcodeEnabled, labels, isSingleShop, isGodownAndShops } =
+  const { mode, shopStockMode, barcodeEnabled, gstEnabled, labels, isSingleShop, isGodownAndShops } =
     useLocationLabels();
   const updateSetup = useUpdateBusinessSetup();
   const [pendingLocationMode, setPendingLocationMode] =
@@ -73,6 +93,23 @@ export default function SettingsPage() {
 
   // Theme state
   const [theme, setTheme] = useState<Theme>("dark");
+  const [showSetupBanner, setShowSetupBanner] = useState(false);
+
+  useEffect(() => {
+    if (!isSetupFlow) return;
+    setShowSetupBanner(true);
+    const t = window.setTimeout(() => {
+      document
+        .getElementById("settings-stock-layout")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [isSetupFlow, setupMode]);
+
+  const dismissSetupBanner = () => {
+    setShowSetupBanner(false);
+    router.replace(adminHref("/settings"), { scroll: false });
+  };
 
   // Initialize form when profile loads
   useEffect(() => {
@@ -184,9 +221,84 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {showSetupBanner && (
+          <div
+            role="status"
+            className="rounded-xl border border-[#c4a574]/40 bg-[#c4a574]/10 px-5 py-4 flex gap-3 items-start"
+          >
+            <Store className="w-5 h-5 text-[#c4a574] shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="text-[#f3eee4] font-medium">
+                {setupMode === "signup"
+                  ? `Set up ${authUser?.organizationName || "your business"}`
+                  : `Finish setup for ${authUser?.organizationName || "this business"}`}
+              </p>
+              <p className="text-sm text-[#c4a574]/90">
+                {setupMode === "signup"
+                  ? "Your account is ready. Finish these steps so stock and billing match your shop."
+                  : "This is a new shop. Finish these steps so the app matches how you keep stock."}
+              </p>
+              <ol className="text-sm text-[#f3eee4]/90 list-decimal list-inside space-y-1">
+                <li>
+                  Choose <span className="text-[#c4a574]">one shop</span> or{" "}
+                  <span className="text-[#c4a574]">godown + shops</span> below
+                </li>
+                <li>Turn barcodes on or off if you use scanners</li>
+                <li>Confirm your profile name, then add stock when ready</li>
+              </ol>
+            </div>
+            <button
+              type="button"
+              onClick={dismissSetupBanner}
+              className="p-1 rounded-md text-[#8a867c] hover:text-[#f3eee4] hover:bg-white/[0.06]"
+              aria-label="Dismiss setup tip"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Active business — industry is fixed; switch/add via top-bar switcher */}
+        {authUser && (
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.08]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">
+                Active business
+              </h2>
+              <p className="text-sm text-[#8a867c] mt-1">
+                Industry is locked to this business. To use another industry,
+                switch or add a business from the top bar — catalogs stay
+                separate.
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <p className="text-[#f3eee4] font-medium">
+                  {authUser.organizationName || "Untitled business"}
+                </p>
+                <p className="text-sm text-[#8a867c]">
+                  {industryProfile.label}:{" "}
+                  {
+                    INDUSTRY_OPTIONS.find((o) => o.id === industryProfile.id)
+                      ?.description
+                  }
+                </p>
+              </div>
+              <BusinessMembershipManager />
+            </div>
+          </div>
+        )}
+
         {/* Stock layout — admin only, plain language */}
         {authUser?.role === "ADMIN" && (
-          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+          <div
+            id="settings-stock-layout"
+            className={
+              showSetupBanner
+                ? "rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-[#c4a574]/35 overflow-hidden scroll-mt-24 ring-1 ring-[#c4a574]/20"
+                : "rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden scroll-mt-24"
+            }
+          >
             <div className="px-6 py-5 border-b border-white/[0.08]">
               <h2 className="text-lg font-semibold text-[#f3eee4]">
                 How do you keep stock?
@@ -439,12 +551,12 @@ export default function SettingsPage() {
                   {
                     value: true,
                     title: "Use barcodes",
-                    body: "Every tyre gets a barcode. Scan at POS. Best if you print labels.",
+                    body: industryProfile.labels.barcodeHelpOn,
                   },
                   {
                     value: false,
                     title: "No barcodes needed",
-                    body: "Skip barcodes. Find tyres by name/search and tap to sell.",
+                    body: industryProfile.labels.barcodeHelpOff,
                   },
                 ] as const
               ).map((option) => {
@@ -501,6 +613,91 @@ export default function SettingsPage() {
               Now using:{" "}
               <span className="text-[#c5c0b5]">
                 {barcodeEnabled ? "Use barcodes" : "No barcodes needed"}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* GST — admin only */}
+        {authUser?.role === "ADMIN" && (
+          <div className="rounded-xl bg-[#111318]/60 backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.08]">
+              <h2 className="text-lg font-semibold text-[#f3eee4]">
+                Do you charge GST?
+              </h2>
+              <p className="text-sm text-[#8a867c] mt-1">
+                Turn off if you don’t need tax on products or bills. You can
+                turn it on later.
+              </p>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(
+                [
+                  {
+                    value: true,
+                    title: "GST on",
+                    body: "Pick a tax slab when adding products. POS can show GST on the bill.",
+                  },
+                  {
+                    value: false,
+                    title: "GST off",
+                    body: "No tax field in inventory. No GST ask at billing. Prices stay as entered.",
+                  },
+                ] as const
+              ).map((option) => {
+                const selected = gstEnabled === option.value;
+                return (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    disabled={updateSetup.isPending}
+                    onClick={() => {
+                      if (selected) return;
+                      updateSetup.mutate({ gst_enabled: option.value });
+                    }}
+                    className={`text-left p-5 rounded-xl border-2 transition-all ${
+                      selected
+                        ? "border-[#c4a574] bg-[#c4a574]/10"
+                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16]"
+                    } disabled:opacity-60`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-lg ${
+                            selected ? "bg-[#c4a574]" : "bg-white/[0.06]"
+                          }`}
+                        >
+                          <Percent
+                            className={`w-5 h-5 ${
+                              selected ? "text-white" : "text-[#c5c0b5]"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-base font-semibold text-[#f3eee4]">
+                            {option.title}
+                          </p>
+                          <p className="text-sm text-[#8a867c] mt-1 leading-snug">
+                            {option.body}
+                          </p>
+                        </div>
+                      </div>
+                      {selected && (
+                        <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-[#d4b88a]">
+                          <Check className="w-4 h-4" />
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-6 pb-5 text-xs text-[#8a867c]">
+              Now using:{" "}
+              <span className="text-[#c5c0b5]">
+                {gstEnabled ? "GST on" : "GST off"}
               </span>
             </div>
           </div>

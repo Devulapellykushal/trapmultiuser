@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/layout";
 import { useCustomerSegments } from "@/hooks/use-customers";
+import { useIndustryProfile } from "@/lib/industry";
 import type { CustomerSegmentCounts } from "@/services/customers.service";
 
 interface SegmentDef {
@@ -22,53 +23,54 @@ interface SegmentDef {
   live: boolean;
 }
 
-const SEGMENT_DEFS: SegmentDef[] = [
-  {
-    id: "allActive",
-    title: "All active",
-    description: "Everyone marked active in the directory.",
-    icon: Users,
-    live: true,
-  },
-  {
-    id: "creditOutstanding",
-    title: "Credit outstanding",
-    description: "Buyers with an open credit balance on invoices.",
-    icon: CreditCard,
-    live: true,
-  },
-  {
-    id: "repeatBuyers",
-    title: "Repeat buyers",
-    description: "Two or more linked completed sales.",
-    icon: Repeat,
-    live: true,
-  },
-  {
-    id: "fleetGstin",
-    title: "Fleet / GSTIN",
-    description: "Customers with a GSTIN on file.",
-    icon: Building2,
-    live: true,
-  },
-  {
-    id: "lapsed90d",
-    title: "Lapsed 90 days",
-    description: "Had sales before, none in the last three months.",
-    icon: TimerOff,
-    live: true,
-  },
-  {
-    id: "newThisMonth",
-    title: "New this month",
-    description: "Added to the directory in the current month.",
-    icon: CalendarPlus,
-    live: true,
-  },
-];
-
 export default function CustomerSegmentsPage() {
+  const industry = useIndustryProfile();
   const { data: counts, isLoading, isError, refetch } = useCustomerSegments();
+
+  const segmentDefs: SegmentDef[] = [
+    {
+      id: "allActive",
+      title: "All active",
+      description: "Everyone marked active in the directory.",
+      icon: Users,
+      live: true,
+    },
+    {
+      id: "creditOutstanding",
+      title: "Credit outstanding",
+      description: "Buyers with an open credit balance on invoices.",
+      icon: CreditCard,
+      live: true,
+    },
+    {
+      id: "repeatBuyers",
+      title: "Repeat buyers",
+      description: "Two or more linked completed sales.",
+      icon: Repeat,
+      live: true,
+    },
+    {
+      id: "fleetGstin",
+      title: industry.crm.gstSegmentLabel,
+      description: industry.crm.gstSegmentHint,
+      icon: Building2,
+      live: true,
+    },
+    {
+      id: "lapsed90d",
+      title: "Lapsed 90 days",
+      description: "Had sales before, none in the last three months.",
+      icon: TimerOff,
+      live: true,
+    },
+    {
+      id: "newThisMonth",
+      title: "New this month",
+      description: "Added to the directory in the current month.",
+      icon: CalendarPlus,
+      live: true,
+    },
+  ];
 
   return (
     <PageTransition>
@@ -96,7 +98,7 @@ export default function CustomerSegmentsPage() {
         ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {SEGMENT_DEFS.map((seg) => {
+          {segmentDefs.map((seg) => {
             const Icon = seg.icon;
             const count = counts?.[seg.id];
             return (

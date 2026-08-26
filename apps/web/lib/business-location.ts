@@ -81,10 +81,10 @@ export function locationLabels(
         : "Usually 1 godown feeds many shops — stock is sent by transfer",
       shopStockTransferTitle: "Send stock to each shop",
       shopStockTransferBody:
-        "Godown holds bulk. You send tyres to a shop, then that shop sells its own stock.",
+        "Godown holds bulk. You send stock to a shop, then that shop sells its own stock.",
       shopStockSharedTitle: "All shops use godown stock",
       shopStockSharedBody:
-        "Every shop sells from the same godown. Pick the shop at POS so you know who sold. Sale +/− on godown. No sending.",
+        "Every shop sells from the same godown stock. At the till, pick which shop is selling. No stock transfer needed.",
     } as const;
   }
 
@@ -109,9 +109,9 @@ export function locationLabels(
     setupHint: "Simplest — sell and keep stock in one place",
     shopStockTransferTitle: "Send stock to each shop",
     shopStockTransferBody:
-      "Godown holds bulk. You send tyres to a shop, then that shop sells its own stock.",
+      "Godown holds bulk. You send stock to a shop, then that shop sells its own stock.",
     shopStockSharedTitle: "All shops use godown stock",
     shopStockSharedBody:
-      "Every shop sells from the same godown. Pick the shop at POS so you know who sold. Sale +/− on godown. No sending.",
+      "Every shop sells from the same godown stock. At the till, pick which shop is selling. No stock transfer needed.",
   } as const;
 }

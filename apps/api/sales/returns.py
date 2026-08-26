@@ -177,22 +177,31 @@ def process_return(
         NoItemsToReturnError: No valid items
         SaleItemNotFoundError: Sale item not found
     """
-    # 1. Validate sale exists
+    # 1. Validate sale exists (scoped to caller's active organization)
+    org_id = getattr(user, "organization_id", None)
+    sale_qs = Sale.objects.prefetch_related("items__product").filter(id=sale_id)
+    if org_id:
+        sale_qs = sale_qs.filter(organization_id=org_id)
     try:
-        sale = Sale.objects.prefetch_related('items__product').get(id=sale_id)
+        sale = sale_qs.get()
     except Sale.DoesNotExist:
         raise SaleNotFoundError(f"Sale not found: {sale_id}")
-    
+
     # 2. Validate sale status
     if sale.status not in [Sale.Status.COMPLETED, Sale.Status.REFUNDED]:
         raise SaleNotCompletedError(
             f"Cannot process return for sale with status: {sale.status}. "
             f"Only COMPLETED or partially REFUNDED sales can be returned."
         )
-    
-    # 3. Validate warehouse
+
+    # 3. Validate warehouse (same organization as the sale / caller)
+    warehouse_qs = Warehouse.objects.filter(id=warehouse_id)
+    if org_id:
+        warehouse_qs = warehouse_qs.filter(organization_id=org_id)
+    elif sale.organization_id:
+        warehouse_qs = warehouse_qs.filter(organization_id=sale.organization_id)
     try:
-        warehouse = Warehouse.objects.get(id=warehouse_id)
+        warehouse = warehouse_qs.get()
     except Warehouse.DoesNotExist:
         raise ReturnError(f"Warehouse not found: {warehouse_id}")
     
@@ -333,12 +342,20 @@ def get_return_details(return_id: str) -> Dict[str, Any]:
     }
 
 
-def get_sale_returnable_items(sale_id: str) -> List[Dict[str, Any]]:
+def get_sale_returnable_items(
+    sale_id: str,
+    *,
+    organization_id=None,
+) -> List[Dict[str, Any]]:
     """
     Get list of items that can still be returned for a sale.
+    When organization_id is set, foreign-org sales are treated as not found.
     """
+    sale_qs = Sale.objects.prefetch_related("items__product").filter(id=sale_id)
+    if organization_id:
+        sale_qs = sale_qs.filter(organization_id=organization_id)
     try:
-        sale = Sale.objects.prefetch_related('items__product').get(id=sale_id)
+        sale = sale_qs.get()
     except Sale.DoesNotExist:
         raise SaleNotFoundError(f"Sale not found: {sale_id}")
     

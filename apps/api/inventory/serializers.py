@@ -697,18 +697,27 @@ class PurchaseStockSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
     reference_id = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+
+    def _org_id(self):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        return getattr(user, "organization_id", None)
     
     def validate_warehouse_id(self, value):
-        try:
-            Warehouse.objects.get(id=value, is_active=True)
-        except Warehouse.DoesNotExist:
+        qs = Warehouse.objects.filter(id=value, is_active=True)
+        org_id = self._org_id()
+        if org_id:
+            qs = qs.filter(organization_id=org_id)
+        if not qs.exists():
             raise serializers.ValidationError("Warehouse not found or inactive")
         return value
     
     def validate_variant_id(self, value):
-        try:
-            ProductVariant.objects.get(id=value, is_active=True)
-        except ProductVariant.DoesNotExist:
+        qs = ProductVariant.objects.filter(id=value, is_active=True)
+        org_id = self._org_id()
+        if org_id:
+            qs = qs.filter(product__organization_id=org_id)
+        if not qs.exists():
             raise serializers.ValidationError("Product variant not found or inactive")
         return value
     
@@ -718,6 +727,19 @@ class PurchaseStockSerializer(serializers.Serializer):
         if value < 0:
             raise serializers.ValidationError("Quantity must be positive for purchases")
         return value
+
+    def validate(self, attrs):
+        warehouse = Warehouse.objects.get(id=attrs["warehouse_id"])
+        variant = ProductVariant.objects.select_related("product").get(id=attrs["variant_id"])
+        if (
+            warehouse.organization_id
+            and variant.product.organization_id
+            and warehouse.organization_id != variant.product.organization_id
+        ):
+            raise serializers.ValidationError(
+                "Warehouse and product variant must belong to the same business"
+            )
+        return attrs
 
 
 class AdjustStockSerializer(serializers.Serializer):
@@ -730,18 +752,27 @@ class AdjustStockSerializer(serializers.Serializer):
     )
     notes = serializers.CharField(required=True, min_length=10)
     allow_negative = serializers.BooleanField(default=False)
+
+    def _org_id(self):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        return getattr(user, "organization_id", None)
     
     def validate_warehouse_id(self, value):
-        try:
-            Warehouse.objects.get(id=value, is_active=True)
-        except Warehouse.DoesNotExist:
+        qs = Warehouse.objects.filter(id=value, is_active=True)
+        org_id = self._org_id()
+        if org_id:
+            qs = qs.filter(organization_id=org_id)
+        if not qs.exists():
             raise serializers.ValidationError("Warehouse not found or inactive")
         return value
     
     def validate_variant_id(self, value):
-        try:
-            ProductVariant.objects.get(id=value, is_active=True)
-        except ProductVariant.DoesNotExist:
+        qs = ProductVariant.objects.filter(id=value, is_active=True)
+        org_id = self._org_id()
+        if org_id:
+            qs = qs.filter(product__organization_id=org_id)
+        if not qs.exists():
             raise serializers.ValidationError("Product variant not found or inactive")
         return value
     
@@ -756,6 +787,19 @@ class AdjustStockSerializer(serializers.Serializer):
                 "Notes are required for adjustments (minimum 10 characters)"
             )
         return value
+
+    def validate(self, attrs):
+        warehouse = Warehouse.objects.get(id=attrs["warehouse_id"])
+        variant = ProductVariant.objects.select_related("product").get(id=attrs["variant_id"])
+        if (
+            warehouse.organization_id
+            and variant.product.organization_id
+            and warehouse.organization_id != variant.product.organization_id
+        ):
+            raise serializers.ValidationError(
+                "Warehouse and product variant must belong to the same business"
+            )
+        return attrs
 
 
 class StockLedgerSerializer(serializers.ModelSerializer):

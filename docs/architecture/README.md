@@ -44,6 +44,8 @@ Helpers: `apps/api/users/organization.py` (`filter_queryset_for_user`, `create_o
 
 Platform operators (`is_superuser`) can disable modules per organization via `/superadmin` — see ADR 0004.
 
+**Industry + multi-business:** each **business** (`Organization`) has a fixed `industry` (`auto_tyre` | `fmcg` | `fnb` | `general`) set at create. One login can own many businesses via `OrganizationMembership`; the top-bar switcher changes the active org so the whole app scopes to that business’s data only — see ADR 0005.
+
 ## RBAC
 
 | Role | How obtained | Permissions (within org) |
@@ -58,10 +60,11 @@ Platform operators (`is_superuser`) can disable modules per organization via `/s
 
 | Flow | Notes |
 |------|--------|
-| Login | Email + password → JWT |
+| Login | Email + password → JWT (tenant `/login` or platform `/superadmin/login`) |
 | Register | Enabled when `AUTH_ALLOW_PUBLIC_SIGNUP=true` → new org + ADMIN |
 | Password reset | Token email via `EMAIL_ADAPTER` (`smtp` \| `console`) |
 | Capabilities | `GET /api/v1/auth/capabilities/` |
+| Session lifecycle | Access refresh + idle + logout — see [session-lifecycle.md](./session-lifecycle.md) |
 
 Pluggable mail: `apps/api/core/email/`.
 
@@ -90,6 +93,7 @@ Pluggable mail: `apps/api/core/email/`.
 - [ADR 0002 — Customer identity](../adr/0002-customer-identity-mobile-email.md)
 - [ADR 0003 — Organization tenancy & RBAC](../adr/0003-organization-tenancy-rbac.md)
 - [ADR 0004 — Organization service entitlements](../adr/0004-organization-service-entitlements.md)
+- [ADR 0005 — Multi-business + fixed industry](../adr/0005-organization-industry-profile.md)
 - [CUSTOMERS.md](../../CUSTOMERS.md) — business CRM guide
 - [Environment variables](../env-vars.md)
 

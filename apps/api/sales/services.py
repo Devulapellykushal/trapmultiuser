@@ -838,7 +838,7 @@ def process_sale(
     if final_total <= 0:
         raise InvalidDiscountError("Total after discount must be positive")
     
-    # 5. Validate payments (may be less than total for on-account / partial checkout)
+    # 5. Validate payments — must cover total (use CREDIT explicitly for on-account)
     eps = Decimal('0.01')
     payments_total = sum(
         (Decimal(str(p.get('amount', 0))) for p in payments),
@@ -847,6 +847,11 @@ def process_sale(
     if payments_total > final_total + eps:
         raise PaymentMismatchError(
             f"Payments total ({payments_total}) exceeds sale total ({final_total})"
+        )
+    if payments_total + eps < final_total:
+        raise PaymentMismatchError(
+            f"Payments total ({payments_total}) is less than sale total ({final_total}). "
+            f"Include a CREDIT payment for any on-account balance."
         )
 
     immediate_paid = sum(
@@ -866,14 +871,7 @@ def process_sale(
         Decimal('0'),
     )
 
-    outstanding = (final_total - payments_total).quantize(Decimal('0.01'))
-    if credit_row_total > 0:
-        credit_balance_initial = credit_row_total
-    elif outstanding > 0:
-        credit_balance_initial = outstanding
-    else:
-        credit_balance_initial = Decimal('0.00')
-
+    credit_balance_initial = credit_row_total.quantize(Decimal('0.01'))
     is_credit_sale = credit_balance_initial > 0
     credit_amount_initial = credit_balance_initial
     credit_status = Sale.CreditStatus.PENDING if is_credit_sale else Sale.CreditStatus.NONE

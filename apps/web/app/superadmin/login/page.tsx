@@ -1,20 +1,27 @@
 "use client";
 
 import { AuthShell } from "@/components/auth";
+import { sessionReasonMessage } from "@/lib/auth";
 import { usePlatformAuthStore } from "@/lib/auth/platform-auth.store";
-import { motion } from "framer-motion";
 import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { Suspense } from "react";
 
-export default function SuperadminLoginPage() {
+function SuperadminLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = usePlatformAuthStore((s) => s.login);
   const isAuthenticated = usePlatformAuthStore((s) => s.isAuthenticated);
   const hasHydrated = usePlatformAuthStore((s) => s.hasHydrated);
   const hasBootstrapped = usePlatformAuthStore((s) => s.hasBootstrapped);
   const isLoading = usePlatformAuthStore((s) => s.isLoading);
   const user = usePlatformAuthStore((s) => s.user);
+
+  const sessionNotice = React.useMemo(
+    () => sessionReasonMessage(searchParams.get("reason")),
+    [searchParams],
+  );
 
   const [email, setEmail] = React.useState("superadmin@tracquake.com");
   const [password, setPassword] = React.useState("");
@@ -80,6 +87,13 @@ export default function SuperadminLoginPage() {
             footer={undefined}
           >
             <form onSubmit={handleSubmit} className="space-y-4 p-6">
+              {sessionNotice && !error ? (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{sessionNotice}</span>
+                </div>
+              ) : null}
+
               {error ? (
                 <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                   <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -121,10 +135,9 @@ export default function SuperadminLoginPage() {
                 </div>
               </label>
 
-              <motion.button
+              <button
                 type="submit"
                 disabled={isSubmitting}
-                whileTap={{ scale: 0.98 }}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-[var(--bg-primary)] disabled:opacity-60"
               >
                 {isSubmitting ? (
@@ -132,11 +145,25 @@ export default function SuperadminLoginPage() {
                 ) : (
                   "Enter console"
                 )}
-              </motion.button>
+              </button>
             </form>
           </AuthShell>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SuperadminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh flex items-center justify-center bg-[var(--bg-primary)]">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--brand)]" />
+        </div>
+      }
+    >
+      <SuperadminLoginContent />
+    </Suspense>
   );
 }

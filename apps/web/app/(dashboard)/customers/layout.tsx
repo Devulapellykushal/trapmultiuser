@@ -17,6 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { adminHref } from "@/lib/admin-routes";
+import { useIndustryProfile } from "@/lib/industry";
 import { useCustomerHubSummary } from "@/hooks/use-customers";
 
 interface NavItem {
@@ -82,6 +83,7 @@ export default function CustomersLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const industry = useIndustryProfile();
   const { data: summary } = useCustomerHubSummary();
   const isProfile =
     pathname.startsWith(`${customersRoot}/`) &&
@@ -105,8 +107,7 @@ export default function CustomersLayout({
             Customers
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xl">
-            CRM for your tyre counter — every invoice with a phone lands here,
-            ready for WhatsApp and fleet follow-up.
+            {industry.crm.layoutBlurb}
           </p>
 
           {!isProfile && (

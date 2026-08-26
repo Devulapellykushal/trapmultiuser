@@ -156,7 +156,8 @@ class StockAgingReportView(APIView):
     )
     def get(self, request):
         result = services.get_stock_aging_report(
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -191,7 +192,8 @@ class StockMovementReportView(APIView):
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -325,7 +327,8 @@ class ReturnsSummaryView(APIView):
         result = services.get_returns_summary(
             date_from=parse_date(request.query_params.get('date_from')),
             date_to=parse_date_to(request.query_params.get('date_to')),
-            warehouse_id=request.query_params.get('warehouse_id')
+            warehouse_id=request.query_params.get('warehouse_id'),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -358,7 +361,8 @@ class AdjustmentsReportView(APIView):
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -395,7 +399,8 @@ class GrossProfitReportView(APIView):
             warehouse_id=request.query_params.get('warehouse_id'),
             product_id=request.query_params.get('product_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -458,7 +463,8 @@ class CategoryWiseSalesView(APIView):
             date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -489,7 +495,8 @@ class BrandWiseSalesView(APIView):
             date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -520,7 +527,8 @@ class SizeWiseSalesView(APIView):
             date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -551,7 +559,8 @@ class SupplierWiseReportView(APIView):
             date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)
 
@@ -613,6 +622,7 @@ class SupplierSalesReportView(APIView):
             date_to=parse_date_to(request.query_params.get('date_to')),
             warehouse_id=request.query_params.get('warehouse_id'),
             page=int(request.query_params.get('page', 1)),
-            page_size=int(request.query_params.get('page_size', 50))
+            page_size=int(request.query_params.get('page_size', 50)),
+            organization_id=_org_id(request),
         )
         return Response(result)

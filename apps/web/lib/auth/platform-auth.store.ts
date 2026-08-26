@@ -8,9 +8,14 @@ import { persist } from "zustand/middleware";
 import { authService, LoginRequest, LoginResponse, User } from "./auth.service";
 import { withAuthScope } from "@/lib/api/client";
 import {
+  endSession,
+  getLocalSessionVerdict,
+  markSessionStarted,
+  touchSessionActivity,
+} from "./session-lifecycle";
+import {
   PLATFORM_AUTH_PERSIST_KEY,
   clearPersistedAuth,
-  redirectToLogin,
 } from "./session-scope";
 
 interface PlatformAuthState {
@@ -55,6 +60,7 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
 
       establishSession: (response: LoginResponse) => {
         authEpoch += 1;
+        markSessionStarted("platform");
         set({
           user: response.user,
           isAuthenticated: true,
@@ -77,7 +83,7 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
           await authService.logout("platform");
         } finally {
           clearPlatformLocalState(set);
-          redirectToLogin("platform");
+          endSession("platform", "logout");
         }
       },
 
@@ -109,6 +115,14 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
             return;
           }
 
+          const verdict = getLocalSessionVerdict("platform");
+          if (!verdict.ok) {
+            if (epochAtStart !== authEpoch) return;
+            clearPlatformLocalState(set);
+            endSession("platform", verdict.reason);
+            return;
+          }
+
           try {
             const user = await withAuthScope("platform", () =>
               authService.me(),
@@ -117,8 +131,10 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
             if (!user.isSuperuser) {
               authService.clearTokens("platform");
               clearPlatformLocalState(set);
+              endSession("platform", "invalid");
               return;
             }
+            touchSessionActivity("platform");
             set({
               user,
               isAuthenticated: true,
@@ -137,8 +153,10 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
               if (!user.isSuperuser) {
                 authService.clearTokens("platform");
                 clearPlatformLocalState(set);
+                endSession("platform", "invalid");
                 return;
               }
+              touchSessionActivity("platform");
               set({
                 user,
                 isAuthenticated: true,
@@ -147,8 +165,8 @@ export const usePlatformAuthStore = create<PlatformAuthState>()(
               });
             } catch {
               if (epochAtStart !== authEpoch) return;
-              authService.clearTokens("platform");
               clearPlatformLocalState(set);
+              endSession("platform", "session_expired");
             }
           }
         })();

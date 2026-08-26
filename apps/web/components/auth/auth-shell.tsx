@@ -49,10 +49,7 @@ export function AuthShell({
               priority
             />
           </div>
-          <h1 className="font-display text-4xl font-semibold tracking-wide text-[var(--text-primary)]">
-            Quake
-          </h1>
-          <p className="text-sm mt-1 text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)]">
             Inventory Management System
           </p>
         </div>

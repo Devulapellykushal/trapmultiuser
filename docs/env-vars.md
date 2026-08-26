@@ -49,7 +49,7 @@ Public signup creates a **new organization** + ADMIN (ADR 0003).
 | `CSRF_TRUSTED_ORIGINS`       | Comma-separated CSRF trusted origins        | `https://app.example.com` |
 | `JWT_SECRET_KEY`             | JWT signing key (optional, uses Django key) | `jwt-secret-key`          |
 | `JWT_ACCESS_TOKEN_LIFETIME`  | Access token lifetime in minutes            | `60`                      |
-| `JWT_REFRESH_TOKEN_LIFETIME` | Refresh token lifetime in minutes           | `1440`                    |
+| `JWT_REFRESH_TOKEN_LIFETIME` | Refresh token lifetime in minutes (session ceiling) | `10080` (7 days)  |
 
 ### Development Only
 
@@ -82,7 +82,7 @@ EMAIL_ADAPTER=console
 AUTH_DEV_RETURN_RESET_TOKEN=true
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 JWT_ACCESS_TOKEN_LIFETIME=60
-JWT_REFRESH_TOKEN_LIFETIME=1440
+JWT_REFRESH_TOKEN_LIFETIME=10080
 ```
 
 ## Production checklist

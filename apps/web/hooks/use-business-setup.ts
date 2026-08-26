@@ -37,10 +37,12 @@ export function useLocationLabels() {
     data?.inventoryLocationMode ?? DEFAULT_INVENTORY_LOCATION_MODE;
   const shopStockMode = data?.shopStockMode ?? DEFAULT_SHOP_STOCK_MODE;
   const barcodeEnabled = data?.barcodeEnabled !== false;
+  const gstEnabled = data?.gstEnabled !== false;
   return {
     mode,
     shopStockMode,
     barcodeEnabled,
+    gstEnabled,
     labels: locationLabels(mode, shopStockMode),
     isSingleShop: isSingleShopMode(mode),
     isGodownAndShops: isGodownAndShopsMode(mode),
@@ -62,6 +64,7 @@ export function useUpdateBusinessSetup() {
       inventory_location_mode?: InventoryLocationMode;
       shop_stock_mode?: ShopStockMode;
       barcode_enabled?: boolean;
+      gst_enabled?: boolean;
       primary_warehouse_id?: string;
     }) => businessSetupService.update(payload),
     onSuccess: (data, variables) => {
@@ -69,6 +72,14 @@ export function useUpdateBusinessSetup() {
       queryClient.invalidateQueries({ queryKey: businessSetupKeys.all });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
+      if (typeof variables.gst_enabled === "boolean") {
+        toast.success(
+          data.gstEnabled
+            ? "Saved: GST on (products + billing)"
+            : "Saved: GST off — no tax asked on products or bills",
+        );
+        return;
+      }
       if (typeof variables.barcode_enabled === "boolean") {
         toast.success(
           data.barcodeEnabled
@@ -121,8 +132,13 @@ export function useUpdateBusinessSetup() {
           message = body.inventory_location_mode[0];
         } else if (body?.shop_stock_mode?.[0]) {
           message = body.shop_stock_mode[0];
-        } else if (body?.barcode_enabled?.[0]) {
+        }         else if (body?.barcode_enabled?.[0]) {
           message = body.barcode_enabled[0];
+        } else if (
+          body &&
+          Array.isArray((body as { gst_enabled?: string[] }).gst_enabled)
+        ) {
+          message = (body as { gst_enabled: string[] }).gst_enabled[0];
         }
       }
       toast.error(message);

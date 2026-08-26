@@ -16,7 +16,7 @@ from core.email import send_password_reset_email, send_welcome_email, smtp_confi
 from core.email.registry import get_email_adapter
 
 from ..models import Organization, PasswordResetToken, User
-from ..organization import create_organization_for_signup
+from ..organization import create_organization_for_signup, ensure_membership
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,13 @@ def _unique_username_from_email(email: str) -> str:
 
 
 @transaction.atomic
-def register_user(*, email: str, password: str, name: str = "") -> User:
+def register_user(
+    *,
+    email: str,
+    password: str,
+    name: str = "",
+    industry: str | None = None,
+) -> User:
     """
     Public signup: create a NEW organization + ADMIN user.
 
@@ -47,7 +53,11 @@ def register_user(*, email: str, password: str, name: str = "") -> User:
         raise ValueError("A user with this email already exists")
 
     parts = name.split(" ", 1) if name.strip() else ["", ""]
-    org = create_organization_for_signup(email=email, name=name.strip())
+    org = create_organization_for_signup(
+        email=email,
+        name=name.strip(),
+        industry=industry,
+    )
 
     user = User.objects.create_user(
         username=_unique_username_from_email(email),
@@ -58,6 +68,7 @@ def register_user(*, email: str, password: str, name: str = "") -> User:
         role=User.Role.ADMIN,
         organization=org,
     )
+    ensure_membership(user, org, role=User.Role.ADMIN)
     maybe_send_welcome(user)
     return user
 

@@ -18,7 +18,6 @@ from .views import (
     CreditPaymentHistoryView,
 )
 from .returns_views import (
-    CreateReturnView,
     ReturnViewSet,
     StockAdjustmentView,
 )
@@ -27,7 +26,7 @@ from .returns_views import (
 router = DefaultRouter()
 router.register(r'', SaleViewSet, basename='sale')
 
-# Returns router
+# Returns router (list / create / retrieve / returnable on one ViewSet)
 returns_router = DefaultRouter()
 returns_router.register(r'', ReturnViewSet, basename='return')
 
@@ -37,8 +36,7 @@ urlpatterns = [
     path('pos/search/', PosSearchView.as_view(), name='pos-search'),
     path('checkout/', CheckoutView.as_view(), name='checkout'),
     
-    # Phase 15: Returns
-    path('returns/', CreateReturnView.as_view(), name='create-return'),
+    # Phase 15: Returns (GET list + POST create + GET detail)
     path('returns/', include(returns_router.urls)),
     
     # Phase 15: Stock adjustments

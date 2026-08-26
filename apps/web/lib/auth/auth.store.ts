@@ -16,10 +16,12 @@ import { clearPosSession } from "@/features/pos/store/usePosStore";
 import { clearAppQueryCache } from "@/lib/api/query-provider";
 import { withAuthScope } from "@/lib/api/client";
 import {
-  TENANT_AUTH_PERSIST_KEY,
-  clearPersistedAuth,
-  redirectToLogin,
-} from "./session-scope";
+  endSession,
+  getLocalSessionVerdict,
+  markSessionStarted,
+  touchSessionActivity,
+} from "./session-lifecycle";
+import { TENANT_AUTH_PERSIST_KEY, clearPersistedAuth } from "./session-scope";
 
 interface AuthState {
   user: User | null;
@@ -34,6 +36,8 @@ interface AuthState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setUser: (user: User | null) => void;
+  /** After create/switch business — update user + clear cached org data. */
+  applyActiveBusiness: (user: User) => void;
   setHasHydrated: (value: boolean) => void;
 }
 
@@ -74,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
       establishSession: (response: LoginResponse) => {
         authEpoch += 1;
         clearAppQueryCache();
+        markSessionStarted("tenant");
         set({
           user: response.user,
           isAuthenticated: true,
@@ -95,6 +100,7 @@ export const useAuthStore = create<AuthState>()(
           email: data.email.trim().toLowerCase(),
           password: data.password,
           name: data.name?.trim() || undefined,
+          industry: data.industry,
         });
         get().establishSession(response);
       },
@@ -105,7 +111,7 @@ export const useAuthStore = create<AuthState>()(
           await authService.logout("tenant");
         } finally {
           clearTenantLocalState(set);
-          redirectToLogin("tenant");
+          endSession("tenant", "logout");
         }
       },
 
@@ -135,14 +141,24 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
+          const verdict = getLocalSessionVerdict("tenant");
+          if (!verdict.ok) {
+            if (epochAtStart !== authEpoch) return;
+            clearTenantLocalState(set);
+            endSession("tenant", verdict.reason);
+            return;
+          }
+
           try {
             const user = await withAuthScope("tenant", () => authService.me());
             if (epochAtStart !== authEpoch) return;
             if (user.isSuperuser) {
               authService.clearTokens("tenant");
               clearTenantLocalState(set);
+              endSession("tenant", "invalid");
               return;
             }
+            touchSessionActivity("tenant");
             set({
               user,
               isAuthenticated: true,
@@ -161,8 +177,10 @@ export const useAuthStore = create<AuthState>()(
               if (user.isSuperuser) {
                 authService.clearTokens("tenant");
                 clearTenantLocalState(set);
+                endSession("tenant", "invalid");
                 return;
               }
+              touchSessionActivity("tenant");
               set({
                 user,
                 isAuthenticated: true,
@@ -171,8 +189,8 @@ export const useAuthStore = create<AuthState>()(
               });
             } catch {
               if (epochAtStart !== authEpoch) return;
-              authService.clearTokens("tenant");
               clearTenantLocalState(set);
+              endSession("tenant", "session_expired");
             }
           }
         })();
@@ -186,6 +204,17 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user: User | null) => {
         set({ user, isAuthenticated: !!user });
+      },
+
+      applyActiveBusiness: (user: User) => {
+        clearPosSession();
+        clearAppQueryCache();
+        set({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          hasBootstrapped: true,
+        });
       },
     }),
     {

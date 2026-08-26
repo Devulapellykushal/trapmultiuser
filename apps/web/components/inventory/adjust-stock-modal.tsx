@@ -18,6 +18,7 @@ import {
   useWarehouses,
 } from "@/hooks/use-inventory";
 import { useLocationLabels } from "@/hooks/use-business-setup";
+import { useIndustryProfile } from "@/lib/industry";
 
 export interface AdjustStockProductOption {
   id: string;
@@ -122,6 +123,7 @@ export function AdjustStockModal({
 
   const adjustMutation = useAdjustStock();
   const { labels, isSingleShop } = useLocationLabels();
+  const industry = useIndustryProfile();
   const { data: warehouses = [], isLoading: warehousesLoading } =
     useWarehouses();
 
@@ -247,7 +249,7 @@ export function AdjustStockModal({
       return;
     }
     if (selectedProducts.length === 0) {
-      setFieldError("Tick at least one tyre.");
+      setFieldError(industry.labels.stockSelect);
       return;
     }
 
@@ -291,11 +293,11 @@ export function AdjustStockModal({
         });
         done += 1;
       }
-      toast.success(
-        mode === "add"
-          ? `Added stock to ${done} tyre${done === 1 ? "" : "s"} (${totalUnits} units).`
-          : `Removed stock from ${done} tyre${done === 1 ? "" : "s"} (${totalUnits} units).`,
-      );
+        toast.success(
+          mode === "add"
+            ? industry.labels.stockAdded(done, totalUnits)
+            : industry.labels.stockRemoved(done, totalUnits),
+        );
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -355,8 +357,8 @@ export function AdjustStockModal({
                     </h2>
                     <p className="text-xs text-[var(--text-muted)] truncate">
                       {lockedProduct
-                        ? "Add or remove units for this tyre"
-                        : "Tick tyres, set qty each — one save"}
+                        ? `Add or remove units for this ${industry.itemNoun}`
+                        : `Tick ${industry.itemNounPlural}, set qty each — one save`}
                     </p>
                   </div>
                 </div>
@@ -451,7 +453,7 @@ export function AdjustStockModal({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                        Tyres / products
+                        Products
                       </label>
                       {!lockedProduct && selectedIds.size > 0 && (
                         <span className="text-[11px] text-[var(--brand)] tabular-nums">
@@ -645,20 +647,24 @@ export function AdjustStockModal({
                         Saving…
                       </>
                     ) : selectedProducts.length === 0 ? (
-                      "Select tyres"
+                      `Select ${industry.itemNounPlural}`
                     ) : totalUnits < 1 ? (
                       "Enter quantities"
                     ) : mode === "add" ? (
                       <>
                         <Plus className="w-4 h-4" />
-                        Add {totalUnits} to {selectedProducts.length} tyre
-                        {selectedProducts.length === 1 ? "" : "s"}
+                        Add {totalUnits} to {selectedProducts.length}{" "}
+                        {selectedProducts.length === 1
+                          ? industry.itemNoun
+                          : industry.itemNounPlural}
                       </>
                     ) : (
                       <>
                         <Minus className="w-4 h-4" />
-                        Remove {totalUnits} from {selectedProducts.length} tyre
-                        {selectedProducts.length === 1 ? "" : "s"}
+                        Remove {totalUnits} from {selectedProducts.length}{" "}
+                        {selectedProducts.length === 1
+                          ? industry.itemNoun
+                          : industry.itemNounPlural}
                       </>
                     )}
                   </button>

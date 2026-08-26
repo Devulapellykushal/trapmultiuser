@@ -38,20 +38,27 @@ class InventoryReportAccuracyTest(TestCase):
     """
     
     def setUp(self):
-        from users.models import User
+        from users.models import Organization, User
+        self.org = Organization.objects.create(
+            name="Report Org",
+            slug="report-org-test",
+        )
         self.admin = User.objects.create_user(
-            username=unique_username('admin'), password='adminpass', role='ADMIN'
+            username=unique_username('admin'), password='adminpass', role='ADMIN',
+            organization=self.org,
         )
         self.warehouse = Warehouse.objects.create(
             name="Test WH",
-            code="TST-WH"
+            code="TST-WH",
+            organization=self.org,
         )
         self.product = Product.objects.create(
             name="Report Test Product",
             brand="TEST",
             category="Electronics",
             sku="RPT-001",
-            barcode_value="Quake-RPT-001"
+            barcode_value="Quake-RPT-001",
+            organization=self.org,
         )
         ProductVariant.objects.create(
             product=self.product,
@@ -74,7 +81,8 @@ class InventoryReportAccuracyTest(TestCase):
         # Get report
         report = services.get_current_stock_report(
             warehouse_id=str(self.warehouse.id),
-            product_id=str(self.product.id)
+            product_id=str(self.product.id),
+            organization_id=self.org.id,
         )
         
         # Get ledger sum directly
@@ -103,7 +111,8 @@ class InventoryReportAccuracyTest(TestCase):
         # Get report
         report = services.get_current_stock_report(
             warehouse_id=str(self.warehouse.id),
-            product_id=str(self.product.id)
+            product_id=str(self.product.id),
+            organization_id=self.org.id,
         )
         
         # Should be 100 - 25 = 75
@@ -122,13 +131,48 @@ class InventoryReportAccuracyTest(TestCase):
         
         # Get movement report
         report = services.get_stock_movement_report(
-            product_id=str(self.product.id)
+            product_id=str(self.product.id),
+            organization_id=self.org.id,
         )
         
         # Should have OPENING and SALE
         movement_types = set(m['movement_type'] for m in report['results'])
         self.assertIn('OPENING', movement_types)
         self.assertIn('SALE', movement_types)
+
+    def test_movement_report_isolates_organizations(self):
+        """Tea Circle must not see Thirumala tyre movements."""
+        from users.models import Organization
+
+        other = Organization.objects.create(name="Other Biz", slug="other-biz-rpt")
+        other_product = Product.objects.create(
+            name="Secret Tyre",
+            brand="MRF",
+            category="Tyres",
+            sku="OTHER-TYRE-001",
+            barcode_value="Quake-OTHER-001",
+            organization=other,
+        )
+        other_wh = Warehouse.objects.create(
+            name="Other WH", code="OTH-WH", organization=other,
+        )
+        inventory_services.create_inventory_movement(
+            product_id=other_product.id,
+            movement_type='OPENING',
+            quantity=50,
+            user=self.admin,
+            warehouse_id=other_wh.id,
+        )
+
+        mine = services.get_stock_movement_report(organization_id=self.org.id)
+        names = [m['product_name'] for m in mine['results']]
+        self.assertIn("Report Test Product", names)
+        self.assertNotIn("Secret Tyre", names)
+
+        theirs = services.get_stock_movement_report(organization_id=other.id)
+        their_names = [m['product_name'] for m in theirs['results']]
+        self.assertIn("Secret Tyre", their_names)
+        self.assertNotIn("Report Test Product", their_names)
 
 
 # =============================================================================

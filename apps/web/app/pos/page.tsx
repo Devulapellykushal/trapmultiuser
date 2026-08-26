@@ -8,6 +8,7 @@ import {
   CheckoutModal,
   PosSearchBar,
   ProductGrid,
+  useCart,
 } from "@/components/pos";
 import { InvoicePreview } from "@/components/invoices";
 import {
@@ -22,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ApiInvoice, Invoice } from "@/lib/invoices/transform-api-invoice";
 import { transformInvoiceDetail } from "@/lib/invoices/transform-api-invoice";
+import { useIndustryProfile } from "@/lib/industry";
 import * as React from "react";
 
 type InventoryMode = "warehouse" | "store";
@@ -37,6 +39,7 @@ export default function POSPage() {
     barcodeEnabled,
     labels,
   } = useLocationLabels();
+  const industry = useIndustryProfile();
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
   const [posInvoicePreview, setPosInvoicePreview] =
     React.useState<Invoice | null>(null);
@@ -283,7 +286,7 @@ export default function POSPage() {
                 />
               ) : (
                 <p className="text-sm text-[var(--text-muted)]">
-                  Barcodes off — search or tap a tyre to add
+                  {industry.labels.posBarcodeOff}
                 </p>
               )}
 
@@ -430,18 +433,25 @@ function CheckoutButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
+  const { items, hasHydrated } = useCart();
+  const cartEmpty = hasHydrated && items.length === 0;
+  const isDisabled = Boolean(disabled) || cartEmpty;
+  const reason = cartEmpty
+    ? "Add a product to the cart first"
+    : disabledReason;
+
   return (
     <div className="space-y-2">
       <button
         type="button"
         onClick={onCheckout}
-        disabled={disabled}
+        disabled={isDisabled}
         className="w-full py-4 rounded-xl [background:var(--grad-brand-diagonal)] text-[var(--brand-contrast)] font-bold text-lg hover:opacity-95 transition-all shadow-lg shadow-[var(--brand)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Proceed to Checkout
       </button>
-      {disabled && disabledReason && (
-        <p className="text-center text-xs text-amber-400/80">{disabledReason}</p>
+      {isDisabled && reason && (
+        <p className="text-center text-xs text-amber-400/80">{reason}</p>
       )}
     </div>
   );

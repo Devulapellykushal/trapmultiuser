@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { adminHref } from "@/lib/admin-routes";
+import { useIndustryProfile } from "@/lib/industry";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -107,6 +108,7 @@ function TransferStockModal({
   storeName,
   onSuccess,
 }: TransferStockModalProps) {
+  const industry = useIndustryProfile();
   const [selectedWarehouse, setSelectedWarehouse] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
     () => new Set(),
@@ -223,7 +225,7 @@ function TransferStockModal({
       return;
     }
     if (selectedLines.length === 0) {
-      setFormError("Tick at least one tyre to send.");
+      setFormError(industry.labels.transferTick);
       return;
     }
 
@@ -290,8 +292,8 @@ function TransferStockModal({
                   Send stock to shop
                 </h2>
                 <p className="text-sm text-zinc-400 truncate">
-                  To <span className="text-zinc-200">{storeName}</span> — tick
-                  tyres, set how many
+                  To <span className="text-zinc-200">{storeName}</span> — tick{" "}
+                  {industry.itemNounPlural}, set how many
                 </p>
               </div>
             </div>
@@ -370,12 +372,12 @@ function TransferStockModal({
                 {productsLoading && (
                   <div className="flex items-center gap-2 px-4 py-6 text-sm text-zinc-400 justify-center">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading tyres…
+                    {industry.labels.transferLoading}
                   </div>
                 )}
                 {!productsLoading && filteredProducts.length === 0 && (
                   <div className="px-4 py-6 text-sm text-zinc-500 text-center">
-                    No tyres found
+                    {industry.labels.transferEmpty}
                   </div>
                 )}
                 {!productsLoading &&
@@ -513,7 +515,9 @@ function TransferStockModal({
                 <>
                   <Truck className="w-4 h-4" />
                   Send {selectedLines.length || ""}{" "}
-                  {selectedLines.length === 1 ? "tyre type" : "tyre types"}
+                  {selectedLines.length === 1
+                    ? `${industry.itemNoun} type`
+                    : `${industry.itemNoun} types`}
                 </>
               )}
             </button>

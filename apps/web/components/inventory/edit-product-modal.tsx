@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { inventoryKeys, useCategories } from "@/hooks/use-inventory";
+import { useLocationLabels } from "@/hooks/use-business-setup";
 
 // =============================================================================
 // TYPES
@@ -82,6 +83,7 @@ export function EditProductModal({
   );
 
   const queryClient = useQueryClient();
+  const { gstEnabled } = useLocationLabels();
 
   // Fetch categories from API
   const { data: categoriesData } = useCategories();
@@ -219,7 +221,7 @@ export function EditProductModal({
           cost_price: formData.costPrice || "0",
           mrp: formData.mrp || "0",
           selling_price: formData.sellingPrice || "0",
-          gst_percentage: formData.gstPercentage || "0",
+          gst_percentage: gstEnabled ? formData.gstPercentage || "0" : "0",
         };
       }
 
@@ -558,6 +560,7 @@ export function EditProductModal({
                     </div>
 
                     {/* GST */}
+                    {gstEnabled && (
                     <div className="w-1/3">
                       <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
                         GST Percentage
@@ -585,6 +588,7 @@ export function EditProductModal({
                         </option>
                       </select>
                     </div>
+                    )}
 
                     {/* Margin Preview */}
                     {(formData.costPrice || formData.sellingPrice) && (

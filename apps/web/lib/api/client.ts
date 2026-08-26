@@ -8,11 +8,13 @@ import axios, {
   InternalAxiosRequestConfig,
 } from "axios";
 import {
+  applyRotatedTokens,
+  endSession,
+  touchSessionActivity,
+} from "@/lib/auth/session-lifecycle";
+import {
   AuthScope,
-  accessTokenKey,
-  clearSessionTokens,
   getAuthScopeFromPath,
-  loginPathForScope,
   readAccessToken,
   readRefreshToken,
 } from "@/lib/auth/session-scope";
@@ -46,6 +48,17 @@ export async function withAuthScope<T>(
 
 function activeScope(): AuthScope {
   return forcedAuthScope ?? getAuthScopeFromPath();
+}
+
+function isAuthBootstrapUrl(url?: string): boolean {
+  if (!url) return false;
+  return (
+    url.includes("/auth/login") ||
+    url.includes("/auth/refresh") ||
+    url.includes("/auth/logout") ||
+    url.includes("/auth/register") ||
+    url.includes("/auth/password/")
+  );
 }
 
 export const apiClient = axios.create({
@@ -101,14 +114,22 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    const scoped = response.config as ScopedConfig;
+    const scope = scoped.__quakeAuthScope ?? activeScope();
+    if (!isAuthBootstrapUrl(scoped.url) && readAccessToken(scope)) {
+      touchSessionActivity(scope);
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as ScopedConfig | undefined;
 
     if (
       error.response?.status === 401 &&
       originalRequest &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      !isAuthBootstrapUrl(originalRequest.url)
     ) {
       const scope = originalRequest.__quakeAuthScope ?? activeScope();
 
@@ -128,7 +149,7 @@ apiClient.interceptors.response.use(
 
       const refreshToken = readRefreshToken(scope);
       if (!refreshToken) {
-        expireSessionQuietly(scope);
+        endSession(scope, "session_expired");
         return Promise.reject(error);
       }
 
@@ -137,9 +158,11 @@ apiClient.interceptors.response.use(
           refresh: refreshToken,
         });
         const newAccessToken = response.data.access as string;
-        if (typeof window !== "undefined") {
-          localStorage.setItem(accessTokenKey(scope), newAccessToken);
-        }
+        const newRefresh =
+          typeof response.data.refresh === "string"
+            ? response.data.refresh
+            : undefined;
+        applyRotatedTokens(scope, newAccessToken, newRefresh);
         processQueue(scope, null, newAccessToken);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -147,7 +170,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(scope, refreshError, null);
-        expireSessionQuietly(scope);
+        endSession(scope, "session_expired");
         return Promise.reject(refreshError);
       } finally {
         isRefreshing[scope] = false;
@@ -170,22 +193,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-/**
- * Clear one session's tokens. Only hard-redirect when the user is currently
- * on that session's routes — never yank a shop user to platform login (or
- * the reverse) because the other session expired in the background.
- */
-function expireSessionQuietly(scope: AuthScope) {
-  if (typeof window === "undefined") return;
-  clearSessionTokens(scope);
-  if (scope === "tenant") {
-    localStorage.removeItem("quake-pos-v1");
-  }
-  if (getAuthScopeFromPath() === scope) {
-    window.location.assign(loginPathForScope(scope));
-  }
-}
 
 export interface ApiResponse<T> {
   data: T;

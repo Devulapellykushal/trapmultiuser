@@ -63,7 +63,7 @@ export function PosSearchBar({ enabled }: PosSearchBarProps) {
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search products (warehouse)…"
+          placeholder="Search products…"
           disabled={!warehouseId}
           className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand)]/50"
         />

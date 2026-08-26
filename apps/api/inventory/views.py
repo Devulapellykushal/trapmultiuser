@@ -607,7 +607,7 @@ class PurchaseStockView(APIView):
         tags=['Stock Operations']
     )
     def post(self, request):
-        serializer = PurchaseStockSerializer(data=request.data)
+        serializer = PurchaseStockSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         
         try:
@@ -652,32 +652,50 @@ class AdjustStockView(APIView):
         tags=['Stock Operations']
     )
     def post(self, request):
-        serializer = AdjustStockSerializer(data=request.data)
+        serializer = AdjustStockSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        
+
+        org_id = getattr(request.user, "organization_id", None)
         try:
-            warehouse = Warehouse.objects.get(id=serializer.validated_data['warehouse_id'])
-            variant = ProductVariant.objects.get(id=serializer.validated_data['variant_id'])
-            
+            wh_qs = Warehouse.objects.filter(id=serializer.validated_data["warehouse_id"])
+            var_qs = ProductVariant.objects.select_related("product").filter(
+                id=serializer.validated_data["variant_id"]
+            )
+            if org_id:
+                wh_qs = wh_qs.filter(organization_id=org_id)
+                var_qs = var_qs.filter(product__organization_id=org_id)
+            warehouse = wh_qs.get()
+            variant = var_qs.get()
+
             ledger_entry = services.record_adjustment(
                 variant=variant,
                 warehouse=warehouse,
-                quantity=serializer.validated_data['quantity'],
-                notes=serializer.validated_data['notes'],
-                created_by=request.user.username if request.user.is_authenticated else 'admin',
-                allow_negative=serializer.validated_data.get('allow_negative', False)
+                quantity=serializer.validated_data["quantity"],
+                notes=serializer.validated_data["notes"],
+                created_by=request.user.username if request.user.is_authenticated else "admin",
+                allow_negative=serializer.validated_data.get("allow_negative", False),
             )
-            
+
             return Response(
                 StockLedgerSerializer(ledger_entry).data,
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
+            )
+        except Warehouse.DoesNotExist:
+            return Response(
+                {"error": "Warehouse not found or inactive"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ProductVariant.DoesNotExist:
+            return Response(
+                {"error": "Product variant not found or inactive"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except services.InsufficientStockError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except services.InvalidEventError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StockSummaryView(APIView):

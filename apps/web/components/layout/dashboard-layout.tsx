@@ -107,7 +107,7 @@ const routeTitles: Record<string, DashboardRouteConfig> = {
   },
   [`${ADMIN_BASE}/reports/size`]: {
     title: "Variant options",
-    subtitle: "Sales by variant dimension (stored as size in API)",
+    subtitle: "Sales by pack, size, or option (API field: size)",
     showDateRange: true,
     managerOrAdmin: true,
   },
@@ -142,7 +142,7 @@ const routeTitles: Record<string, DashboardRouteConfig> = {
     title: "Outreach",
     subtitle: "Templates, WhatsApp, Meta channels",
   },
-  [`${ADMIN_BASE}/settings`]: { title: "Settings", subtitle: "System configuration" },
+  [`${ADMIN_BASE}/settings`]: { title: "Settings", subtitle: "Shop setup and your account" },
   [`${ADMIN_BASE}/users`]: {
     title: "User Management",
     subtitle: "Manage staff and admin accounts",

@@ -156,6 +156,15 @@ class BusinessSettings(models.Model):
             "If False, barcodes are optional — sell by search/tap."
         ),
     )
+
+    # When False: hide GST on product forms and POS; sales use 0% tax.
+    gst_enabled = models.BooleanField(
+        default=True,
+        help_text=(
+            "If True, products can set a GST slab and POS can calculate GST. "
+            "If False, tax is off for this business (inventory + billing)."
+        ),
+    )
     
     # Discount Configuration
     discount_enabled = models.BooleanField(

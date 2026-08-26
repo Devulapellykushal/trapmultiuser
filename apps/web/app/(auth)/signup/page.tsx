@@ -3,11 +3,13 @@
 import { AuthShell } from "@/components/auth";
 import { ADMIN_BASE } from "@/lib/admin-routes";
 import { authService, useAuth } from "@/lib/auth";
+import { INDUSTRY_OPTIONS, type IndustryId } from "@/lib/industry";
 import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Loader2, Lock, Mail, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function SignupPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
+  const [industry, setIndustry] = React.useState<IndustryId | "">("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [signupEnabled, setSignupEnabled] = React.useState<boolean | null>(null);
@@ -31,7 +34,7 @@ export default function SignupPage() {
 
   React.useEffect(() => {
     if (isAuthenticated && createdName) {
-      router.replace(ADMIN_BASE);
+      router.replace(`${ADMIN_BASE}/settings?setup=signup`);
     }
   }, [isAuthenticated, createdName, router]);
 
@@ -48,6 +51,10 @@ export default function SignupPage() {
       setError("Passwords do not match");
       return;
     }
+    if (!industry) {
+      setError("Please choose what kind of shop you run");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -55,8 +62,13 @@ export default function SignupPage() {
         email: normalizedEmail,
         password,
         name: name.trim() || undefined,
+        industry,
       });
       setCreatedName(name.trim() || normalizedEmail.split("@")[0]);
+      toast.success("Account created", {
+        description: "Next screen: tell us how you keep stock, then you can sell.",
+        duration: 7000,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign up failed";
       if (message.toLowerCase().includes("already exists")) {
@@ -101,11 +113,15 @@ export default function SignupPage() {
   if (createdName && isAuthenticated) {
     return (
       <AuthShell
-        title="Account ready"
-        subtitle={`Welcome, ${createdName}. Opening your dashboard…`}
+        title="Welcome to Quake"
+        subtitle={`Hi ${createdName} — next, set up how your business keeps stock and works day to day.`}
       >
         <div className="flex flex-col items-center gap-4 py-4">
           <CheckCircle2 className="w-12 h-12 text-[var(--success)]" />
+          <p className="text-sm text-center text-[var(--text-secondary)] max-w-sm">
+            Opening Settings so you can choose one shop or godown + shops,
+            barcodes, and profile details.
+          </p>
           <Loader2 className="w-6 h-6 animate-spin text-[var(--brand)]" />
         </div>
       </AuthShell>
@@ -163,6 +179,34 @@ export default function SignupPage() {
 
         <div>
           <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+            Business type
+          </label>
+          <select
+            value={industry}
+            onChange={(e) =>
+              setIndustry((e.target.value || "") as IndustryId | "")
+            }
+            required
+            className="w-full px-4 py-2.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
+          >
+            <option value="" disabled>
+              Select your shop type…
+            </option>
+            {INDUSTRY_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+            {industry
+              ? `${INDUSTRY_OPTIONS.find((o) => o.id === industry)?.description}. Stays fixed for this business — add another business later if you need a different type.`
+              : "Pick the closest match. You can run more than one business type under the same login."}
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
             Email
           </label>
           <div className="relative">
@@ -173,7 +217,7 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="you@company.com"
+              placeholder="shop@gmail.com"
               className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
             />
           </div>

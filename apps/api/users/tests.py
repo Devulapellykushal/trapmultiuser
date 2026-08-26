@@ -11,7 +11,8 @@ from rest_framework.test import APIClient
 
 from customers.models import Customer
 from inventory.models import Warehouse, Product
-from users.models import Organization, User
+from users.models import Organization, OrganizationMembership, User
+from users.organization import ensure_membership
 from users.services import auth_service
 
 
@@ -30,6 +31,7 @@ class OrganizationIsolationTests(TestCase):
             role=User.Role.ADMIN,
             organization=self.thirumala,
         )
+        ensure_membership(self.admin, self.thirumala, role=User.Role.ADMIN)
         self.warehouse = Warehouse.objects.create(
             name="Thirumala Main",
             code="THI-MAIN",
@@ -203,6 +205,13 @@ class OrganizationIsolationTests(TestCase):
         staff = User.objects.get(email="cashier@example.com")
         self.assertEqual(staff.role, User.Role.STAFF)
         self.assertEqual(staff.organization_id, self.thirumala.id)
+        self.assertTrue(
+            OrganizationMembership.objects.filter(
+                user=staff,
+                organization=self.thirumala,
+                role=User.Role.STAFF,
+            ).exists()
+        )
 
         staff_client = self._auth(staff)
         res = staff_client.get("/api/v1/inventory/stock/summary/")
@@ -239,6 +248,7 @@ class SuperadminServiceToggleTests(TestCase):
             role=User.Role.ADMIN,
             organization=self.org,
         )
+        ensure_membership(self.owner, self.org, role=User.Role.ADMIN)
         self.platform = User.objects.create_superuser(
             username="platform_sa",
             email="platform@example.com",
@@ -300,6 +310,147 @@ class SuperadminServiceToggleTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.data.get("isSuperuser"))
         self.assertIn("customers", res.data.get("enabledServices", {}))
+
+    def test_signup_with_industry_fmcg(self):
+        user = auth_service.register_user(
+            email="fmcg-owner@example.com",
+            password="SecurePass1!",
+            name="FMCG Owner",
+            industry="fmcg",
+        )
+        self.assertEqual(user.organization.industry, "fmcg")
+        self.assertTrue(
+            OrganizationMembership.objects.filter(
+                user=user, organization=user.organization, role=User.Role.ADMIN
+            ).exists()
+        )
+        client = self._auth(user)
+        res = client.get("/api/v1/auth/me/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data.get("industry"), "fmcg")
+
+    def test_industry_patch_endpoint_removed(self):
+        from django.urls import resolve
+        from django.urls.exceptions import Resolver404
+
+        with self.assertRaises(Resolver404):
+            resolve("/api/v1/auth/organization/industry/")
+        self.owner.organization.refresh_from_db()
+        self.assertEqual(self.owner.organization.industry, "auto_tyre")
+
+    def test_add_second_business_keeps_data_isolated(self):
+        client = self._auth(self.owner)
+        # Seed a product on the first (tyre) org
+        from inventory.models import Product
+
+        Product.objects.create(
+            name="Tyre SKU",
+            brand="MRF",
+            category="Tyre",
+            sku="TYRE-001",
+            organization=self.org,
+        )
+
+        res = client.post(
+            "/api/v1/auth/businesses/",
+            {"name": "Kushal FMCG", "industry": "fmcg"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data.get("industry"), "fmcg")
+        self.assertEqual(res.data.get("organizationName"), "Kushal FMCG")
+        fmcg_org_id = res.data.get("organizationId")
+        self.assertIsNotNone(fmcg_org_id)
+
+        self.owner.refresh_from_db()
+        self.assertEqual(str(self.owner.organization_id), str(fmcg_org_id))
+        self.assertEqual(self.owner.organization.industry, "fmcg")
+
+        # Active FMCG workspace has empty product list
+        res = client.get("/api/v1/inventory/products/")
+        self.assertEqual(res.status_code, 200)
+        results = res.data.get("results", res.data)
+        names = [p.get("name") for p in results]
+        self.assertNotIn("Tyre SKU", names)
+
+        # Switch back to tyre org — product returns
+        tyre_id = self.org.id
+        res = client.post(
+            "/api/v1/auth/businesses/switch/",
+            {"organizationId": str(tyre_id)},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data.get("industry"), "auto_tyre")
+        self.assertEqual(str(res.data.get("organizationId")), str(tyre_id))
+
+        res = client.get("/api/v1/inventory/products/")
+        results = res.data.get("results", res.data)
+        names = [p.get("name") for p in results]
+        self.assertIn("Tyre SKU", names)
+
+        # List shows both businesses
+        res = client.get("/api/v1/auth/businesses/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data), 2)
+        industries = {b["industry"] for b in res.data}
+        self.assertEqual(industries, {"auto_tyre", "fmcg"})
+
+    def test_cannot_switch_to_foreign_business(self):
+        other = Organization.objects.create(name="Other", slug="other-biz", industry="fnb")
+        client = self._auth(self.owner)
+        res = client.post(
+            "/api/v1/auth/businesses/switch/",
+            {"organizationId": str(other.id)},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_cannot_leave_only_business(self):
+        client = self._auth(self.owner)
+        res = client.post(
+            "/api/v1/auth/businesses/leave/",
+            {"organizationId": str(self.org.id)},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertTrue(
+            OrganizationMembership.objects.filter(
+                user=self.owner, organization=self.org
+            ).exists()
+        )
+
+    def test_leave_business_unlinks_and_switches(self):
+        client = self._auth(self.owner)
+        res = client.post(
+            "/api/v1/auth/businesses/",
+            {"name": "Tea Circle", "industry": "fmcg"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        tea_id = res.data.get("organizationId")
+        self.assertEqual(str(self.owner.organization_id), str(tea_id))
+
+        res = client.post(
+            "/api/v1/auth/businesses/leave/",
+            {"organizationId": str(tea_id)},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(str(res.data.get("organizationId")), str(self.org.id))
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.organization_id, self.org.id)
+        self.assertFalse(
+            OrganizationMembership.objects.filter(
+                user=self.owner, organization_id=tea_id
+            ).exists()
+        )
+
+    def test_me_defaults_industry_auto_tyre(self):
+        client = self._auth(self.owner)
+        res = client.get("/api/v1/auth/me/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data.get("industry"), "auto_tyre")
 
     def test_superuser_lists_all_users(self):
         client = self._auth(self.platform)

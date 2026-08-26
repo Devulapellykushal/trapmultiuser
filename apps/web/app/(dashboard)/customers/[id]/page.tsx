@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { PageTransition } from "@/components/layout";
 import { CustomerFormModal } from "@/components/customers/customer-form-modal";
+import { InvoicePreview } from "@/components/invoices";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   useActivateCustomer,
@@ -26,8 +27,17 @@ import {
   useDeactivateCustomer,
   useLinkCustomerSales,
 } from "@/hooks/use-customers";
+import { api } from "@/lib/api";
 import { adminHref } from "@/lib/admin-routes";
+import {
+  type ApiInvoice,
+  type Invoice,
+  transformInvoiceDetail,
+  transformInvoiceList,
+} from "@/lib/invoices/transform-api-invoice";
 import { sendWhatsAppMessage } from "@/services/notifications.service";
+import type { CustomerSale } from "@/services/customers.service";
+import { useIndustryProfile } from "@/lib/industry";
 
 function formatCurrency(amount: string | number | undefined): string {
   const n = typeof amount === "string" ? Number(amount) : amount ?? 0;
@@ -62,30 +72,11 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-const WA_TEMPLATES = [
-  {
-    id: "thanks",
-    label: "Thanks for visiting",
-    body: (name: string) =>
-      `Hi ${name}, thanks for visiting us. Drive safe — we’re here for your next tyre or alignment.`,
-  },
-  {
-    id: "fit",
-    label: "Tyre fit reminder",
-    body: (name: string) =>
-      `Hi ${name}, a quick reminder to check tyre pressure and tread. Book a fitment slot with us anytime.`,
-  },
-  {
-    id: "credit",
-    label: "Credit reminder",
-    body: (name: string) =>
-      `Hi ${name}, a gentle reminder on your open balance with us. Happy to help settle anytime at the counter.`,
-  },
-] as const;
-
 export default function CustomerProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const industry = useIndustryProfile();
+  const waTemplates = industry.crm.whatsappTemplates;
   const id = String(params?.id ?? "");
   const { data: customer, isLoading, isError, refetch } = useCustomer(id);
   const { data: sales = [], isLoading: salesLoading } = useCustomerSales(id);
@@ -94,17 +85,58 @@ export default function CustomerProfilePage() {
   const linkSales = useLinkCustomerSales();
   const [editOpen, setEditOpen] = React.useState(false);
   const [waSending, setWaSending] = React.useState(false);
-  const [waTemplate, setWaTemplate] =
-    React.useState<(typeof WA_TEMPLATES)[number]["id"]>("thanks");
+  const [waTemplate, setWaTemplate] = React.useState(
+    () => waTemplates[0]?.id ?? "thanks",
+  );
+  const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(
+    null,
+  );
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewLoadingId, setPreviewLoadingId] = React.useState<string | null>(
+    null,
+  );
 
   const phone = customer?.phone?.trim() ?? "";
   const canWhatsApp = phone.length >= 8;
   const credit = Number(customer?.creditOutstanding ?? 0);
 
+  const openSaleInvoice = async (sale: CustomerSale) => {
+    setPreviewLoadingId(sale.id);
+    try {
+      const data = await api.get<{ results: ApiInvoice[] }>("/invoices/", {
+        sale_id: sale.id,
+        page_size: 5,
+      });
+      const first = data.results?.[0];
+      if (!first) {
+        toast.error("No invoice found for this sale");
+        return;
+      }
+      setPreviewInvoice(transformInvoiceList(first));
+      setPreviewOpen(true);
+      try {
+        const full = await api.get<ApiInvoice>(`/invoices/${first.id}/`);
+        setPreviewInvoice(transformInvoiceDetail(full));
+      } catch {
+        // Keep list-shaped preview if detail fetch fails
+      }
+    } catch {
+      toast.error("Could not open invoice");
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
+  const closeInvoicePreview = () => {
+    setPreviewOpen(false);
+    setTimeout(() => setPreviewInvoice(null), 300);
+  };
+
   const handleWhatsApp = async () => {
     if (!customer || !canWhatsApp) return;
     const tmpl =
-      WA_TEMPLATES.find((t) => t.id === waTemplate) ?? WA_TEMPLATES[0];
+      waTemplates.find((t) => t.id === waTemplate) ?? waTemplates[0];
+    if (!tmpl) return;
     setWaSending(true);
     try {
       await sendWhatsAppMessage({
@@ -332,14 +364,10 @@ export default function CustomerProfilePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={waTemplate}
-                      onChange={(e) =>
-                        setWaTemplate(
-                          e.target.value as (typeof WA_TEMPLATES)[number]["id"],
-                        )
-                      }
+                      onChange={(e) => setWaTemplate(e.target.value)}
                       className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-primary)]"
                     >
-                      {WA_TEMPLATES.map((t) => (
+                      {waTemplates.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.label}
                         </option>
@@ -394,76 +422,98 @@ export default function CustomerProfilePage() {
             </p>
           ) : (
             <ul className="divide-y divide-[var(--border-default)]">
-              {sales.map((s) => (
-                <li key={s.id}>
-                  <Link
-                    href={`${adminHref("/invoices")}?sale_id=${s.id}`}
-                    className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-[var(--bg-surface)] transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                        {s.invoiceNumber}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                        {formatDateTime(s.createdAt)}
-                        {s.storeName
-                          ? ` · ${s.storeName}`
-                          : s.warehouseName
-                            ? ` · ${s.warehouseName}`
-                            : ""}
-                        {s.linked === false ? " · phone match" : ""}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                        {formatCurrency(s.total)}
-                      </p>
-                      {Number(s.creditBalance) > 0 ? (
-                        <p className="text-[11px] text-[var(--warning)]">
-                          {formatCurrency(s.creditBalance)} due
+              {sales.map((s) => {
+                const loading = previewLoadingId === s.id;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void openSaleInvoice(s)}
+                      className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-[var(--bg-surface)] transition-colors disabled:opacity-60"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                          {s.invoiceNumber}
                         </p>
-                      ) : (
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          {s.totalItems} items
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                          {formatDateTime(s.createdAt)}
+                          {s.storeName
+                            ? ` · ${s.storeName}`
+                            : s.warehouseName
+                              ? ` · ${s.warehouseName}`
+                              : ""}
+                          {s.linked === false ? " · phone match" : ""}
                         </p>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-3">
+                        <div>
+                          <p className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                            {formatCurrency(s.total)}
+                          </p>
+                          {Number(s.creditBalance) > 0 ? (
+                            <p className="text-[11px] text-[var(--warning)]">
+                              {formatCurrency(s.creditBalance)} due
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              {s.totalItems} items
+                            </p>
+                          )}
+                        </div>
+                        {loading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-[var(--brand)]" />
+                        ) : (
+                          <span className="text-xs font-medium text-[var(--brand)]">
+                            View
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
 
-        <section className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-elevated)]/50 p-5 opacity-90">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[var(--bg-surface)]">
-              <Car className="w-5 h-5 text-[var(--text-muted)]" />
+        {industry.crm.showVehicles ? (
+          <section className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-elevated)]/50 p-5 opacity-90">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-[var(--bg-surface)]">
+                <Car className="w-5 h-5 text-[var(--text-muted)]" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                  Vehicles
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1 mb-3">
+                  Fleet plates and preferred tyre sizes — next for multi-vehicle
+                  accounts.
+                </p>
+                <button
+                  type="button"
+                  disabled
+                  className="px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] cursor-not-allowed"
+                >
+                  Add vehicle
+                </button>
+              </div>
             </div>
-            <div className="flex-1">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                Vehicles
-              </h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1 mb-3">
-                Fleet plates and preferred tyre sizes — next for multi-vehicle
-                accounts.
-              </p>
-              <button
-                type="button"
-                disabled
-                className="px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] cursor-not-allowed"
-              >
-                Add vehicle
-              </button>
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
       </div>
 
       <CustomerFormModal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         customer={customer}
+      />
+
+      <InvoicePreview
+        invoice={previewInvoice}
+        isOpen={previewOpen}
+        onClose={closeInvoicePreview}
       />
     </PageTransition>
   );

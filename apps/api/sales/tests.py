@@ -505,7 +505,7 @@ class LedgerReductionTest(TestCase):
 
 class PaymentMismatchTest(TestCase):
     """
-    Test: Overpay rejected; underpay allowed as partial settlement (opening due).
+    Test: Overpay rejected; underpay rejected unless CREDIT covers the balance.
     """
     
     def setUp(self):
@@ -539,13 +539,27 @@ class PaymentMismatchTest(TestCase):
             warehouse_id=self.warehouse.id
         )
     
-    def test_partial_payment_accepted(self):
-        """Counter pays less than total: sale completes with PARTIAL and due_amount."""
+    def test_partial_cash_without_credit_rejected(self):
+        """Silent underpay (CASH only) must not complete the sale."""
+        with self.assertRaises(services.PaymentMismatchError):
+            services.process_sale(
+                idempotency_key=uuid.uuid4(),
+                warehouse_id=self.warehouse.id,
+                items=[{'barcode': 'Quake-PAY-001', 'quantity': 2}],  # 200.00 total
+                payments=[{'method': 'CASH', 'amount': Decimal('150.00')}],
+                user=self.admin,
+            )
+
+    def test_partial_payment_with_explicit_credit_accepted(self):
+        """Counter pays less than total only when CREDIT covers the due amount."""
         sale = services.process_sale(
             idempotency_key=uuid.uuid4(),
             warehouse_id=self.warehouse.id,
             items=[{'barcode': 'Quake-PAY-001', 'quantity': 2}],  # 200.00 total
-            payments=[{'method': 'CASH', 'amount': Decimal('150.00')}],
+            payments=[
+                {'method': 'CASH', 'amount': Decimal('150.00')},
+                {'method': 'CREDIT', 'amount': Decimal('50.00')},
+            ],
             user=self.admin,
         )
         self.assertEqual(sale.status, Sale.Status.COMPLETED)

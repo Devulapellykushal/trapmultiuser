@@ -102,16 +102,7 @@ export function StudioLandingShell() {
               alt="Quake"
               className="mb-6 h-16 w-auto max-w-[11rem] object-contain sm:h-20 sm:max-w-[13rem]"
             />
-            <h1
-              className="text-4xl font-normal italic leading-tight tracking-tight text-white sm:text-5xl md:text-6xl"
-              style={{
-                fontFamily:
-                  "'Playfair Display', Georgia, 'Times New Roman', serif",
-              }}
-            >
-              Quake
-            </h1>
-            <div className="mt-8 space-y-1.5 text-[0.65rem] font-medium uppercase leading-relaxed tracking-[0.18em] text-white sm:text-xs sm:tracking-[0.2em]">
+            <div className="mt-2 space-y-1.5 text-[0.65rem] font-medium uppercase leading-relaxed tracking-[0.18em] text-white sm:text-xs sm:tracking-[0.2em]">
               <p>Inventory you can trust,</p>
               <p>Warehouses, stock levels,</p>
               <p>Sales &amp; fulfilment</p>
@@ -146,8 +137,8 @@ export function StudioLandingShell() {
 
       <footer className="relative z-10 shrink-0 snap-start border-t border-white/10 bg-black px-5 py-5 text-xs text-white/50 sm:px-8">
         <span>
-          Quake — inventory, warehouses, and sales in one workspace · Hold
-          background to jump to sign-in
+          Inventory, warehouses, and sales in one workspace · Hold background
+          to jump to sign-in
         </span>
       </footer>
     </main>

@@ -9,6 +9,7 @@ import { QUAKE_LOGO_SRC } from "@/lib/brand-colors";
 import { usePosStore } from "@/features/pos/store/usePosStore";
 import { useAuth } from "@/lib/auth";
 import { isServiceEnabled } from "@/lib/enabled-services";
+import { BusinessSwitcher } from "@/components/layout/business-switcher";
 
 export default function POSLayout({
   children,
@@ -95,6 +96,7 @@ export default function POSLayout({
         </div>
 
         <div className="flex items-center gap-2">
+          <BusinessSwitcher />
           <div className="w-8 h-8 rounded-full bg-[var(--brand-muted)] flex items-center justify-center ring-2 ring-[var(--brand)]/30">
             <User className="w-4 h-4 text-[var(--brand)] stroke-[1.5]" />
           </div>

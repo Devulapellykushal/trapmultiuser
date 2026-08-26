@@ -287,6 +287,7 @@ class BusinessSetupSerializer(serializers.ModelSerializer):
             "inventory_location_mode",
             "shop_stock_mode",
             "barcode_enabled",
+            "gst_enabled",
             "business_name",
         ]
         read_only_fields = ["business_name"]

@@ -129,6 +129,9 @@ function CreateWarehouseModal({
   onClose,
   onSuccess,
 }: CreateWarehouseModalProps) {
+  const { labels, isSingleShop } = useLocationLabels();
+  const noun = labels.warehouseSingularTitle;
+  const nounLower = labels.warehouseSingular;
   const [formData, setFormData] = React.useState<WarehouseFormData>({
     name: "",
     code: "",
@@ -158,7 +161,9 @@ function CreateWarehouseModal({
   const createMutation = useMutation({
     mutationFn: inventoryService.createWarehouse,
     onSuccess: () => {
-      toast.success("Warehouse created successfully");
+      toast.success(
+        isSingleShop ? "Shop added" : `${noun} created`,
+      );
       onSuccess();
       onClose();
       setFormData({
@@ -176,14 +181,19 @@ function CreateWarehouseModal({
       setPendingFile(null);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create warehouse");
+      toast.error(
+        error.message ||
+          (isSingleShop ? "Could not add shop" : `Could not create ${nounLower}`),
+      );
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error("Warehouse name is required");
+      toast.error(
+        isSingleShop ? "Shop name is required" : `${noun} name is required`,
+      );
       return;
     }
     const addr = formData.address.trim();
@@ -231,10 +241,12 @@ function CreateWarehouseModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[#f3eee4]">
-                Create Warehouse
+                {isSingleShop ? "Add my shop" : `Create ${noun}`}
               </h2>
               <p className="text-sm text-[#8a867c]">
-                Add a new warehouse location
+                {isSingleShop
+                  ? "Name and address for bills and stock"
+                  : `Add a new ${nounLower} location`}
               </p>
             </div>
           </div>
@@ -255,7 +267,8 @@ function CreateWarehouseModal({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-              Warehouse Name <span className="text-red-400">*</span>
+              {isSingleShop ? "Shop name" : `${noun} name`}{" "}
+              <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -263,7 +276,11 @@ function CreateWarehouseModal({
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="e.g., Bangalore Main Warehouse"
+              placeholder={
+                isSingleShop
+                  ? "e.g., Front counter / Main shop"
+                  : `e.g., Main ${noun}`
+              }
               className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
             />
           </div>
@@ -271,7 +288,7 @@ function CreateWarehouseModal({
           {/* Code (optional — server generates if empty) */}
           <div>
             <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-              Warehouse code{" "}
+              Short code{" "}
               <span className="text-[#8a867c] font-normal">(optional)</span>
             </label>
             <input
@@ -297,7 +314,7 @@ function CreateWarehouseModal({
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
-                placeholder="billing@company.com"
+                placeholder="shop@gmail.com"
                 className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
               />
             </div>
@@ -390,7 +407,7 @@ function CreateWarehouseModal({
               onChange={(e) =>
                 setFormData({ ...formData, address: e.target.value })
               }
-              placeholder="Full warehouse address..."
+              placeholder="Full shop / godown address…"
               rows={3}
               className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors resize-none"
             />
@@ -483,7 +500,7 @@ function CreateWarehouseModal({
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Create Warehouse
+                  {isSingleShop ? "Save shop" : `Create ${noun}`}
                 </>
               )}
             </button>
@@ -525,6 +542,8 @@ function EditWarehouseModal({
   onSuccess,
   warehouse,
 }: EditWarehouseModalProps) {
+  const { labels, isSingleShop } = useLocationLabels();
+  const noun = labels.warehouseSingularTitle;
   const [formData, setFormData] = React.useState<WarehouseFormData>({
     name: "",
     code: "",
@@ -605,7 +624,9 @@ function EditWarehouseModal({
       return inventoryService.updateWarehouse(warehouse!.id, payload);
     },
     onSuccess: () => {
-      toast.success("Warehouse updated successfully");
+      toast.success(
+        isSingleShop ? "Shop updated" : `${noun} updated`,
+      );
       onSuccess();
       onClose();
       setSellerImageBlob(null);
@@ -614,14 +635,19 @@ function EditWarehouseModal({
       setPendingFile(null);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update warehouse");
+      toast.error(
+        error.message ||
+          (isSingleShop ? "Could not update shop" : `Could not update ${labels.warehouseSingular}`),
+      );
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error("Warehouse name is required");
+      toast.error(
+        isSingleShop ? "Shop name is required" : `${noun} name is required`,
+      );
       return;
     }
     const addr = formData.address.trim();
@@ -665,9 +691,11 @@ function EditWarehouseModal({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[#f3eee4]">
-                  Edit Warehouse
+                  Edit {labels.warehouseSingularTitle}
                 </h2>
-                <p className="text-sm text-[#8a867c]">Update warehouse details</p>
+                <p className="text-sm text-[#8a867c]">
+                  Update {labels.warehouseSingular} details
+                </p>
               </div>
             </div>
             <button
@@ -688,7 +716,8 @@ function EditWarehouseModal({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-              Warehouse Name <span className="text-red-400">*</span>
+              {isSingleShop ? "Shop name" : `${noun} name`}{" "}
+              <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -696,7 +725,7 @@ function EditWarehouseModal({
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="e.g., Bangalore Main Warehouse"
+              placeholder="e.g., Front counter / Main shop"
               className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
             />
           </div>
@@ -704,7 +733,7 @@ function EditWarehouseModal({
           {/* Code - Read only */}
           <div>
             <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-              Warehouse Code
+              Short code
             </label>
             <input
               type="text"
@@ -728,7 +757,7 @@ function EditWarehouseModal({
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
-                placeholder="billing@company.com"
+                placeholder="shop@gmail.com"
                 className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors"
               />
             </div>
@@ -869,7 +898,7 @@ function EditWarehouseModal({
               onChange={(e) =>
                 setFormData({ ...formData, address: e.target.value })
               }
-              placeholder="Full warehouse address..."
+              placeholder="Full shop / godown address…"
               rows={3}
               className="w-full px-4 py-3 rounded-xl bg-[#0c0d10] border border-white/[0.08] text-[#f3eee4] placeholder-[#8a867c] focus:outline-none focus:border-[#c4a574] transition-colors resize-none"
             />
@@ -1358,7 +1387,7 @@ export default function WarehousesPage() {
             {searchQuery
               ? "Try adjusting your search query"
               : isSingleShop
-                ? "Add your shop once. Then you can add tyres and sell."
+                ? "Add your shop once. Then add products and start selling."
                 : `Create your first ${labels.warehouseSingular} before adding stock.`}
           </p>
           {!searchQuery && (

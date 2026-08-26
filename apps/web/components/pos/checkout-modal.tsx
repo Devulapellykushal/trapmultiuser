@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { inventoryKeys } from "@/hooks/use-inventory";
+import { useLocationLabels } from "@/hooks/use-business-setup";
 import { useCart } from "./cart-context";
 import {
   computeTotalGstInclusiveExtract,
@@ -251,6 +252,7 @@ export function CheckoutModal({
 
   // State
   const [step, setStep] = React.useState<Step>("review");
+  const { gstEnabled } = useLocationLabels();
   const [applyAutomaticGst, setApplyAutomaticGst] = React.useState(false);
   const [skipCustomer, setSkipCustomer] = React.useState(false);
   const [customerDetails, setCustomerDetails] = React.useState<CustomerDetails>(
@@ -448,7 +450,7 @@ export function CheckoutModal({
       request.discount_value = appliedDiscount.value.toString();
     }
 
-    request.apply_automatic_gst = applyAutomaticGst;
+    request.apply_automatic_gst = gstEnabled ? applyAutomaticGst : false;
 
     checkoutMutation.mutate(request);
   };
@@ -705,6 +707,7 @@ export function CheckoutModal({
                       applyAutomaticGst={applyAutomaticGst}
                       onApplyAutomaticGstChange={setApplyAutomaticGst}
                       estimatedGstInclusive={estimatedGstInclusive}
+                      gstEnabled={gstEnabled}
                     />
                   </motion.div>
                 )}
@@ -1477,6 +1480,7 @@ function PaymentStep({
   applyAutomaticGst,
   onApplyAutomaticGstChange,
   estimatedGstInclusive,
+  gstEnabled,
 }: {
   total: number;
   payments: PaymentEntry[];
@@ -1494,9 +1498,11 @@ function PaymentStep({
   applyAutomaticGst: boolean;
   onApplyAutomaticGstChange: (value: boolean) => void;
   estimatedGstInclusive: number;
+  gstEnabled: boolean;
 }) {
   return (
     <div className="p-6">
+      {gstEnabled && (
       <div className="mb-6 p-4 rounded-2xl border border-white/[0.08] bg-white/[0.03]">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
@@ -1529,6 +1535,7 @@ function PaymentStep({
           </div>
         </label>
       </div>
+      )}
 
       {/* Payment Methods - Pill Style */}
       <div className="mb-6">

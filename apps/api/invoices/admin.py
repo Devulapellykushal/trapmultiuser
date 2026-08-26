@@ -143,12 +143,13 @@ class BusinessSettingsAdmin(admin.ModelAdmin):
             'fields': ('business_name', 'tagline')
         }),
         ('Stock layout', {
-            'fields': ('inventory_location_mode', 'shop_stock_mode', 'barcode_enabled'),
+            'fields': ('inventory_location_mode', 'shop_stock_mode', 'barcode_enabled', 'gst_enabled'),
             'description': (
                 'One shop only hides godown/shop split. '
                 'Godown + shops: TRANSFER sends stock to each shop; '
                 'SHARED_GODOWN lets every shop sell from the same godown. '
-                'barcode_enabled: auto barcodes + POS scan, or optional barcodes.'
+                'barcode_enabled: auto barcodes + POS scan, or optional barcodes. '
+                'gst_enabled: show GST on products/POS, or turn tax off entirely.'
             ),
         }),
         ('Address', {

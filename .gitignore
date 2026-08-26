@@ -66,3 +66,7 @@ testinvoice/*.pdf
 .netlify/
 *.tsbuildinfo
 package-lock.json
+
+# Live Chromium evidence (regenerated locally)
+scripts/live-counter-evidence/
+scripts/live-mistakes-evidence/

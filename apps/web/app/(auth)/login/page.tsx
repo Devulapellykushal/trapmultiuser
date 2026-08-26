@@ -2,7 +2,7 @@
 
 import { AuthShell } from "@/components/auth";
 import { ADMIN_BASE } from "@/lib/admin-routes";
-import { authService, useAuth } from "@/lib/auth";
+import { authService, sessionReasonMessage, useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Loader2, Lock, Mail } from "lucide-react";
 import Link from "next/link";
@@ -42,6 +42,10 @@ function LoginContent() {
 
   const justRegistered = searchParams.get("registered") === "1";
   const emailFromQuery = searchParams.get("email")?.trim().toLowerCase() ?? "";
+  const sessionNotice = React.useMemo(
+    () => sessionReasonMessage(searchParams.get("reason")),
+    [searchParams],
+  );
 
   const [email, setEmail] = React.useState(emailFromQuery);
   const [password, setPassword] = React.useState("");
@@ -114,7 +118,7 @@ function LoginContent() {
   return (
     <AuthShell
       title="Sign in"
-      subtitle="Shop accounts only. Sign in, use the portal, then sign out to return here."
+      subtitle="For shop owners and staff. Sign in to run your counter, then sign out when done."
       footer={
         caps?.publicSignupEnabled ? (
           <>
@@ -139,6 +143,17 @@ function LoginContent() {
           <p className="text-sm text-[var(--text-secondary)]">
             Account created. Sign in with your email and password.
           </p>
+        </motion.div>
+      ) : null}
+
+      {sessionNotice && !error ? (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 p-3 mb-4 rounded-lg bg-[var(--warning-muted,rgba(234,179,8,0.12))] border border-[var(--warning,#eab308)]/35"
+        >
+          <AlertCircle className="w-5 h-5 text-[var(--warning,#eab308)] flex-shrink-0" />
+          <p className="text-sm text-[var(--text-secondary)]">{sessionNotice}</p>
         </motion.div>
       ) : null}
 

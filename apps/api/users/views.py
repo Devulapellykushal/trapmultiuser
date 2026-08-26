@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from drf_spectacular.utils import extend_schema
 
 from .models import User
@@ -25,8 +26,18 @@ from .serializers import (
     RegisterSerializer,
     PasswordForgotSerializer,
     PasswordResetConfirmSerializer,
+    BusinessMembershipSerializer,
+    CreateBusinessSerializer,
+    SwitchBusinessSerializer,
+    LeaveBusinessSerializer,
 )
 from .services import auth_service
+from .organization import (
+    create_business_for_user,
+    leave_business_for_user,
+    list_memberships_for_user,
+    switch_active_organization,
+)
 
 
 class LoginView(APIView):
@@ -93,6 +104,7 @@ class RegisterView(APIView):
                 email=data['email'],
                 password=data['password'],
                 name=data.get('name', ''),
+                industry=data.get('industry'),
             )
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -190,10 +202,12 @@ class AuthCapabilitiesView(APIView):
 class LogoutView(APIView):
     """
     Logout user by blacklisting refresh token.
-    
+
+    AllowAny: access may already be expired; refresh alone is enough to revoke.
+
     POST /api/v1/auth/logout/
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     
     @extend_schema(
         summary="Logout",
@@ -219,44 +233,49 @@ class LogoutView(APIView):
 class RefreshView(APIView):
     """
     Refresh access token using refresh token.
-    
+
+    With ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION (SIMPLE_JWT),
+    each refresh returns a new access token and a new refresh token.
+    The previous refresh is blacklisted.
+
     POST /api/v1/auth/refresh/
     """
     permission_classes = [AllowAny]
-    
+
     @extend_schema(
         summary="Refresh Token",
-        description="Get new access token using refresh token.",
+        description=(
+            "Exchange a valid refresh token for a new access token. "
+            "When refresh rotation is enabled, also returns a new refresh token."
+        ),
         request=RefreshTokenSerializer,
         responses={
-            200: {"type": "object", "properties": {"access": {"type": "string"}}},
-            401: {"type": "object", "properties": {"error": {"type": "object"}}}
+            200: {
+                "type": "object",
+                "properties": {
+                    "access": {"type": "string"},
+                    "refresh": {"type": "string"},
+                },
+            },
+            401: {"type": "object", "properties": {"error": {"type": "object"}}},
         },
-        tags=['Authentication']
+        tags=['Authentication'],
     )
     def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
         try:
-            refresh_token = request.data.get('refresh')
-            if not refresh_token:
-                return Response({
-                    'error': {
-                        'code': 'INVALID_TOKEN',
-                        'message': 'Refresh token is required'
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_TOKEN",
+                        "message": "Invalid or expired refresh token. Please sign in again.",
                     }
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            token = RefreshToken(refresh_token)
-            
-            return Response({
-                'access': str(token.access_token)
-            }, status=status.HTTP_200_OK)
-        except TokenError as e:
-            return Response({
-                'error': {
-                    'code': 'INVALID_TOKEN',
-                    'message': 'Invalid or expired refresh token'
-                }
-            }, status=status.HTTP_401_UNAUTHORIZED)
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
@@ -294,6 +313,130 @@ class MeView(APIView):
         serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+class BusinessListCreateView(APIView):
+    """
+    List businesses for this login, or create another isolated business.
+
+    GET  /api/v1/auth/businesses/
+    POST /api/v1/auth/businesses/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List my businesses",
+        description=(
+            "Businesses this user belongs to. Each has a fixed industry and "
+            "isolated catalog/CRM/sales. Active workspace is marked isActive."
+        ),
+        responses={200: BusinessMembershipSerializer(many=True)},
+        tags=["Authentication"],
+    )
+    def get(self, request):
+        qs = list_memberships_for_user(request.user)
+        data = BusinessMembershipSerializer(
+            qs,
+            many=True,
+            context={"user": request.user},
+        ).data
+        return Response(data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Add a business",
+        description=(
+            "Create a new empty business with a fixed industry under this login, "
+            "then switch the active workspace to it. Existing businesses are untouched."
+        ),
+        request=CreateBusinessSerializer,
+        responses={201: UserSerializer},
+        tags=["Authentication"],
+    )
+    def post(self, request):
+        serializer = CreateBusinessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            create_business_for_user(
+                request.user,
+                name=serializer.validated_data["name"],
+                industry=serializer.validated_data.get("industry"),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.refresh_from_db()
+        return Response(
+            UserSerializer(request.user).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SwitchBusinessView(APIView):
+    """
+    Switch active business workspace for this session.
+
+    POST /api/v1/auth/businesses/switch/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Switch active business",
+        description=(
+            "Set User.organization + role from an existing membership. "
+            "All subsequent API data is scoped to that business only."
+        ),
+        request=SwitchBusinessSerializer,
+        responses={200: UserSerializer},
+        tags=["Authentication"],
+    )
+    def post(self, request):
+        serializer = SwitchBusinessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            switch_active_organization(
+                request.user,
+                serializer.validated_data["organizationId"],
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.refresh_from_db()
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+class LeaveBusinessView(APIView):
+    """
+    Unlink this login from a business.
+
+    POST /api/v1/auth/businesses/leave/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Leave / unlink a business",
+        description=(
+            "Remove OrganizationMembership for this user. "
+            "Requires another business to remain on. "
+            "Cannot leave as the last admin while other members remain. "
+            "Catalog data is not deleted — only your access is removed."
+        ),
+        request=LeaveBusinessSerializer,
+        responses={200: UserSerializer},
+        tags=["Authentication"],
+    )
+    def post(self, request):
+        serializer = LeaveBusinessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            leave_business_for_user(
+                request.user,
+                serializer.validated_data["organizationId"],
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.refresh_from_db()
         return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 
 

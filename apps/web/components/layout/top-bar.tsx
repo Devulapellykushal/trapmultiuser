@@ -17,6 +17,7 @@ import { User as AuthUser, useAuthStore } from "@/lib/auth";
 import { adminHref } from "@/lib/admin-routes";
 import { NotificationBell } from "@/components/notifications";
 import { InventoryWarehouseSelector } from "./inventory-warehouse-selector";
+import { BusinessSwitcher } from "./business-switcher";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -114,6 +115,8 @@ export function TopBar({
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        <BusinessSwitcher />
+
         {/* Search */}
         <button
           type="button"
@@ -174,7 +177,7 @@ export function TopBar({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSettings}>
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>

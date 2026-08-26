@@ -183,8 +183,8 @@ export function BarcodeInput({ onProductFound, warehouseId }: BarcodeInputProps)
           onChange={(e) => setValue(e.target.value)}
           placeholder={
             warehouseId
-              ? "Scan barcode (warehouse stock)…"
-              : "Scan barcode or type SKU…"
+              ? "Scan barcode…"
+              : "Scan barcode or type code…"
           }
           className={`
             w-full pl-12 pr-12 py-4 rounded-xl text-lg

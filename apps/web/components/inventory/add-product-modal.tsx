@@ -23,6 +23,10 @@ import {
     X,
 } from "lucide-react";
 import * as React from "react";
+import { useIndustryProfile } from "@/lib/industry";
+import type { IndustryAddProductProfile, IndustryProfile } from "@/lib/industry/profiles";
+import { adminHref } from "@/lib/admin-routes";
+import Link from "next/link";
 
 // =============================================================================
 // TYPES
@@ -43,8 +47,8 @@ interface ProductFormData {
   description: string;
   brandCode: string;
   alias: string;
-  // Step 2: Attributes (tyre shop / wheel shop — sidewall ISO, rim inch, or custom)
-  sizeFormat: "TYRE_SIDWALL" | "RIM_SIZE" | "CUSTOM_MARKING";
+  // Step 2: Variants / options (industry profile presets)
+  sizeFormat: string;
   sizes: string[];
   // Step 3: Pricing
   costPrice: string;
@@ -64,48 +68,51 @@ interface CreatedProduct {
   barcodeImageUrl?: string;
 }
 
-/** Step titles tuned for non-technical staff (short labels + plain meaning). */
-const STEPS = [
-  { id: 1, title: "Details", hint: "Tyre, wheel, or shop item name & brand", icon: Package },
-  {
-    id: 2,
-    title: "Tyre / rim",
-    hint: "Sidewall marking, rim inch, or custom code",
-    icon: Gauge,
-  },
-  {
-    id: 3,
-    title: "Prices",
-    hint: "What you paid, tag price, and sale price",
-    icon: DollarSign,
-  },
-  {
-    id: 4,
-    title: "Stock",
-    hint: "How many you have now (you can skip)",
-    icon: Warehouse,
-  },
-  { id: 5, title: "Check", hint: "Read once, then save", icon: Check },
-];
+function buildSteps(addProduct: IndustryAddProductProfile) {
+  return [
+    { id: 1, title: "Details", hint: addProduct.step1Hint, icon: Package },
+    {
+      id: 2,
+      title: addProduct.step2Title,
+      hint: addProduct.step2Hint,
+      icon: Gauge,
+    },
+    {
+      id: 3,
+      title: "Prices",
+      hint: "What you paid, tag price, and sale price",
+      icon: DollarSign,
+    },
+    {
+      id: 4,
+      title: "Stock",
+      hint: "How many you have now (you can skip)",
+      icon: Warehouse,
+    },
+    { id: 5, title: "Check", hint: "Read once, then save", icon: Check },
+  ];
+}
 
-const INITIAL_FORM_DATA: ProductFormData = {
-  name: "",
-  productCode: "",
-  brand: "",
-  category: "",
-  description: "",
-  brandCode: "",
-  alias: "",
-  sizeFormat: "TYRE_SIDWALL",
-  sizes: [],
-  costPrice: "",
-  mrp: "",
-  sellingPrice: "",
-  gstPercentage: "18",
-  warehouseId: "",
-  initialStock: "",
-  reorderThreshold: "0",
-};
+function initialFormData(addProduct: IndustryAddProductProfile): ProductFormData {
+  return {
+    name: "",
+    productCode: "",
+    brand: "",
+    category: "",
+    description: "",
+    brandCode: "",
+    alias: "",
+    sizeFormat: addProduct.defaultSizeFormat,
+    sizes: [],
+    costPrice: "",
+    mrp: "",
+    sellingPrice: "",
+    gstPercentage: "18",
+    warehouseId: "",
+    initialStock: "",
+    reorderThreshold: "0",
+  };
+}
 
 const parseNonNegativeInt = (value: string): number => {
   const parsed = Number.parseInt(value, 10);
@@ -113,79 +120,6 @@ const parseNonNegativeInt = (value: string): number => {
     return 0;
   }
   return parsed;
-};
-
-/**
- * Tyre & wheel shop presets (India-focused).
- * Tyre: ISO metric sidewall e.g. 205/55 R16 = section width / aspect ratio R rim-diameter.
- * Rim: inch sizes and common J-width patterns used for alloys / steel wheels.
- */
-const SIZE_FORMATS = {
-  /** Common passenger, SUV, and two-wheeler sidewall strings (MRF, CEAT, Apollo, JK, Michelin, etc.). */
-  TYRE_SIDWALL: [
-    "145/80 R12",
-    "155/65 R13",
-    "155/70 R13",
-    "155/80 R13",
-    "165/70 R14",
-    "165/80 R14",
-    "175/65 R14",
-    "175/65 R15",
-    "175/70 R13",
-    "185/65 R15",
-    "185/70 R14",
-    "185/70 R15",
-    "195/55 R16",
-    "195/60 R15",
-    "195/65 R15",
-    "205/55 R16",
-    "205/60 R16",
-    "205/65 R16",
-    "215/55 R17",
-    "215/60 R16",
-    "215/65 R16",
-    "225/45 R17",
-    "225/50 R17",
-    "225/55 R17",
-    "225/60 R17",
-    "235/55 R18",
-    "235/60 R18",
-    "255/55 R18",
-    "265/65 R17",
-    "265/70 R16",
-    "90/90 R17",
-    "90/100 R10",
-    "100/80 R17",
-    "100/90 R17",
-    "110/70 R17",
-    "110/80 R17",
-    "120/70 R17",
-    "120/80 R17",
-    "130/70 R17",
-    "140/70 R17",
-  ],
-  /** Rim diameter (inches) and typical J-width labels for wheel retail. */
-  RIM_SIZE: [
-    '13"',
-    '14"',
-    '15"',
-    '16"',
-    '17"',
-    '18"',
-    '19"',
-    '20"',
-    '21"',
-    '22"',
-    "14×5.5J",
-    "15×6J",
-    "16×6.5J",
-    "17×7J",
-    "18×8J",
-    "18×8.5J",
-    "19×8.5J",
-  ],
-  /** Custom: user-typed markings only (no preset list). */
-  CUSTOM_MARKING: [] as string[],
 };
 
 // =============================================================================
@@ -197,9 +131,15 @@ export function AddProductModal({
   onClose,
   onSuccess,
 }: AddProductModalProps) {
+  const industry = useIndustryProfile();
+  const STEPS = React.useMemo(
+    () => buildSteps(industry.addProduct),
+    [industry.addProduct],
+  );
   const [currentStep, setCurrentStep] = React.useState(1);
-  const [formData, setFormData] =
-    React.useState<ProductFormData>(INITIAL_FORM_DATA);
+  const [formData, setFormData] = React.useState<ProductFormData>(() =>
+    initialFormData(industry.addProduct),
+  );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [createdProduct, setCreatedProduct] =
@@ -211,7 +151,8 @@ export function AddProductModal({
   const [warehousesLoading, setWarehousesLoading] = React.useState(false);
 
   const queryClient = useQueryClient();
-  const { barcodeEnabled } = useLocationLabels();
+  const { barcodeEnabled, gstEnabled, labels, isSingleShop } = useLocationLabels();
+  const storageNoun = isSingleShop ? "shop" : "shop / godown";
 
   // Fetch categories from API
   const { data: categoriesData } = useCategories();
@@ -234,17 +175,32 @@ export function AddProductModal({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  // Fetch warehouses when modal opens
+  // Fetch warehouses whenever the modal opens (fresh after Settings / Warehouses)
   React.useEffect(() => {
-    if (isOpen && warehouses.length === 0) {
-      setWarehousesLoading(true);
-      inventoryService
-        .getWarehouses()
-        .then((data) => setWarehouses(data))
-        .catch((err) => console.error("Failed to fetch warehouses:", err))
-        .finally(() => setWarehousesLoading(false));
-    }
-  }, [isOpen, warehouses.length]);
+    if (!isOpen) return;
+    let cancelled = false;
+    setWarehousesLoading(true);
+    inventoryService
+      .getWarehouses()
+      .then((data) => {
+        if (cancelled) return;
+        setWarehouses(data);
+        if (data.length === 1) {
+          setFormData((prev) =>
+            prev.warehouseId
+              ? prev
+              : { ...prev, warehouseId: String(data[0].id) },
+          );
+        }
+      })
+      .catch((err) => console.error("Failed to fetch warehouses:", err))
+      .finally(() => {
+        if (!cancelled) setWarehousesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Prevent body scroll
   React.useEffect(() => {
@@ -263,13 +219,20 @@ export function AddProductModal({
     if (!isOpen) {
       setTimeout(() => {
         setCurrentStep(1);
-        setFormData(INITIAL_FORM_DATA);
+        setFormData(initialFormData(industry.addProduct));
         setError(null);
         setCreatedProduct(null);
         setFieldErrors({});
       }, 300);
     }
-  }, [isOpen]);
+  }, [isOpen, industry.addProduct]);
+
+  // Keep form defaults aligned when industry profile changes while closed
+  React.useEffect(() => {
+    if (!isOpen) {
+      setFormData(initialFormData(industry.addProduct));
+    }
+  }, [industry.id, industry.addProduct, isOpen]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -281,7 +244,7 @@ export function AddProductModal({
       if (name === "sizeFormat" && value !== prev.sizeFormat) {
         return {
           ...prev,
-          sizeFormat: value as ProductFormData["sizeFormat"],
+          sizeFormat: value,
           sizes: [],
         };
       }
@@ -316,11 +279,11 @@ export function AddProductModal({
       if (!formData.name.trim()) {
         errors.name = "Please enter the product name.";
       }
-      if (!formData.brand.trim()) {
+      if (industry.addProduct.brandRequired && !formData.brand.trim()) {
         errors.brand = "Please enter the brand name.";
       }
       if (!formData.category.trim()) {
-        errors.category = "Please choose or enter a category.";
+        errors.category = "Tap a type below, or type your own.";
       }
     }
 
@@ -386,9 +349,14 @@ export function AddProductModal({
         attributes.sizeFormat = formData.sizeFormat;
       }
 
+      const brand =
+        formData.brand.trim() ||
+        industry.addProduct.defaultBrand ||
+        "Generic";
+
       const productData = {
         name: formData.name,
-        brand: formData.brand,
+        brand,
         category: formData.category,
         description: formData.description || "",
         product_code: formData.productCode || null,
@@ -401,12 +369,12 @@ export function AddProductModal({
           cost_price: formData.costPrice,
           mrp: formData.mrp,
           selling_price: formData.sellingPrice,
-          gst_percentage: formData.gstPercentage || "0",
+          gst_percentage: gstEnabled ? formData.gstPercentage || "0" : "0",
         },
         // Always include variants with reorder_threshold
         variants: [
           {
-            size: formData.sizes[0] || null,
+            size: formData.sizes[0] || industry.addProduct.singleSkuValue || null,
             color: null,
             cost_price: formData.costPrice,
             selling_price: formData.sellingPrice,
@@ -514,7 +482,7 @@ export function AddProductModal({
           <div className="w-full max-w-sm space-y-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
             <div>
               <p className="text-xs text-[#8a867c] uppercase tracking-wide mb-1">
-                Store code (SKU)
+                Item code
               </p>
               <p className="text-lg font-mono font-semibold text-[#c4a574]">
                 {createdProduct.sku}
@@ -570,6 +538,7 @@ export function AddProductModal({
             onChange={handleInputChange}
             errors={fieldErrors}
             categories={categories}
+            profile={industry}
           />
         );
       case 2:
@@ -579,6 +548,14 @@ export function AddProductModal({
             onChange={handleInputChange}
             onToggleSize={(size) => toggleArrayValue("sizes", size)}
             onAppendCustomSize={appendCustomSize}
+            onSkipSingleSku={() => {
+              setFormData((prev) => ({
+                ...prev,
+                sizes: [industry.addProduct.singleSkuValue],
+              }));
+              setCurrentStep(3);
+            }}
+            profile={industry}
           />
         );
       case 3:
@@ -588,6 +565,7 @@ export function AddProductModal({
             onChange={handleInputChange}
             marginPercentage={marginPercentage}
             errors={fieldErrors}
+            gstEnabled={gstEnabled}
           />
         );
       case 4:
@@ -598,6 +576,12 @@ export function AddProductModal({
             warehouses={warehouses}
             warehousesLoading={warehousesLoading}
             errors={fieldErrors}
+            storageNoun={storageNoun}
+            storageLabel={
+              isSingleShop
+                ? "Your shop (storage place)"
+                : `Storage place (${labels.warehouseSingular} / shop)`
+            }
           />
         );
       case 5:
@@ -607,12 +591,17 @@ export function AddProductModal({
             marginPercentage={marginPercentage}
             warehouses={warehouses}
             barcodeEnabled={barcodeEnabled}
+            gstEnabled={gstEnabled}
+            profile={industry}
           />
         );
       default:
         return null;
     }
   };
+
+  const needsStorageSetup =
+    !createdProduct && !warehousesLoading && warehouses.length === 0;
 
   return (
     <AnimatePresence>
@@ -646,14 +635,23 @@ export function AddProductModal({
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-[#f3eee4]">
-                      {createdProduct ? "All set" : "Add a product"}
+                      {createdProduct
+                        ? "All set"
+                        : needsStorageSetup
+                          ? "Set up storage first"
+                          : "Add a product"}
                     </h2>
-                    {!createdProduct && (
+                    {!createdProduct && !needsStorageSetup && (
                       <p className="text-xs text-[#8a867c]">
                         Step {currentStep} of {STEPS.length}
                         {STEPS[currentStep - 1]?.hint
                           ? ` — ${STEPS[currentStep - 1].hint}`
                           : ""}
+                      </p>
+                    )}
+                    {needsStorageSetup && (
+                      <p className="text-xs text-[#8a867c]">
+                        No {storageNoun} chosen yet for this business
                       </p>
                     )}
                   </div>
@@ -668,7 +666,7 @@ export function AddProductModal({
               </div>
 
               {/* Step Indicators */}
-              {!createdProduct && (
+              {!createdProduct && !needsStorageSetup && (
                 <div className="px-5 pt-4 pb-2">
                   <div className="flex items-center justify-between">
                     {STEPS.map((step, index) => (
@@ -721,11 +719,18 @@ export function AddProductModal({
                     {error}
                   </div>
                 )}
-                {renderStepContent()}
+                {needsStorageSetup ? (
+                  <StorageSetupGate
+                    storageNoun={storageNoun}
+                    onClose={handleClose}
+                  />
+                ) : (
+                  renderStepContent()
+                )}
               </div>
 
               {/* Footer Actions */}
-              {!createdProduct && (
+              {!createdProduct && !needsStorageSetup && (
                 <div className="flex items-center justify-between p-5 border-t border-white/[0.08]">
                   <button
                     type="button"
@@ -784,11 +789,58 @@ export function AddProductModal({
 // STEP COMPONENTS
 // =============================================================================
 
+function StorageSetupGate({
+  storageNoun,
+  onClose,
+}: {
+  storageNoun: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center py-8 px-2 space-y-5">
+      <div className="w-14 h-14 rounded-full bg-[#c4a574]/15 flex items-center justify-center">
+        <Warehouse className="w-7 h-7 text-[#c4a574]" />
+      </div>
+      <div className="space-y-2 max-w-md">
+        <h3 className="text-lg font-semibold text-[#f3eee4]">
+          No {storageNoun} set up yet
+        </h3>
+        <p className="text-sm text-[#8a867c] leading-relaxed">
+          Before you add products, create where stock lives — your{" "}
+          <span className="text-[#c5c0b5]">{storageNoun}</span>. Takes about a
+          minute. Then come back and tap Add a product.
+        </p>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <Link
+          href={adminHref("/warehouses")}
+          onClick={onClose}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#c4a574] text-[#0c0d10] text-sm font-medium hover:bg-[#d4b88a] transition-colors"
+        >
+          Create {storageNoun}
+        </Link>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] text-sm font-medium hover:bg-white/[0.08] transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+      <p className="text-xs text-[#8a867c]">
+        Tip: after signup, set stock layout in Settings, then add your{" "}
+        <span className="text-[#c5c0b5]">{storageNoun}</span>.
+      </p>
+    </div>
+  );
+}
+
 function StepBasicInfo({
   formData,
   onChange,
   errors,
   categories,
+  profile,
 }: {
   formData: ProductFormData;
   onChange: (
@@ -798,25 +850,54 @@ function StepBasicInfo({
   ) => void;
   errors: Record<string, string>;
   categories: CategoryType[];
+  profile: IndustryProfile;
 }) {
+  const ap = profile.addProduct;
+  const [showMore, setShowMore] = React.useState(false);
+
+  const chipNames = React.useMemo(() => {
+    const fromApi = categories.map((c) => c.name).filter(Boolean);
+    const merged = [...fromApi];
+    for (const tip of ap.categorySuggestions) {
+      if (!merged.some((n) => n.toLowerCase() === tip.toLowerCase())) {
+        merged.push(tip);
+      }
+    }
+    return merged;
+  }, [categories, ap.categorySuggestions]);
+
+  const setCategory = (value: string) => {
+    const syntheticEvent = {
+      target: { name: "category", value },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onChange(syntheticEvent);
+  };
+
+  const hasOptionalExtras =
+    Boolean(formData.productCode) ||
+    Boolean(formData.brandCode) ||
+    Boolean(formData.alias) ||
+    Boolean(formData.description);
+
+  React.useEffect(() => {
+    if (hasOptionalExtras) setShowMore(true);
+  }, [hasOptionalExtras]);
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-[#8a867c] leading-relaxed">
-        Add a tyre, wheel, tube, valve, or other shop SKU. Fields with a red star
-        are required; the rest can wait until you have the sidewall or catalog in
-        front of you.
-      </p>
-      {/* Product Name */}
+    <div className="space-y-5">
+      <p className="text-sm text-[#8a867c] leading-relaxed">{ap.intro}</p>
+
       <div>
         <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-          Name of the product <span className="text-[#c45c5c]">*</span>
+          {ap.nameLabel} <span className="text-[#c45c5c]">*</span>
         </label>
         <input
           type="text"
           name="name"
           value={formData.name}
           onChange={onChange}
-          placeholder="e.g. MRF Wanderer 205/55 R16 91V tubeless"
+          autoFocus
+          placeholder={ap.namePlaceholder}
           className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
             errors.name ? "border-[#c45c5c]" : "border-white/[0.08]"
           }`}
@@ -826,132 +907,150 @@ function StepBasicInfo({
         )}
       </div>
 
-      {/* Product Code */}
       <div>
         <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-          Your own item code{" "}
-          <span className="text-[#8a867c] font-normal">(optional)</span>
+          {ap.categoryLabel} <span className="text-[#c45c5c]">*</span>
+        </label>
+        {chipNames.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {chipNames.map((name) => {
+              const selected =
+                formData.category.trim().toLowerCase() === name.toLowerCase();
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setCategory(name)}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    selected
+                      ? "bg-[#c4a574] text-[#0c0d10] font-medium"
+                      : "bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <input
+          type="text"
+          name="category"
+          value={formData.category}
+          onChange={onChange}
+          placeholder={ap.categoryPlaceholder}
+          className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+            errors.category ? "border-[#c45c5c]" : "border-white/[0.08]"
+          }`}
+        />
+        {errors.category && (
+          <p className="text-xs text-[#c45c5c] mt-1">{errors.category}</p>
+        )}
+        <p className="text-xs text-[#8a867c] mt-1.5">
+          Tap a chip or type your own — no Settings setup needed.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+          {ap.brandLabel}
+          {ap.brandRequired ? (
+            <span className="text-[#c45c5c]"> *</span>
+          ) : (
+            <span className="text-[#8a867c] font-normal">
+              {" "}
+              (optional
+              {ap.defaultBrand ? ` — blank saves as “${ap.defaultBrand}”` : ""})
+            </span>
+          )}
         </label>
         <input
           type="text"
-          name="productCode"
-          value={formData.productCode}
+          name="brand"
+          value={formData.brand}
           onChange={onChange}
-          placeholder="Bay code, job card ref, or your own stock label"
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
+          placeholder={ap.brandPlaceholder}
+          className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
+            errors.brand ? "border-[#c45c5c]" : "border-white/[0.08]"
+          }`}
         />
+        {errors.brand && (
+          <p className="text-xs text-[#c45c5c] mt-1">{errors.brand}</p>
+        )}
       </div>
 
-      {/* Brand & Category */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-            Brand / maker <span className="text-[#c45c5c]">*</span>
-          </label>
-          <input
-            type="text"
-            name="brand"
-            value={formData.brand}
-            onChange={onChange}
-            placeholder="e.g. MRF, CEAT, Apollo, JK Tyre, Michelin, Bridgestone"
-            className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
-              errors.brand ? "border-[#c45c5c]" : "border-white/[0.08]"
-            }`}
-          />
-          {errors.brand && (
-            <p className="text-xs text-[#c45c5c] mt-1">{errors.brand}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-            Type of product (category) <span className="text-[#c45c5c]">*</span>
-          </label>
-          {categories.length > 0 ? (
-            <select
-              name="category"
-              value={formData.category}
-              onChange={onChange}
-              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent cursor-pointer ${
-                errors.category ? "border-[#c45c5c]" : "border-white/[0.08]"
-              }`}
-            >
-              <option value="">Choose a category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          ) : (
+      <button
+        type="button"
+        onClick={() => setShowMore((v) => !v)}
+        className="text-sm text-[#c4a574] hover:text-[#d4b88a] transition-colors"
+      >
+        {showMore ? "Hide optional details" : "Add codes / notes (optional)"}
+      </button>
+
+      {showMore && (
+        <div className="space-y-4 pt-1 border-t border-white/[0.06]">
+          <div>
+            <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+              {ap.productCodeLabel}{" "}
+              <span className="text-[#8a867c] font-normal">(optional)</span>
+            </label>
             <input
               type="text"
-              name="category"
-              value={formData.category}
+              name="productCode"
+              value={formData.productCode}
               onChange={onChange}
-              placeholder="e.g. Car radial, 2W, SUV, Alloy wheel, Steel rim, Tube"
-              className={`w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent ${
-                errors.category ? "border-[#c45c5c]" : "border-white/[0.08]"
-              }`}
+              placeholder={ap.productCodePlaceholder}
+              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
             />
-          )}
-          {errors.category && (
-            <p className="text-xs text-[#c45c5c] mt-1">{errors.category}</p>
-          )}
-          {categories.length === 0 && (
-            <p className="text-xs text-[#8a867c] mt-1">
-              Tip: an admin can add saved categories under Settings so this
-              becomes a simple drop-down list.
-            </p>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Brand Code & Alias */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-            Brand code{" "}
-            <span className="text-[#8a867c] font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            name="brandCode"
-            value={formData.brandCode}
-            onChange={onChange}
-            placeholder="Pattern / article from sidewall or supplier catalog"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-            Nickname / short name{" "}
-            <span className="text-[#8a867c] font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            name="alias"
-            value={formData.alias}
-            onChange={onChange}
-            placeholder="Short POS name (e.g. “OE Swift spare”)"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
-          />
-        </div>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+                {ap.brandCodeLabel}{" "}
+                <span className="text-[#8a867c] font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                name="brandCode"
+                value={formData.brandCode}
+                onChange={onChange}
+                placeholder={ap.brandCodePlaceholder}
+                className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+                {ap.aliasLabel}{" "}
+                <span className="text-[#8a867c] font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                name="alias"
+                value={formData.alias}
+                onChange={onChange}
+                placeholder={ap.aliasPlaceholder}
+                className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
+              />
+            </div>
+          </div>
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-          Extra notes (optional)
-        </label>
-        <textarea
-          name="description"
-          value={formData.description}
-          onChange={onChange}
-          placeholder="Load & speed index, tubeless/tube, DOT/week, PCD, offset, warranty…"
-          rows={3}
-          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent resize-none"
-        />
-      </div>
+          <div>
+            <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+              {ap.notesLabel}{" "}
+              <span className="text-[#8a867c] font-normal">(optional)</span>
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={onChange}
+              placeholder={ap.notesPlaceholder}
+              rows={2}
+              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent resize-none"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -961,6 +1060,8 @@ function StepAttributes({
   onChange,
   onToggleSize,
   onAppendCustomSize,
+  onSkipSingleSku,
+  profile,
 }: {
   formData: ProductFormData;
   onChange: (
@@ -970,60 +1071,69 @@ function StepAttributes({
   ) => void;
   onToggleSize: (size: string) => void;
   onAppendCustomSize: (marking: string) => void;
+  onSkipSingleSku: () => void;
+  profile: IndustryProfile;
 }) {
   const [customDraft, setCustomDraft] = React.useState("");
-  const currentSizeOptions = SIZE_FORMATS[formData.sizeFormat];
-
-  const formatLabels: Record<ProductFormData["sizeFormat"], string> = {
-    TYRE_SIDWALL: "Tyre — sidewall marking (ISO)",
-    RIM_SIZE: "Rim / wheel (inch or J size)",
-    CUSTOM_MARKING: "Other — type your own",
-  };
+  const formats = profile.addProduct.sizeFormats;
+  const active =
+    formats.find((f) => f.id === formData.sizeFormat) ?? formats[0];
+  const currentSizeOptions = active?.presets ?? [];
+  const isCustom =
+    !active || active.presets.length === 0 || active.id === "CUSTOM_MARKING";
 
   return (
     <div className="space-y-5">
+      <button
+        type="button"
+        onClick={onSkipSingleSku}
+        className="w-full px-4 py-3 rounded-lg border border-[#c4a574]/40 bg-[#c4a574]/10 text-[#f3eee4] text-sm font-medium hover:bg-[#c4a574]/20 transition-colors text-left"
+      >
+        {profile.addProduct.singleSkuLabel}
+        <span className="block text-xs text-[#8a867c] font-normal mt-0.5">
+          Saves as “{profile.addProduct.singleSkuValue}” and jumps to prices
+        </span>
+      </button>
+
       <p className="text-sm text-[#8a867c] leading-relaxed">
-        Same model line often comes in several{" "}
-        <span className="text-[#c5c0b5]">tyre markings</span> (e.g.{" "}
-        <span className="text-[#c5c0b5]">205/55 R16</span>: width / profile R rim
-        diameter) or <span className="text-[#c5c0b5]">rim sizes</span>. Pick a
-        list style, then tap each size you stock. Single-size SKUs can leave this
-        empty and tap <span className="text-[#c5c0b5]">Continue</span>.
+        Or pick several{" "}
+        <span className="text-[#c5c0b5]">
+          {profile.variantOptionLabel.toLowerCase()}
+        </span>{" "}
+        options you stock. You can also leave this empty and tap Continue.
       </p>
 
       <div>
         <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-          What kind of size list?
+          What kind of option list?
         </label>
         <div className="flex gap-2 flex-wrap">
-          {(["TYRE_SIDWALL", "RIM_SIZE", "CUSTOM_MARKING"] as const).map(
-            (format) => (
-              <button
-                key={format}
-                type="button"
-                onClick={() => {
-                  const syntheticEvent = {
-                    target: { name: "sizeFormat", value: format },
-                  } as React.ChangeEvent<HTMLSelectElement>;
-                  onChange(syntheticEvent);
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  formData.sizeFormat === format
-                    ? "bg-[#c4a574] text-[#0c0d10]"
-                    : "bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
-                }`}
-              >
-                {formatLabels[format]}
-              </button>
-            ),
-          )}
+          {formats.map((format) => (
+            <button
+              key={format.id}
+              type="button"
+              onClick={() => {
+                const syntheticEvent = {
+                  target: { name: "sizeFormat", value: format.id },
+                } as React.ChangeEvent<HTMLSelectElement>;
+                onChange(syntheticEvent);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                formData.sizeFormat === format.id
+                  ? "bg-[#c4a574] text-[#0c0d10]"
+                  : "bg-white/[0.05] border border-white/[0.08] text-[#c5c0b5] hover:bg-white/[0.08]"
+              }`}
+            >
+              {format.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {formData.sizeFormat === "CUSTOM_MARKING" && (
+      {isCustom && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-[#c5c0b5]">
-            Add marking, PCD, offset, tube size, etc.
+            Add {profile.variantOptionLabel.toLowerCase()}
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -1037,7 +1147,7 @@ function StepAttributes({
                   setCustomDraft("");
                 }
               }}
-              placeholder='e.g. 100 PCD, ET45, 275/40 R20, "TR413" valve'
+              placeholder="Type an option and press Add"
               className="flex-1 px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] placeholder:text-[#8a867c] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
             />
             <button
@@ -1054,13 +1164,11 @@ function StepAttributes({
         </div>
       )}
 
-      {formData.sizeFormat !== "CUSTOM_MARKING" &&
-        currentSizeOptions.length > 0 && (
+      {!isCustom && currentSizeOptions.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-[#c5c0b5] mb-2">
-              {formData.sizeFormat === "TYRE_SIDWALL"
-                ? "Tap each sidewall size you sell for this line"
-                : "Tap each rim size you sell for this line"}
+              Tap each {profile.variantOptionLabel.toLowerCase()} you sell for
+              this line
             </label>
             <div className="flex flex-wrap gap-2">
               {currentSizeOptions.map((size) => (
@@ -1079,7 +1187,7 @@ function StepAttributes({
               ))}
             </div>
           </div>
-        )}
+      )}
 
       {formData.sizes.length > 0 && (
         <div>
@@ -1109,6 +1217,7 @@ function StepPricing({
   onChange,
   marginPercentage,
   errors,
+  gstEnabled,
 }: {
   formData: ProductFormData;
   onChange: (
@@ -1118,6 +1227,7 @@ function StepPricing({
   ) => void;
   marginPercentage: number;
   errors: Record<string, string>;
+  gstEnabled: boolean;
 }) {
   const cost = parseFloat(formData.costPrice) || 0;
   const selling = parseFloat(formData.sellingPrice) || 0;
@@ -1127,10 +1237,9 @@ function StepPricing({
     <div className="space-y-5">
       <p className="text-sm text-[#8a867c] leading-relaxed">
         Enter amounts in <span className="text-[#c5c0b5]">rupees (₹)</span> for{" "}
-        <strong className="text-[#c5c0b5] font-medium">one unit</strong> (one
-        tyre, one rim, or one line item) of this product. The box at the bottom
-        shows roughly how much you keep after paying your supplier — it updates
-        as you type.
+        <strong className="text-[#c5c0b5] font-medium">one unit</strong> of this
+        product. The box at the bottom shows roughly how much you keep after
+        paying your supplier — it updates as you type.
       </p>
 
       {/* Cost & MRP */}
@@ -1188,7 +1297,9 @@ function StepPricing({
       </div>
 
       {/* Selling Price & GST */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div
+        className={`grid gap-4 ${gstEnabled ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}
+      >
         <div>
           <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
             Price you charge today <span className="text-[#c45c5c]">*</span>
@@ -1217,38 +1328,43 @@ function StepPricing({
             <p className="text-xs text-[#c45c5c] mt-1">{errors.sellingPrice}</p>
           )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-            GST rate (tax %)
-          </label>
-          <select
-            name="gstPercentage"
-            value={formData.gstPercentage}
-            onChange={onChange}
-            aria-describedby="hint-gst"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
-          >
-            <option value="0" className="bg-[#111318]">
-              No tax (0%)
-            </option>
-            <option value="5" className="bg-[#111318]">
-              5%
-            </option>
-            <option value="12" className="bg-[#111318]">
-              12%
-            </option>
-            <option value="18" className="bg-[#111318]">
-              18%
-            </option>
-            <option value="28" className="bg-[#111318]">
-              28%
-            </option>
-          </select>
-          <p id="hint-gst" className="text-xs text-[#8a867c] mt-1.5 leading-snug">
-            Pick the government tax slab that matches this product. Ask your
-            accountant if you are unsure.
-          </p>
-        </div>
+        {gstEnabled && (
+          <div>
+            <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
+              GST rate (tax %)
+            </label>
+            <select
+              name="gstPercentage"
+              value={formData.gstPercentage}
+              onChange={onChange}
+              aria-describedby="hint-gst"
+              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#f3eee4] focus:outline-none focus:ring-2 focus:ring-[#c4a574] focus:border-transparent"
+            >
+              <option value="0" className="bg-[#111318]">
+                No tax (0%)
+              </option>
+              <option value="5" className="bg-[#111318]">
+                5%
+              </option>
+              <option value="12" className="bg-[#111318]">
+                12%
+              </option>
+              <option value="18" className="bg-[#111318]">
+                18%
+              </option>
+              <option value="28" className="bg-[#111318]">
+                28%
+              </option>
+            </select>
+            <p
+              id="hint-gst"
+              className="text-xs text-[#8a867c] mt-1.5 leading-snug"
+            >
+              Pick the government tax slab that matches this product. Turn GST
+              off in Settings if you never need tax.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Margin Preview */}
@@ -1306,6 +1422,8 @@ function StepStock({
   warehouses,
   warehousesLoading,
   errors,
+  storageNoun,
+  storageLabel,
 }: {
   formData: ProductFormData;
   onChange: (
@@ -1316,6 +1434,8 @@ function StepStock({
   warehouses: WarehouseType[];
   warehousesLoading: boolean;
   errors: Record<string, string>;
+  storageNoun: string;
+  storageLabel: string;
 }) {
   const initialStockQty = parseNonNegativeInt(formData.initialStock);
   const thresholdQty = parseNonNegativeInt(formData.reorderThreshold);
@@ -1323,7 +1443,7 @@ function StepStock({
   return (
     <div className="space-y-5">
       <p className="text-sm text-[#8a867c] leading-relaxed">
-        If you already have units in the shop or godown, say how many and where
+        If you already have units in the {storageNoun}, say how many and where
         they sit. If you are not ready yet, leave quantity at{" "}
         <span className="text-[#c5c0b5]">0</span> and continue — you can add
         stock later from Inventory.
@@ -1332,11 +1452,27 @@ function StepStock({
       {/* Warehouse Selection */}
       <div>
         <label className="block text-sm font-medium text-[#c5c0b5] mb-1.5">
-          Storage place (warehouse / shop section)
+          {storageLabel}
         </label>
         {warehousesLoading ? (
           <div className="w-full px-4 py-2.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#8a867c]">
             Loading your storage list…
+          </div>
+        ) : warehouses.length === 0 ? (
+          <div className="p-4 rounded-lg border border-[#d4a054]/40 bg-[#d4a054]/10 space-y-2">
+            <p className="text-sm text-[#f3eee4] font-medium">
+              No {storageNoun} chosen yet
+            </p>
+            <p className="text-xs text-[#8a867c] leading-relaxed">
+              Create one under {storageLabel}, then reopen Add a product. You can
+              still save this item with 0 stock and add quantity later.
+            </p>
+            <Link
+              href={adminHref("/warehouses")}
+              className="inline-flex text-sm text-[#c4a574] hover:text-[#d4b88a]"
+            >
+              Go to {storageLabel} →
+            </Link>
           </div>
         ) : (
           <select
@@ -1347,9 +1483,11 @@ function StepStock({
               errors.warehouseId ? "border-[#c45c5c]" : "border-white/[0.08]"
             }`}
           >
-            <option value="" className="bg-[#111318]">
-              Not chosen yet (pick when you add quantity)
-            </option>
+            {warehouses.length > 1 && (
+              <option value="" className="bg-[#111318]">
+                Choose where stock sits…
+              </option>
+            )}
             {warehouses.map((wh) => (
               <option key={wh.id} value={wh.id} className="bg-[#111318]">
                 {wh.name} ({wh.code})
@@ -1450,11 +1588,15 @@ function StepReview({
   marginPercentage,
   warehouses,
   barcodeEnabled,
+  gstEnabled,
+  profile,
 }: {
   formData: ProductFormData;
   marginPercentage: number;
   warehouses?: WarehouseType[];
   barcodeEnabled: boolean;
+  gstEnabled: boolean;
+  profile: IndustryProfile;
 }) {
   const initialStockQty = parseNonNegativeInt(formData.initialStock);
   const thresholdQty = parseNonNegativeInt(formData.reorderThreshold);
@@ -1462,6 +1604,9 @@ function StepReview({
     (w) => w.id === formData.warehouseId,
   );
   const hasStock = initialStockQty > 0 && selectedWarehouse;
+  const formatLabel =
+    profile.addProduct.sizeFormats.find((f) => f.id === formData.sizeFormat)
+      ?.label ?? formData.sizeFormat;
 
   return (
     <div className="space-y-6">
@@ -1484,11 +1629,13 @@ function StepReview({
           <div>
             <p className="text-[#8a867c]">Brand</p>
             <p className="text-[#f3eee4] font-medium">
-              {formData.brand || "—"}
+              {formData.brand.trim() ||
+                profile.addProduct.defaultBrand ||
+                "—"}
             </p>
           </div>
           <div>
-            <p className="text-[#8a867c]">Category</p>
+            <p className="text-[#8a867c]">Type</p>
             <p className="text-[#f3eee4] font-medium">
               {formData.category || "—"}
             </p>
@@ -1507,22 +1654,16 @@ function StepReview({
       {/* Attributes */}
       <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
         <h4 className="text-sm font-medium text-[#c4a574] mb-3">
-          Tyre &amp; rim markings
+          {profile.variantOptionLabel}
         </h4>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <span className="text-[#8a867c]">Size list style:</span>
-            <span className="text-[#f3eee4]">
-              {formData.sizeFormat === "TYRE_SIDWALL"
-                ? "Tyre — sidewall marking (ISO)"
-                : formData.sizeFormat === "RIM_SIZE"
-                  ? "Rim / wheel (inch or J size)"
-                  : "Other — custom markings"}
-            </span>
+            <span className="text-[#8a867c]">Option list style:</span>
+            <span className="text-[#f3eee4]">{formatLabel}</span>
           </div>
           {formData.sizes.length > 0 && (
             <div className="flex gap-2">
-              <span className="text-[#8a867c]">Markings / sizes:</span>
+              <span className="text-[#8a867c]">Selected:</span>
               <span className="text-[#f3eee4]">
                 {formData.sizes.join(", ")}
               </span>
@@ -1530,7 +1671,7 @@ function StepReview({
           )}
           {formData.sizes.length === 0 && (
             <p className="text-[#8a867c]">
-              No extra markings — treated as one SKU (single size line)
+              No extra options — treated as one SKU
             </p>
           )}
         </div>
@@ -1556,12 +1697,14 @@ function StepReview({
               ₹{formData.sellingPrice || "0"}
             </p>
           </div>
-          <div>
-            <p className="text-[#8a867c]">GST rate</p>
-            <p className="text-[#f3eee4] font-medium">
-              {formData.gstPercentage || "0"}%
-            </p>
-          </div>
+          {gstEnabled && (
+            <div>
+              <p className="text-[#8a867c]">GST rate</p>
+              <p className="text-[#f3eee4] font-medium">
+                {formData.gstPercentage || "0"}%
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-[#8a867c]">Rough profit vs cost</p>
             <p
@@ -1646,7 +1789,7 @@ function StepReview({
             ) : (
               <>
                 <span className="font-semibold text-[#e0cba0]">
-                  Store code (SKU)
+                  Item code
                 </span>{" "}
                 is created when you save. Barcodes are off in Settings — sell
                 by search or tap at POS.
